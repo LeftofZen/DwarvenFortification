@@ -29,7 +29,7 @@ namespace DwarvenFortification
 
 		protected override void LoadContent()
 		{
-			_tiledMap = Content.Load<TiledMap>("tiles//samplemap");
+			_tiledMap = Content.Load<TiledMap>("tiles\\samplemap");
 			_tiledMapRenderer = new TiledMapRenderer(GraphicsDevice, _tiledMap);
 
 			_spriteBatch = new SpriteBatch(GraphicsDevice);
@@ -51,7 +51,9 @@ namespace DwarvenFortification
 		{
 			GraphicsDevice.Clear(Color.CornflowerBlue);
 
+			_spriteBatch.Begin(blendState: BlendState.AlphaBlend);
 			_tiledMapRenderer.Draw();
+			_spriteBatch.End();
 
 			base.Draw(gameTime);
 		}
