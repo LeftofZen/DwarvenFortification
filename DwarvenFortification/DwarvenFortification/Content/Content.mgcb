@@ -5,11 +5,135 @@
 /intermediateDir:obj/$(Platform)
 /platform:DesktopGL
 /config:
-/profile:Reach
+/profile:HiDef
 /compress:False
 
 #-------------------------------- References --------------------------------#
 
+/reference:..\..\..\..\..\..\.nuget\packages\monogame.extended.content.pipeline\3.8.0\tools\MonoGame.Extended.Content.Pipeline.dll
 
 #---------------------------------- Content ---------------------------------#
+
+#begin tiles/[A]Dirt_pipo.png
+/importer:TextureImporter
+/processor:TextureProcessor
+/processorParam:ColorKeyColor=255,0,255,255
+/processorParam:ColorKeyEnabled=True
+/processorParam:GenerateMipmaps=False
+/processorParam:PremultiplyAlpha=True
+/processorParam:ResizeToPowerOfTwo=False
+/processorParam:MakeSquare=False
+/processorParam:TextureFormat=Color
+/build:tiles/[A]Dirt_pipo.png
+
+#begin tiles/[A]Dirt_pipo.tsx
+/copy:tiles/[A]Dirt_pipo.tsx
+
+#begin tiles/[A]Flower_pipo.png
+/importer:TextureImporter
+/processor:TextureProcessor
+/processorParam:ColorKeyColor=255,0,255,255
+/processorParam:ColorKeyEnabled=True
+/processorParam:GenerateMipmaps=False
+/processorParam:PremultiplyAlpha=True
+/processorParam:ResizeToPowerOfTwo=False
+/processorParam:MakeSquare=False
+/processorParam:TextureFormat=Color
+/build:tiles/[A]Flower_pipo.png
+
+#begin tiles/[A]Flower_pipo.tsx
+/copy:tiles/[A]Flower_pipo.tsx
+
+#begin tiles/[A]Grass_pipo.png
+/importer:TextureImporter
+/processor:TextureProcessor
+/processorParam:ColorKeyColor=255,0,255,255
+/processorParam:ColorKeyEnabled=True
+/processorParam:GenerateMipmaps=False
+/processorParam:PremultiplyAlpha=True
+/processorParam:ResizeToPowerOfTwo=False
+/processorParam:MakeSquare=False
+/processorParam:TextureFormat=Color
+/build:tiles/[A]Grass_pipo.png
+
+#begin tiles/[A]Grass_pipo.tsx
+/copy:tiles/[A]Grass_pipo.tsx
+
+#begin tiles/[A]Wall-Up_pipo.png
+/importer:TextureImporter
+/processor:TextureProcessor
+/processorParam:ColorKeyColor=255,0,255,255
+/processorParam:ColorKeyEnabled=True
+/processorParam:GenerateMipmaps=False
+/processorParam:PremultiplyAlpha=True
+/processorParam:ResizeToPowerOfTwo=False
+/processorParam:MakeSquare=False
+/processorParam:TextureFormat=Color
+/build:tiles/[A]Wall-Up_pipo.png
+
+#begin tiles/[A]Wall-Up_pipo.tsx
+/copy:tiles/[A]Wall-Up_pipo.tsx
+
+#begin tiles/[A]Water_pipo.png
+/importer:TextureImporter
+/processor:TextureProcessor
+/processorParam:ColorKeyColor=255,0,255,255
+/processorParam:ColorKeyEnabled=True
+/processorParam:GenerateMipmaps=False
+/processorParam:PremultiplyAlpha=True
+/processorParam:ResizeToPowerOfTwo=False
+/processorParam:MakeSquare=False
+/processorParam:TextureFormat=Color
+/build:tiles/[A]Water_pipo.png
+
+#begin tiles/[A]Water_pipo.tsx
+/copy:tiles/[A]Water_pipo.tsx
+
+#begin tiles/[A]WaterFall_pipo.png
+/importer:TextureImporter
+/processor:TextureProcessor
+/processorParam:ColorKeyColor=255,0,255,255
+/processorParam:ColorKeyEnabled=True
+/processorParam:GenerateMipmaps=False
+/processorParam:PremultiplyAlpha=True
+/processorParam:ResizeToPowerOfTwo=False
+/processorParam:MakeSquare=False
+/processorParam:TextureFormat=Color
+/build:tiles/[A]WaterFall_pipo.png
+
+#begin tiles/[A]WaterFall_pipo.tsx
+/copy:tiles/[A]WaterFall_pipo.tsx
+
+#begin tiles/[Base]BaseChip_pipo.png
+/importer:TextureImporter
+/processor:TextureProcessor
+/processorParam:ColorKeyColor=255,0,255,255
+/processorParam:ColorKeyEnabled=True
+/processorParam:GenerateMipmaps=False
+/processorParam:PremultiplyAlpha=True
+/processorParam:ResizeToPowerOfTwo=False
+/processorParam:MakeSquare=False
+/processorParam:TextureFormat=Color
+/build:tiles/[Base]BaseChip_pipo.png
+
+#begin tiles/[Base]BaseChip_pipo.tsx
+/copy:tiles/[Base]BaseChip_pipo.tsx
+
+#begin tiles/LightShadow_pipo.png
+/importer:TextureImporter
+/processor:TextureProcessor
+/processorParam:ColorKeyColor=255,0,255,255
+/processorParam:ColorKeyEnabled=True
+/processorParam:GenerateMipmaps=False
+/processorParam:PremultiplyAlpha=True
+/processorParam:ResizeToPowerOfTwo=False
+/processorParam:MakeSquare=False
+/processorParam:TextureFormat=Color
+/build:tiles/LightShadow_pipo.png
+
+#begin tiles/LightShadow_pipo.tsx
+/copy:tiles/LightShadow_pipo.tsx
+
+#begin tiles/samplemap.tmx
+/copy:tiles/samplemap.tmx
 
