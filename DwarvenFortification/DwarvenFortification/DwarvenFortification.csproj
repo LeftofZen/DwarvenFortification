@@ -8,6 +8,8 @@
   <PropertyGroup>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Icon.ico</ApplicationIcon>
+    <StartupObject>DwarvenFortification.Program</StartupObject>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
   </PropertyGroup>
   <ItemGroup>
     <None Remove="Icon.ico" />
@@ -21,12 +23,15 @@
     <MonoGameContentReference Include="Content\Content.mgcb" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.0.1641" />
     <PackageReference Include="MonoGame.Content.Builder.Task" Version="3.8.0.1641" />
     <PackageReference Include="MonoGame.Extended" Version="3.8.0" />
-    <PackageReference Include="MonoGame.Extended.Content.Pipeline" Version="3.8.0" />
     <PackageReference Include="MonoGame.Extended.Graphics" Version="3.8.0" />
+    <PackageReference Include="MonoGame.Extended.Gui" Version="3.8.0" />
+    <PackageReference Include="MonoGame.Extended.Input" Version="3.8.0" />
+    <PackageReference Include="MonoGame.Extended.Particles" Version="3.8.0" />
     <PackageReference Include="MonoGame.Extended.Tiled" Version="3.8.0" />
-    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.0.1641" />
+    <PackageReference Include="MonoGame.Extended.Content.Pipeline" Version="3.8.0" />
   </ItemGroup>
   <ItemGroup>
     <TrimmerRootAssembly Include="Microsoft.Xna.Framework.Content.ContentTypeReader" Visible="false" />

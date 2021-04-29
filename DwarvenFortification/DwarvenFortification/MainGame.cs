@@ -1,6 +1,8 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using MonoGame.Extended;
+using MonoGame.Extended.ViewportAdapters;
 using MonoGame.Extended.Tiled;
 using MonoGame.Extended.Tiled.Renderers;
 
@@ -10,8 +12,10 @@ namespace DwarvenFortification
 	{
 		private GraphicsDeviceManager _graphics;
 		private SpriteBatch _spriteBatch;
-		TiledMap _tiledMap;
-		TiledMapRenderer _tiledMapRenderer;
+		private TiledMap _tiledMap;
+		private TiledMapRenderer _tiledMapRenderer;
+		private OrthographicCamera _camera;
+		private Vector2 _cameraPosition;
 
 		public MainGame()
 		{
@@ -22,7 +26,8 @@ namespace DwarvenFortification
 
 		protected override void Initialize()
 		{
-			// TODO: Add your initialization logic here
+			var viewportadapter = new BoxingViewportAdapter(Window, GraphicsDevice, 800, 600);
+			_camera = new OrthographicCamera(viewportadapter);
 
 			base.Initialize();
 		}
@@ -44,15 +49,56 @@ namespace DwarvenFortification
 
 			_tiledMapRenderer.Update(gameTime);
 
+			MoveCamera(gameTime);
+			_camera.LookAt(_cameraPosition);
+
+			base.Update(gameTime);
+
 			base.Update(gameTime);
 		}
+		private Vector2 GetMovementDirection()
+		{
+			var movementDirection = Vector2.Zero;
+			var state = Keyboard.GetState();
+			if (state.IsKeyDown(Keys.Down))
+			{
+				movementDirection += Vector2.UnitY;
+			}
+			if (state.IsKeyDown(Keys.Up))
+			{
+				movementDirection -= Vector2.UnitY;
+			}
+			if (state.IsKeyDown(Keys.Left))
+			{
+				movementDirection -= Vector2.UnitX;
+			}
+			if (state.IsKeyDown(Keys.Right))
+			{
+				movementDirection += Vector2.UnitX;
+			}
 
+			// Can't normalize the zero vector so test for it before normalizing
+			if (movementDirection != Vector2.Zero)
+			{
+				movementDirection.Normalize();
+			}
+
+			return movementDirection;
+		}
+
+		private void MoveCamera(GameTime gameTime)
+		{
+			var speed = 200;
+			var seconds = gameTime.GetElapsedSeconds();
+			var movementDirection = GetMovementDirection();
+			_cameraPosition += speed * movementDirection * seconds;
+		}
 		protected override void Draw(GameTime gameTime)
 		{
 			GraphicsDevice.Clear(Color.CornflowerBlue);
 
 			_spriteBatch.Begin(blendState: BlendState.AlphaBlend);
-			_tiledMapRenderer.Draw();
+			_tiledMapRenderer.Draw(_camera.GetViewMatrix());
 			_spriteBatch.End();
 
 			base.Draw(gameTime);

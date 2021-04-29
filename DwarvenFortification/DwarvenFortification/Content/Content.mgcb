@@ -10,9 +10,8 @@
 
 #-------------------------------- References --------------------------------#
 
-/reference:..\..\..\..\MonoGame.Extended\src\dotnet\MonoGame.Extended.Content.Pipeline\bin\netcoreapp3.1\MonoGame.Extended.dll
-/reference:..\..\..\..\MonoGame.Extended\src\dotnet\MonoGame.Extended.Content.Pipeline\bin\netcoreapp3.1\MonoGame.Extended.Tiled.dll
-/reference:..\..\..\..\MonoGame.Extended\src\dotnet\MonoGame.Extended.Content.Pipeline\bin\netcoreapp3.1\MonoGame.Extended.Content.Pipeline.dll
+/reference:..\..\..\..\..\..\.nuget\packages\monogame.extended.content.pipeline\3.8.0\tools\MonoGame.Extended.Content.Pipeline.dll
+/reference:..\..\..\..\..\..\.nuget\packages\monogame.extended.content.pipeline\3.8.0\tools\MonoGame.Extended.Tiled.dll
 
 #---------------------------------- Content ---------------------------------#
 
