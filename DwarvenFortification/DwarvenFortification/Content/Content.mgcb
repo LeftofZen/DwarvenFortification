@@ -15,6 +15,13 @@
 
 #---------------------------------- Content ---------------------------------#
 
+#begin Calibri.spritefont
+/importer:FontDescriptionImporter
+/processor:FontDescriptionProcessor
+/processorParam:PremultiplyAlpha=True
+/processorParam:TextureFormat=Compressed
+/build:Calibri.spritefont
+
 #begin tiles/[A]Dirt_pipo.png
 /importer:TextureImporter
 /processor:TextureProcessor
