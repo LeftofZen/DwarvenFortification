@@ -5,7 +5,7 @@ using Microsoft.Xna.Framework.Graphics;
 using MonoGame.Extended;
 
 namespace DwarvenFortification
-{	public class GridCell
+{	public class GridCell : ISelectableGameObject
 	{
 		public GridCell(CellType type)
 		{

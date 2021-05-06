@@ -5,7 +5,7 @@ using MonoGame.Extended;
 
 namespace DwarvenFortification
 {
-	public class Agent
+	public class Agent : ISelectableGameObject
 	{
 		public Agent(int x, int y, GridWorld world)
 		{
@@ -17,6 +17,7 @@ namespace DwarvenFortification
 		}
 
 		public GridCell CurrentCell => world.CellAt(X, Y);
+		public Rectangle CellBounds => world.CellBoundsAt(X, Y);
 
 		internal GridWorld world;
 
@@ -43,7 +44,7 @@ namespace DwarvenFortification
 			}
 		}
 
-		public List<Item> Inventory;
+		public List<Item> Inventory { get; set; }
 
 		public void AddTask(IAgentTask task)
 		{
@@ -55,6 +56,11 @@ namespace DwarvenFortification
 		public void Draw(SpriteBatch sb)
 		{
 			sb.DrawEllipse(new Vector2(X, Y), new Vector2(16), 8, Color.White, 3);
+
+			if (CellBounds != Rectangle.Empty)
+			{
+				sb.DrawRectangle(CellBounds, Color.Red, 1);
+			}
 		}
 	}
 }

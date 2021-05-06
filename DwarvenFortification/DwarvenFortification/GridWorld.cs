@@ -17,15 +17,16 @@ namespace DwarvenFortification
 		int cellSize = 32;
 
 		MouseState previousMouseState;
-		Agent selectedAgent;
-		AgentInfoGUI agentInfoGui;
+		//Agent selectedAgent;
+		DebugGui debugGui;
 
 		public GridWorld(int width, int height)
 		{
 			agents = new List<Agent>();
 			agents.Add(new Agent(100, 100, this));
-			agentInfoGui = new AgentInfoGUI();
-			agentInfoGui.Bounds = new Rectangle(width * cellSize, 0, 400, 800);
+
+			debugGui = new DebugGui();
+			debugGui.Bounds = new Rectangle(width * cellSize, 0, 400, 800);
 
 			world = new GridCell[height, width];
 			//var rnd = new Random();
@@ -60,6 +61,16 @@ namespace DwarvenFortification
 			return null;
 		}
 
+		public Rectangle CellBoundsAt(int x, int y)
+		{
+			var cell = new Point(x / cellSize, y / cellSize);
+			if (cell.X >= 0 && cell.X < Width && cell.Y >= 0 && cell.Y < Height)
+			{
+				return new Rectangle(x - x % cellSize, y - y % cellSize, cellSize, cellSize);
+			}
+			return Rectangle.Empty;
+		}
+
 		public CellType CellTypeAtXY(int x, int y)
 		{
 			var cell = CellAt(x, y);
@@ -89,17 +100,31 @@ namespace DwarvenFortification
 
 		public void Update(GameTime gameTime)
 		{
-			agentInfoGui.BoundAgent = agents.First();
-			agentInfoGui.Update(gameTime);
-
 			var currMouseState = Mouse.GetState();
+			bool debugGuiSetThisFrame = false;
 
 			if (currMouseState.LeftButton == ButtonState.Pressed)
 			{
 				var clickedCell = new Point(currMouseState.X / cellSize, currMouseState.Y / cellSize);
 				if (clickedCell.X >= 0 && clickedCell.X < Width && clickedCell.Y >= 0 && clickedCell.Y < Height)
 				{
+					// check if we clicked on agent
+					foreach (var a in agents)
+					{
+						if (a.CurrentCell == world[clickedCell.Y, clickedCell.X])
+						{
+							debugGui.BoundObject = a;
+							debugGuiSetThisFrame = true;
+							break;
+						}
+					}
+
 					world[clickedCell.Y, clickedCell.X].CellType = selectedCellTypeForDraw;
+
+					if (!debugGuiSetThisFrame)
+					{
+						debugGui.BoundObject = world[clickedCell.Y, clickedCell.X];
+					}
 				}
 
 				if (new Rectangle(0, Height * cellSize, cellSize * 7, cellSize).Contains(currMouseState.Position))
@@ -164,6 +189,10 @@ namespace DwarvenFortification
 			{
 				agent.Update(gameTime);
 			}
+
+			//debugGui.BoundObject = agents.First();
+
+			debugGui.Update(gameTime);
 		}
 
 		public int Height => world.GetLength(0);
@@ -198,7 +227,7 @@ namespace DwarvenFortification
 			sb.DrawRectangle((int)selectedCellTypeForDraw * cellSize, Height * cellSize, cellSize, cellSize, Color.Black, 3);
 
 			// actual gui
-			agentInfoGui.Draw(sb);
+			debugGui.Draw(sb);
 
 		}
 	}
