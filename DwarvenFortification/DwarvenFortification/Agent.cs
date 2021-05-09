@@ -59,7 +59,7 @@ namespace DwarvenFortification
 
 			if (CellBounds != Rectangle.Empty)
 			{
-				sb.DrawRectangle(CellBounds, Color.Red, 1);
+				sb.DrawRectangle(CellBounds, Color.Blue, 1);
 			}
 		}
 	}

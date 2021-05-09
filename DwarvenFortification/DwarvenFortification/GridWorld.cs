@@ -10,6 +10,67 @@ namespace DwarvenFortification
 {
 	public enum CellType { Grass, Dirt, Stone, Ore, Water, Storage, Null }
 
+	public enum MouseClickMode { None, Paint, Select }
+
+	public interface IUIControl
+	{
+		public Rectangle Bounds { get; set; }
+		public void Update(GameTime gameTime, ref object param);
+		public void Draw(SpriteBatch sb, ref object param);
+	}
+
+	public interface IEnumUIControl : IUIControl
+	{ }
+
+	public class EnumUIControl<T> where T : Enum
+	{
+		public Rectangle Bounds { get; set; }
+		public Size Size;
+		public int Count => Enum.GetNames(typeof(T)).Length;
+		Dictionary<T, Color> Colours;
+
+		public EnumUIControl(Rectangle bounds, Dictionary<T, Color> colours = null)
+		{
+			Bounds = bounds;
+			Colours = colours;
+		}
+
+		public void Update(GameTime gameTime, ref T param)
+		{
+			var mouse = Mouse.GetState();
+			if (Bounds.Contains(mouse.Position) && mouse.LeftButton == ButtonState.Pressed)
+			{
+				var offset = mouse.Position - Bounds.Location;
+				var index = offset.X / (Bounds.Width / Count);
+				param = (T)(object)index;
+			}
+		}
+
+		public void Draw(SpriteBatch sb, T param)
+		{
+			var cellWidth = Bounds.Width / Count;
+			var cellHeight = Bounds.Height;
+			for (var i = 0; i < Count; ++i)
+			{
+				var colour = ((T)(object)i).CompareTo(param) == 0 ? Color.LightGray : Color.White;
+				if (Colours != null)
+				{
+					colour = Colours[(T)(object)i];
+				}
+				sb.FillRectangle(Bounds.X + i * cellWidth, Bounds.Y, cellWidth, cellHeight, colour);
+				sb.DrawRectangle(Bounds.X + i * cellWidth, Bounds.Y, cellWidth, cellHeight, Color.Black);
+				sb.DrawString(
+					GameServices.Fonts["Calibri"],
+					((T)(object)i).ToString(),
+					new Vector2(Bounds.X + (i * cellWidth) + 4, Bounds.Y + 4),
+					Color.Black);
+			}
+
+			// selected cell
+			sb.DrawRectangle(Bounds.X + ((int)(object)param) * cellWidth, Bounds.Y, cellWidth, cellHeight, Color.Red, 3);
+		}
+	}
+
 	public class GridWorld
 	{
 		GridCell[,] world;
@@ -17,8 +78,13 @@ namespace DwarvenFortification
 		int cellSize = 32;
 
 		MouseState previousMouseState;
-		//Agent selectedAgent;
 		DebugGui debugGui;
+
+		CellType selectedCellType = CellType.Dirt;
+		MouseClickMode selectedMouseClickMode = MouseClickMode.None;
+
+		EnumUIControl<MouseClickMode> mouseClickModeUI;
+		EnumUIControl<CellType> cellTypeUI;
 
 		public GridWorld(int width, int height)
 		{
@@ -49,6 +115,12 @@ namespace DwarvenFortification
 					}
 				}
 			}
+
+			// ui setup
+			var currentY = Height * cellSize;
+			mouseClickModeUI = new EnumUIControl<MouseClickMode>(new Rectangle(0, currentY, Enum.GetNames(typeof(MouseClickMode)).Length * 2 * cellSize, cellSize));
+			currentY += mouseClickModeUI.Bounds.Height;
+			cellTypeUI = new EnumUIControl<CellType>(new Rectangle(0, currentY, Enum.GetNames(typeof(CellType)).Length * 2 * cellSize, cellSize), GridCell.CellLookup);
 		}
 
 		public GridCell CellAt(int x, int y)
@@ -80,8 +152,6 @@ namespace DwarvenFortification
 				return CellType.Null;
 		}
 
-		CellType selectedCellTypeForDraw = CellType.Grass;
-
 		public Point ClosestCellXYOfType(int X, int Y, CellType type)
 		{
 			var matching = new List<(GridCell cell, Point xy)>();
@@ -90,7 +160,9 @@ namespace DwarvenFortification
 				for (var x = 0; x < Width; ++x)
 				{
 					if (world[y, x].CellType == type)
+					{
 						matching.Add((world[y, x], new Point(x * cellSize, y * cellSize)));
+					}
 				}
 			}
 
@@ -103,52 +175,58 @@ namespace DwarvenFortification
 			var currMouseState = Mouse.GetState();
 			bool debugGuiSetThisFrame = false;
 
+			mouseClickModeUI.Update(gameTime, ref selectedMouseClickMode);
+			cellTypeUI.Update(gameTime, ref selectedCellType);
+
 			if (currMouseState.LeftButton == ButtonState.Pressed)
 			{
 				var clickedCell = new Point(currMouseState.X / cellSize, currMouseState.Y / cellSize);
 				if (clickedCell.X >= 0 && clickedCell.X < Width && clickedCell.Y >= 0 && clickedCell.Y < Height)
 				{
-					// check if we clicked on agent
-					foreach (var a in agents)
+					if (selectedMouseClickMode == MouseClickMode.Select)
 					{
-						if (a.CurrentCell == world[clickedCell.Y, clickedCell.X])
+						// check if we clicked on agent
+						foreach (var a in agents)
 						{
-							debugGui.BoundObject = a;
-							debugGuiSetThisFrame = true;
-							break;
+							if (a.CurrentCell == world[clickedCell.Y, clickedCell.X])
+							{
+								debugGui.BoundObject = a;
+								debugGuiSetThisFrame = true;
+								break;
+							}
+						}
+						if (!debugGuiSetThisFrame)
+						{
+							debugGui.BoundObject = world[clickedCell.Y, clickedCell.X];
 						}
 					}
-
-					world[clickedCell.Y, clickedCell.X].CellType = selectedCellTypeForDraw;
-
-					if (!debugGuiSetThisFrame)
+					else if (selectedMouseClickMode == MouseClickMode.Paint)
 					{
-						debugGui.BoundObject = world[clickedCell.Y, clickedCell.X];
+						world[clickedCell.Y, clickedCell.X].CellType = selectedCellType;
 					}
-				}
 
-				if (new Rectangle(0, Height * cellSize, cellSize * 7, cellSize).Contains(currMouseState.Position))
-				{
-					selectedCellTypeForDraw = (CellType)(currMouseState.X / 32);
 				}
 			}
 
 			if (currMouseState.RightButton == ButtonState.Pressed && previousMouseState.RightButton != ButtonState.Pressed)
 			{
-				var agent = agents.First();
+				if (debugGui.BoundObject != null && debugGui.BoundObject.GetType().IsAssignableFrom(typeof(Agent)))
+				{
+					var agent = (Agent)debugGui.BoundObject;
 
-				if (CellTypeAtXY(currMouseState.Position.X, currMouseState.Position.Y) == CellType.Ore)
-				{
-					var oreItem = new Item("ore");
-					agent.AddTask(new MoveToTask(agent, currMouseState.Position));
-					agent.AddTask(new PickUpTask(agent, oreItem));
-					var closestDropoff = ClosestCellXYOfType(agent.X, agent.Y, CellType.Storage);
-					agent.AddTask(new MoveToTask(agent, closestDropoff));
-					agent.AddTask(new PutDownTask(agent, oreItem));
-				}
-				else
-				{
-					agent.AddTask(new MoveToTask(agent, currMouseState.Position));
+					if (CellTypeAtXY(currMouseState.Position.X, currMouseState.Position.Y) == CellType.Ore)
+					{
+						var oreItem = new Item("ore");
+						agent.AddTask(new MoveToTask(agent, currMouseState.Position));
+						agent.AddTask(new PickUpTask(agent, oreItem));
+						var closestDropoff = ClosestCellXYOfType(agent.X, agent.Y, CellType.Storage);
+						agent.AddTask(new MoveToTask(agent, closestDropoff));
+						agent.AddTask(new PutDownTask(agent, oreItem));
+					}
+					else
+					{
+						agent.AddTask(new MoveToTask(agent, currMouseState.Position));
+					}
 				}
 			}
 
@@ -158,31 +236,31 @@ namespace DwarvenFortification
 
 			if (keyboard.IsKeyDown(Keys.D1))
 			{
-				selectedCellTypeForDraw = (CellType)0;
+				selectedCellType = (CellType)0;
 			}
 			if (keyboard.IsKeyDown(Keys.D2))
 			{
-				selectedCellTypeForDraw = (CellType)1;
+				selectedCellType = (CellType)1;
 			}
 			if (keyboard.IsKeyDown(Keys.D3))
 			{
-				selectedCellTypeForDraw = (CellType)2;
+				selectedCellType = (CellType)2;
 			}
 			if (keyboard.IsKeyDown(Keys.D4))
 			{
-				selectedCellTypeForDraw = (CellType)3;
+				selectedCellType = (CellType)3;
 			}
 			if (keyboard.IsKeyDown(Keys.D5))
 			{
-				selectedCellTypeForDraw = (CellType)4;
+				selectedCellType = (CellType)4;
 			}
 			if (keyboard.IsKeyDown(Keys.D6))
 			{
-				selectedCellTypeForDraw = (CellType)5;
+				selectedCellType = (CellType)5;
 			}
 			if (keyboard.IsKeyDown(Keys.D7))
 			{
-				selectedCellTypeForDraw = (CellType)6;
+				selectedCellType = (CellType)6;
 			}
 
 			foreach (var agent in agents)
@@ -216,15 +294,33 @@ namespace DwarvenFortification
 
 			// gui
 
-			// selection rect background
-			//sb.FillRectangle(0, Height * cellSize, 5 * cellSize, cellSize, Color.Black);
-			// selections
-			for (var i = 0; i < 7; ++i)
-			{
-				sb.FillRectangle(i * cellSize, Height * cellSize, cellSize, cellSize, GridCell.CellLookup[(CellType)i]);
-			}
-			// selected cell
-			sb.DrawRectangle((int)selectedCellTypeForDraw * cellSize, Height * cellSize, cellSize, cellSize, Color.Black, 3);
+
+			mouseClickModeUI.Draw(sb, selectedMouseClickMode);
+			cellTypeUI.Draw(sb, selectedCellType);
+
+			//// selection rect background
+			////sb.FillRectangle(0, Height * cellSize, 5 * cellSize, cellSize, Color.Black);
+			//// selections
+			//for (var i = 0; i < 7; ++i)
+			//{
+			//	sb.FillRectangle(i * cellSize, Height * cellSize, cellSize, cellSize, GridCell.CellLookup[(CellType)i]);
+			//}
+			//// selected cell
+			//sb.DrawRectangle((int)selectedCellTypeForDraw * cellSize, Height * cellSize, cellSize, cellSize, Color.Black, 3);
+
+			//// mouse click mode
+			//for (var i = 0; i < 3; ++i)
+			//{
+			//	sb.FillRectangle(i * (cellSize * 2), Height * cellSize + cellSize, cellSize * 2, cellSize, (MouseClickMode)i == mouseClickMode ? Color.LightGray : Color.White);
+			//	sb.DrawRectangle(i * (cellSize * 2), Height * cellSize + cellSize, cellSize * 2, cellSize, Color.Black);
+			//	sb.DrawString(
+			//		GameServices.Fonts["Calibri"],
+			//		((MouseClickMode)i).ToString(),
+			//		new Vector2(i * (cellSize * 2) + 4, Height * cellSize + cellSize + 4),
+			//		Color.Black);
+			//}
+			//// selected cell
+			//sb.DrawRectangle((int)mouseClickMode * (cellSize * 2), Height * cellSize, cellSize * 2, cellSize, Color.Black, 3);
 
 			// actual gui
 			debugGui.Draw(sb);
