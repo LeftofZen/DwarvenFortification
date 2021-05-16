@@ -11,20 +11,20 @@ namespace DwarvenFortification
 	{
 		public MoveToTask(Agent owner, Point goal) : base(owner)
 		{
-			this.goal = goal;
+			this.Goal = goal;
 		}
 
-		Point goal;
+		public Point Goal;
 
 		public bool Update()
 		{
-			var direction = (goal - owner.Position).ToVector2();
+			var direction = (Goal - owner.Position).ToVector2();
 			var distance = direction.Length();
 
 			direction.Normalize();
 			if (distance < owner.Speed)
 			{
-				owner.Position = goal;
+				owner.Position = Goal;
 				return true;
 			}
 			else

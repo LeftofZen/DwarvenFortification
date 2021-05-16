@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using EpPathFinding.cs;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -74,6 +75,8 @@ namespace DwarvenFortification
 	public class GridWorld
 	{
 		GridCell[,] world;
+		BaseGrid navGrid;
+
 		List<Agent> agents;
 		int cellSize = 32;
 
@@ -95,6 +98,8 @@ namespace DwarvenFortification
 			debugGui.Bounds = new Rectangle(width * cellSize, 0, 400, 800);
 
 			world = new GridCell[height, width];
+			navGrid = new StaticGrid(width, height);
+
 			//var rnd = new Random();
 
 			for (var y = 0; y < Height; ++y)
@@ -108,10 +113,12 @@ namespace DwarvenFortification
 					if (x == 0 || y == 0 || x == Width - 1 || y == Height - 1)
 					{
 						world[y, x] = new GridCell(CellType.Water);
+						navGrid.SetWalkableAt(x, y, false);
 					}
 					else
 					{
 						world[y, x] = new GridCell(CellType.Dirt);
+						navGrid.SetWalkableAt(x, y, true);
 					}
 				}
 			}
@@ -122,10 +129,19 @@ namespace DwarvenFortification
 			currentY += mouseClickModeUI.Bounds.Height;
 			cellTypeUI = new EnumUIControl<CellType>(new Rectangle(0, currentY, Enum.GetNames(typeof(CellType)).Length * 2 * cellSize, cellSize), GridCell.CellLookup);
 		}
-
-		public GridCell CellAt(int x, int y)
+		public Point CoordsAtXY(int x, int y)
 		{
-			var cell = new Point(x / cellSize, y / cellSize);
+			var coords = new Point(x / cellSize, y / cellSize);
+			if (coords.X >= 0 && coords.X < Width && coords.Y >= 0 && coords.Y < Height)
+			{
+				return coords;
+			}
+			return new Point(-1, -1);
+		}
+
+		public GridCell CellAtXY(int x, int y)
+		{
+			var cell = CoordsAtXY(x, y);
 			if (cell.X >= 0 && cell.X < Width && cell.Y >= 0 && cell.Y < Height)
 			{
 				return world[cell.Y, cell.X];
@@ -135,7 +151,7 @@ namespace DwarvenFortification
 
 		public Rectangle CellBoundsAt(int x, int y)
 		{
-			var cell = new Point(x / cellSize, y / cellSize);
+			var cell = CoordsAtXY(x, y);
 			if (cell.X >= 0 && cell.X < Width && cell.Y >= 0 && cell.Y < Height)
 			{
 				return new Rectangle(x - x % cellSize, y - y % cellSize, cellSize, cellSize);
@@ -145,7 +161,7 @@ namespace DwarvenFortification
 
 		public CellType CellTypeAtXY(int x, int y)
 		{
-			var cell = CellAt(x, y);
+			var cell = CellAtXY(x, y);
 			if (cell != null)
 				return cell.CellType;
 			else
@@ -168,6 +184,11 @@ namespace DwarvenFortification
 
 			var closest = matching.OrderBy(cell => (cell.xy.ToVector2() - new Vector2(X, Y)).LengthSquared()).FirstOrDefault();
 			return closest.xy;
+		}
+
+		public Point CentreOfCell(int x, int y)
+		{
+			return new Point(x * cellSize + cellSize / 2, y * cellSize + cellSize / 2);
 		}
 
 		public void Update(GameTime gameTime)
@@ -203,6 +224,7 @@ namespace DwarvenFortification
 					else if (selectedMouseClickMode == MouseClickMode.Paint)
 					{
 						world[clickedCell.Y, clickedCell.X].CellType = selectedCellType;
+						navGrid.SetWalkableAt(clickedCell.X, clickedCell.Y, selectedCellType != CellType.Water);
 					}
 
 				}
@@ -213,20 +235,66 @@ namespace DwarvenFortification
 				if (debugGui.BoundObject != null && debugGui.BoundObject.GetType().IsAssignableFrom(typeof(Agent)))
 				{
 					var agent = (Agent)debugGui.BoundObject;
+					var clickedCell = CoordsAtXY(currMouseState.Position.X, currMouseState.Position.Y);
+					var agentCell = CoordsAtXY(agent.X, agent.Y);
+					if (clickedCell.X != -1 && clickedCell.Y != -1 && agentCell.X != -1 && agentCell.Y != -1)
+					{
+						// recreate nav grid every time (!)
+						var newg = navGrid.Clone();
+						newg.Reset();
+						for (var y = 0; y < Height; ++y)
+						{
+							for (var x = 0; x < Width; ++x)
+							{
+								newg.SetWalkableAt(x, y, world[y, x].CellType != CellType.Water);
+							}
+						}
+						navGrid = newg;
 
-					if (CellTypeAtXY(currMouseState.Position.X, currMouseState.Position.Y) == CellType.Ore)
-					{
-						var oreItem = new Item("ore");
-						agent.AddTask(new MoveToTask(agent, currMouseState.Position));
-						agent.AddTask(new PickUpTask(agent, oreItem));
-						var closestDropoff = ClosestCellXYOfType(agent.X, agent.Y, CellType.Storage);
-						agent.AddTask(new MoveToTask(agent, closestDropoff));
-						agent.AddTask(new PutDownTask(agent, oreItem));
+						var jpsParam = new JumpPointParam(
+							navGrid,
+							new GridPos(agentCell.X, agentCell.Y),
+							new GridPos(clickedCell.X, clickedCell.Y),
+							EndNodeUnWalkableTreatment.Disallow,
+							DiagonalMovement.Always,
+							HeuristicMode.Euclidean);
+
+						var path = JumpPointFinder.FindPath(jpsParam);
+						foreach (var node in path)
+						{
+							agent.AddTask(new MoveToTask(agent, CentreOfCell(node.X, node.Y)));
+						}
+
+						var cell = CellAtXY(currMouseState.Position.X, currMouseState.Position.Y);
+						if (cell.CellType == CellType.Ore || cell.CellType == CellType.Stone)
+						{
+							if (cell.ItemsInCell.Count > 0)
+							{
+								agent.AddTask(new PickUpTask(agent, cell.ItemsInCell.First()));
+							}
+						}
+						else if (cell.CellType == CellType.Storage)
+						{
+							if (agent.Inventory.Count > 0)
+							{
+								agent.AddTask(new PutDownTask(agent, agent.Inventory.First()));
+							}
+						}
 					}
-					else
-					{
-						agent.AddTask(new MoveToTask(agent, currMouseState.Position));
-					}
+
+					//if (CellTypeAtXY(currMouseState.Position.X, currMouseState.Position.Y) == CellType.Ore)
+					//{
+					//	var oreItem = new Item("ore");
+					//	agent.AddTask(new MoveToTask(agent, currMouseState.Position));
+					//	agent.AddTask(new PickUpTask(agent, oreItem));
+					//	var closestDropoff = ClosestCellXYOfType(agent.X, agent.Y, CellType.Storage);
+					//	agent.AddTask(new MoveToTask(agent, closestDropoff));
+					//	agent.AddTask(new PutDownTask(agent, oreItem));
+					//}
+					//else
+					//{
+					//	agent.AddTask(new MoveToTask(agent, currMouseState.Position));
+					//}
 				}
 			}
 

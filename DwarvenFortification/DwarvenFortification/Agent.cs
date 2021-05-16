@@ -16,7 +16,7 @@ namespace DwarvenFortification
 			Inventory = new List<Item>();
 		}
 
-		public GridCell CurrentCell => world.CellAt(X, Y);
+		public GridCell CurrentCell => world.CellAtXY(X, Y);
 		public Rectangle CellBounds => world.CellBoundsAt(X, Y);
 
 		internal GridWorld world;
@@ -60,6 +60,16 @@ namespace DwarvenFortification
 			if (CellBounds != Rectangle.Empty)
 			{
 				sb.DrawRectangle(CellBounds, Color.Blue, 1);
+			}
+
+			var previousMoveToPoint = Position;
+			foreach (var task in taskQueue.ToArray())
+			{
+				if (task is MoveToTask mtTask)
+				{
+					sb.DrawLine(previousMoveToPoint.ToVector2(), mtTask.Goal.ToVector2(), Color.RosyBrown, 2);
+					previousMoveToPoint = mtTask.Goal;
+				}
 			}
 		}
 	}

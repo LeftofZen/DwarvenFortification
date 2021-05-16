@@ -8,9 +8,7 @@ namespace DwarvenFortification
 {	public class GridCell : ISelectableGameObject
 	{
 		public GridCell(CellType type)
-		{
-			CellType = type;
-		}
+			=> CellType = type;
 
 		public void Draw(SpriteBatch sb, Point2 xy, int cellSize)
 		{
@@ -19,9 +17,7 @@ namespace DwarvenFortification
 		}
 
 		public override string ToString()
-		{
-			return $"{CellType.ToString()}";
-		}
+			=> $"{CellType}";
 
 		public static Dictionary<CellType, Color> CellLookup = new Dictionary<CellType, Color>()
 		{
@@ -50,7 +46,5 @@ namespace DwarvenFortification
 			}
 		}
 		CellType cellType;
-
-
 	}
 }

@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using MonoGame.Extended;
@@ -20,12 +21,12 @@ namespace DwarvenFortification
 		}
 
 		// doing this at 60fps probably isn't gonna end well once we start getting complex objects...
-		public IEnumerable<string> ReflectObject(ISelectableGameObject obj)
+		public IEnumerable<string> ReflectObject(object obj)
 		{
 			var concreteType = obj.GetType();
 
 			yield return "=== Properties ===";
-			foreach (var prop in concreteType.GetProperties())
+			foreach (var prop in concreteType.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
 			{
 				yield return $"{prop.Name}({prop.PropertyType})={prop.GetValue(obj)}";
 				if (typeof(IEnumerable).IsAssignableFrom(prop.PropertyType))
@@ -36,22 +37,27 @@ namespace DwarvenFortification
 						tempList.Add($"  - {item}");
 					}
 
-					foreach (var line in tempList
-						.GroupBy(info => info)
-						.Select(group => new
-						{
-							Name = group.Key,
-							Count = group.Count()
-						})
-						.OrderBy(x => x.Name))
+					//foreach (var line in tempList
+					//	.GroupBy(info => info)
+					//	.Select(group => new
+					//	{
+					//		Name = group.Key,
+					//		Count = group.Count()
+					//	})
+					//	.OrderBy(x => x.Name))
+					//{
+					//	yield return $"{line.Name} x{line.Count}";
+					//}
+
+					foreach (var line in tempList)
 					{
-						yield return $"{line.Name} x{line.Count}";
+						yield return $"{line}";
 					}
 				}
 			}
 
 			yield return "=== Fields ===";
-			foreach (var fld in concreteType.GetFields())
+			foreach (var fld in concreteType.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
 			{
 				yield return $"{fld.Name}({fld.FieldType})={fld.GetValue(obj)}";
 				if (typeof(IEnumerable).IsAssignableFrom(fld.FieldType))
@@ -60,19 +66,29 @@ namespace DwarvenFortification
 					foreach (var item in (IEnumerable)fld.GetValue(obj))
 					{
 						tempList.Add($"  - {item}");
+						var x = ReflectObject(item);
+						foreach (var xx in x)
+						{
+							yield return xx;
+						}
 					}
 
-					foreach (var line in tempList
-						.GroupBy(info => info)
-						.Select(group => new
-						{
-							Name = group.Key,
-							Count = group.Count()
-						})
-						.OrderBy(x => x.Name))
-					{
-						yield return $"{line.Name} x{line.Count}";
-					}
+					//foreach (var line in tempList
+					//	.GroupBy(info => info)
+					//	.Select(group => new
+					//	{
+					//		Name = group.Key,
+					//		Count = group.Count()
+					//	})
+					//	.OrderBy(x => x.Name))
+					//{
+					//	yield return $"{line.Name} x{line.Count}";
+					//}
+
+					//foreach (var line in tempList)
+					//{
+					//	yield return ReflectObject(line);
+					//}
 				}
 			}
 		}
