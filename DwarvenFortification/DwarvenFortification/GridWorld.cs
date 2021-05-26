@@ -251,9 +251,12 @@ namespace DwarvenFortification
 						}
 						navGrid = newg;
 
+						var last = agent.LastPointInPath();
+						var lastCell = CoordsAtXY(last.X, last.Y);
+
 						var jpsParam = new JumpPointParam(
 							navGrid,
-							new GridPos(agentCell.X, agentCell.Y),
+							last == Point.Zero ? new GridPos(agentCell.X, agentCell.Y) : new GridPos(lastCell.X, lastCell.Y),
 							new GridPos(clickedCell.X, clickedCell.Y),
 							EndNodeUnWalkableTreatment.Disallow,
 							DiagonalMovement.Always,

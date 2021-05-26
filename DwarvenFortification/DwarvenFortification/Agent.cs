@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using MonoGame.Extended;
@@ -20,6 +21,14 @@ namespace DwarvenFortification
 		public Rectangle CellBounds => world.CellBoundsAt(X, Y);
 
 		internal GridWorld world;
+
+		public Point LastPointInPath()
+		{
+			var moveTasks = taskQueue.Where(t => t is MoveToTask);
+			return moveTasks.Any()
+				? (moveTasks.Last() as MoveToTask).Goal
+				: Point.Zero;
+		}
 
 		public int X;
 		public int Y;
