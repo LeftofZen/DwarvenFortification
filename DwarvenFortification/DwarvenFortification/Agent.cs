@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using DwarvenFortification.GOAP;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using MonoGame.Extended;
@@ -29,6 +30,8 @@ namespace DwarvenFortification
 				? (moveTasks.Last() as MoveToTask).Goal
 				: Point.Zero;
 		}
+
+		public List<GOAPAction> PossibleActions;
 
 		public int X;
 		public int Y;

@@ -260,7 +260,7 @@ namespace DwarvenFortification
 							new GridPos(clickedCell.X, clickedCell.Y),
 							EndNodeUnWalkableTreatment.Disallow,
 							DiagonalMovement.Always,
-							HeuristicMode.Euclidean);
+							HeuristicMode.EuclideanSquared);
 
 						var path = JumpPointFinder.FindPath(jpsParam);
 						foreach (var node in path)
