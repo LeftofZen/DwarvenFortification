@@ -1,9 +1,14 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.31205.134
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31912.275
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DwarvenFortification", "DwarvenFortification\DwarvenFortification.csproj", "{BB7D9860-72D6-4D4E-94E7-F87414B6C91C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DwarvenFortification", "DwarvenFortification\DwarvenFortification.csproj", "{BB7D9860-72D6-4D4E-94E7-F87414B6C91C}"
+	ProjectSection(ProjectDependencies) = postProject
+		{2035BBF1-1EDB-48B1-B47C-D561A5EFC5D6} = {2035BBF1-1EDB-48B1-B47C-D561A5EFC5D6}
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DFCore", "DFCore\DFCore.csproj", "{2035BBF1-1EDB-48B1-B47C-D561A5EFC5D6}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +20,10 @@ Global
 		{BB7D9860-72D6-4D4E-94E7-F87414B6C91C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BB7D9860-72D6-4D4E-94E7-F87414B6C91C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BB7D9860-72D6-4D4E-94E7-F87414B6C91C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2035BBF1-1EDB-48B1-B47C-D561A5EFC5D6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2035BBF1-1EDB-48B1-B47C-D561A5EFC5D6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2035BBF1-1EDB-48B1-B47C-D561A5EFC5D6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2035BBF1-1EDB-48B1-B47C-D561A5EFC5D6}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

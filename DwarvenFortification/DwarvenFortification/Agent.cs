@@ -5,6 +5,7 @@ using MonoGame.Extended;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using DFCore.EnumerableExtensions;
 
 namespace DwarvenFortification
 {
@@ -19,7 +20,7 @@ namespace DwarvenFortification
 			this.world = world;
 			taskQueue = new Queue<IAgentTask>();
 			Inventory = new List<Item>();
-			Speed = ((float)r.NextDouble() * 2) + 4f;
+			Speed = ((float)r.NextDouble() * 1) + 2f;
 		}
 
 		public GridCell CurrentCell => world.CellAtXY(X, Y);
@@ -85,7 +86,7 @@ namespace DwarvenFortification
 			// if inventory not empty
 			if (Inventory.Count > 0)
 			{
-				var closestStorage = world.ClosestCellXYOfType(X, Y, cell => cell.CellType == CellType.Storage);
+				var closestStorage = world.ClosestNCellsXYOfType(X, Y, cell => cell.CellType == CellType.Storage, 5).TakeRandom();
 				if (closestStorage.cell != null)
 				{
 					// move to storage
@@ -98,7 +99,7 @@ namespace DwarvenFortification
 			}
 
 			// if can find any ores
-			var closestOre = world.ClosestCellXYOfType(X, Y, cell => cell.CellType != CellType.Storage && cell.ItemsInCell.Count > 0);
+			var closestOre = world.ClosestNCellsXYOfType(X, Y, cell => cell.CellType != CellType.Storage && cell.ItemsInCell.Count > 0, 5).TakeRandom();
 			if (closestOre.cell != null && closestOre.cell.ItemsInCell.Count > 0)
 			{
 				// move to ore

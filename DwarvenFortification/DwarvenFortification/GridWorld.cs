@@ -176,7 +176,7 @@ namespace DwarvenFortification
 				return CellType.Null;
 		}
 
-		public (GridCell cell, Point point) ClosestCellXYOfType(int X, int Y, Func<GridCell, bool> func)
+		public IEnumerable<(GridCell cell, Point point)> ClosestNCellsXYOfType(int X, int Y, Func<GridCell, bool> func, int count = 1)
 		{
 			var matching = new List<(GridCell cell, Point xy)>();
 			for (var y = 0; y < Height; ++y)
@@ -190,7 +190,7 @@ namespace DwarvenFortification
 				}
 			}
 
-			return matching.OrderBy(cell => (cell.xy.ToVector2() - new Vector2(X, Y)).LengthSquared()).FirstOrDefault();
+			return matching.OrderBy(cell => (cell.xy.ToVector2() - new Vector2(X, Y)).LengthSquared()).Take(count);
 		}
 
 		public Point CentreOfCellWithCoords(int x, int y)

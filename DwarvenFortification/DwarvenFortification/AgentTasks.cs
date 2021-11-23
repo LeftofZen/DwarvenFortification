@@ -45,7 +45,7 @@ namespace DwarvenFortification
 				{
 					var newPos = owner.Position + (direction * owner.Speed).ToPoint();
 
-					if (owner.world.CellTypeAtXY(newPos.X, newPos.Y) != CellType.Water)
+					//if (owner.world.CellTypeAtXY(newPos.X, newPos.Y) != CellType.Water)
 					{
 						owner.Position = newPos;
 						Progress = Cost - (int)(Goal - owner.Position).ToVector2().Length();

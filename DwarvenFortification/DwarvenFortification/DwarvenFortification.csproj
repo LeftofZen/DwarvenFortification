@@ -35,6 +35,9 @@
     <PackageReference Include="MonoGame.Extended.Content.Pipeline" Version="3.8.0" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\DFCore\DFCore.csproj" />
+  </ItemGroup>
+  <ItemGroup>
     <Reference Include="EpPathFinding.cs">
       <HintPath>..\..\..\EpPathFinding.cs\EpPathFinding.cs\EpPathFinding.cs\bin\Debug\netstandard2.1\EpPathFinding.cs.dll</HintPath>
     </Reference>
