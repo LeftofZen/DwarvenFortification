@@ -1,4 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using System.Collections.Generic;
 
 namespace DwarvenFortification
 {
@@ -7,7 +9,12 @@ namespace DwarvenFortification
 		bool Update();
 	}
 
-	public class MoveToTask : BaseAgentTask, IAgentTask
+	public interface IDrawableTask
+	{
+		void Draw(SpriteBatch sb);
+	}
+
+	public class MoveToTask : BaseAgentTask
 	{
 		public MoveToTask(Agent owner, Point goal) : base(owner)
 		{
@@ -16,7 +23,7 @@ namespace DwarvenFortification
 
 		public Point Goal;
 
-		public bool Update()
+		public override bool Update()
 		{
 			var direction = (Goal - owner.Position).ToVector2();
 			var distance = direction.Length();
@@ -43,8 +50,13 @@ namespace DwarvenFortification
 
 			}
 		}
+
+		public override void Draw(SpriteBatch sb)
+		{
+			throw new System.NotImplementedException();
+		}
 	}
-	public class PickUpTask : BaseAgentTask, IAgentTask
+	public class PickUpTask : BaseAgentTask
 	{
 		public PickUpTask(Agent owner, Item item) : base(owner)
 		{
@@ -53,7 +65,7 @@ namespace DwarvenFortification
 
 		Item item;
 
-		public bool Update()
+		public override bool Update()
 		{
 			var foundItem = owner.CurrentCell.ItemsInCell.Find(i => i.Name == item.Name);
 			if (foundItem != null)
@@ -63,30 +75,47 @@ namespace DwarvenFortification
 			}
 			return true;
 		}
+
+		public override void Draw(SpriteBatch sb)
+		{
+			throw new System.NotImplementedException();
+		}
 	}
 
-	public class PutDownTask : BaseAgentTask, IAgentTask
+	public class PutDownTask : BaseAgentTask
 	{
 		public PutDownTask(Agent owner, Item item) : base(owner)
 		{
-			this.item = item;
+			this.items.Clear();
+			this.items.Add(item);
 		}
 
-		Item item;
-
-		public bool Update()
+		public PutDownTask(Agent owner, IEnumerable<Item> items) : base(owner)
 		{
-			var foundItem = owner.Inventory.Find(i => i.Name == item.Name);
-			if (foundItem != null)
+			this.items = new List<Item>(items);
+		}
+
+		List<Item> items = new();
+
+		public override bool Update()
+		{
+			for (int i = 0; i < items.Count; ++i)
 			{
-				owner.CurrentCell.ItemsInCell.Add(foundItem);
-				_ = owner.Inventory.Remove(foundItem);
+				owner.CurrentCell.ItemsInCell.Add(items[i]);
+				_ = owner.Inventory.Remove(items[i]);
 			}
+
+			items.Clear();
 			return true;
+		}
+
+		public override void Draw(SpriteBatch sb)
+		{
+			throw new System.NotImplementedException();
 		}
 	}
 
-	public abstract class BaseAgentTask
+	public abstract class BaseAgentTask : IAgentTask, IDrawableTask
 	{
 		public BaseAgentTask(Agent owner)
 		{
@@ -94,5 +123,11 @@ namespace DwarvenFortification
 		}
 
 		protected Agent owner;
+
+		// IAgentTask
+		public abstract bool Update();
+
+		// IDrawableTask
+		public abstract void Draw(SpriteBatch sb);
 	}
 }

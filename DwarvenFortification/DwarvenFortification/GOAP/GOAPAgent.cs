@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace DwarvenFortification.GOAP
 {
@@ -37,19 +36,19 @@ namespace DwarvenFortification.GOAP
 			Console.WriteLine("[AddAction] \"{0}\"", a);
 		}
 
-		Dictionary<WorldObject, bool> mInventory = new Dictionary<WorldObject, bool>();
-		List<GOAPAction> mActions = new List<GOAPAction>(); // should be prio queue
+		Dictionary<WorldObject, bool> mInventory = new();
+		List<GOAPAction> mActions = new(); // should be prio queue
 
 		public GOAPAction FindNextAction()
 		{
-			if (mActions.Count() == 0)
+			if (mActions.Count == 0)
 				return null;
 
 			// get lowest energy, valid task
-			GOAPAction currentAction = mActions[0];
-			GOAPAction replenish = mActions[0];
+			var currentAction = mActions[0];
+			var replenish = mActions[0];
 
-			foreach (GOAPAction a in mActions)
+			foreach (var a in mActions)
 			{
 				if (a.AreAllPrerequisitesSatisfied() && a.mCost < currentAction.mCost)
 				{
@@ -83,7 +82,7 @@ namespace DwarvenFortification.GOAP
 
 		public bool RunPlanner()
 		{
-			GOAPAction currentAction = FindNextAction();
+			var currentAction = FindNextAction();
 
 			// we can't find any valid actions, exit completely (in a real game we would 'idle').
 			if (currentAction == null)

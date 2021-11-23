@@ -1,14 +1,14 @@
-﻿using System.Collections.Generic;
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using MonoGame.Extended;
+using System.Collections.Generic;
 
 namespace DwarvenFortification
 {
 	static class GameServices
 	{
-		public static Dictionary<string, SpriteFont> Fonts = new Dictionary<string, SpriteFont>();
+		public static Dictionary<string, SpriteFont> Fonts = new();
 	}
 
 	public class MainGame : Game

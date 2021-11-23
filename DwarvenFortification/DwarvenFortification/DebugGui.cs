@@ -1,10 +1,10 @@
-﻿using System.Collections;
+﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using MonoGame.Extended;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
-using MonoGame.Extended;
 
 namespace DwarvenFortification
 {
@@ -60,10 +60,13 @@ namespace DwarvenFortification
 			foreach (var fld in concreteType.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
 			{
 				yield return $"{fld.Name}({fld.FieldType})={fld.GetValue(obj)}";
+
 				if (typeof(IEnumerable).IsAssignableFrom(fld.FieldType))
 				{
 					var tempList = new List<string>();
-					foreach (var item in (IEnumerable)fld.GetValue(obj))
+					var objFields = (IEnumerable)fld.GetValue(obj);
+
+					foreach (var item in objFields ?? Enumerable.Empty<object>())
 					{
 						tempList.Add($"  - {item}");
 						var x = ReflectObject(item);
@@ -109,7 +112,7 @@ namespace DwarvenFortification
 			var offset = 0;
 			foreach (var v in details)
 			{
-				sb.DrawString(GameServices.Fonts["Calibri"], v, new Vector2(Bounds.X + 5, Bounds.Y + 5 + offset) , Color.Black);
+				sb.DrawString(GameServices.Fonts["Calibri"], v, new Vector2(Bounds.X + 5, Bounds.Y + 5 + offset), Color.Black);
 				offset += 20;
 			}
 

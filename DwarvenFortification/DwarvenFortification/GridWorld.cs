@@ -1,11 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using EpPathFinding.cs;
+﻿using EpPathFinding.cs;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using MonoGame.Extended;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace DwarvenFortification
 {
@@ -92,7 +92,11 @@ namespace DwarvenFortification
 		public GridWorld(int width, int height)
 		{
 			agents = new List<Agent>();
+
 			agents.Add(new Agent(100, 100, this));
+			agents.Add(new Agent(150, 100, this));
+			agents.Add(new Agent(190, 100, this));
+			agents.Add(new Agent(230, 100, this));
 
 			debugGui = new DebugGui();
 			debugGui.Bounds = new Rectangle(width * cellSize, 0, 400, 800);
@@ -129,6 +133,10 @@ namespace DwarvenFortification
 			currentY += mouseClickModeUI.Bounds.Height;
 			cellTypeUI = new EnumUIControl<CellType>(new Rectangle(0, currentY, Enum.GetNames(typeof(CellType)).Length * 2 * cellSize, cellSize), GridCell.CellLookup);
 		}
+
+		public Point CoordsAtXY(Point p)
+			=> CoordsAtXY(p.X, p.Y);
+
 		public Point CoordsAtXY(int x, int y)
 		{
 			var coords = new Point(x / cellSize, y / cellSize);
@@ -168,27 +176,35 @@ namespace DwarvenFortification
 				return CellType.Null;
 		}
 
-		public Point ClosestCellXYOfType(int X, int Y, CellType type)
+		public (GridCell cell, Point point) ClosestCellXYOfType(int X, int Y, Func<GridCell, bool> func)
 		{
 			var matching = new List<(GridCell cell, Point xy)>();
 			for (var y = 0; y < Height; ++y)
 			{
 				for (var x = 0; x < Width; ++x)
 				{
-					if (world[y, x].CellType == type)
+					if (func(world[y, x]))
 					{
 						matching.Add((world[y, x], new Point(x * cellSize, y * cellSize)));
 					}
 				}
 			}
 
-			var closest = matching.OrderBy(cell => (cell.xy.ToVector2() - new Vector2(X, Y)).LengthSquared()).FirstOrDefault();
-			return closest.xy;
+			return matching.OrderBy(cell => (cell.xy.ToVector2() - new Vector2(X, Y)).LengthSquared()).FirstOrDefault();
 		}
 
-		public Point CentreOfCell(int x, int y)
+		public Point CentreOfCellWithCoords(int x, int y)
 		{
 			return new Point(x * cellSize + cellSize / 2, y * cellSize + cellSize / 2);
+		}
+
+		public Point CentreOfCellWithCoords(Point p)
+		{
+			return CentreOfCellWithCoords(p.X, p.Y);
+		}
+		public Point CentreOfCellWithXY(Point p)
+		{
+			return CentreOfCellWithCoords(CoordsAtXY(p));
 		}
 
 		public void Update(GameTime gameTime)
@@ -239,34 +255,7 @@ namespace DwarvenFortification
 					var agentCell = CoordsAtXY(agent.X, agent.Y);
 					if (clickedCell.X != -1 && clickedCell.Y != -1 && agentCell.X != -1 && agentCell.Y != -1)
 					{
-						// recreate nav grid every time (!)
-						var newg = navGrid.Clone();
-						newg.Reset();
-						for (var y = 0; y < Height; ++y)
-						{
-							for (var x = 0; x < Width; ++x)
-							{
-								newg.SetWalkableAt(x, y, world[y, x].CellType != CellType.Water);
-							}
-						}
-						navGrid = newg;
-
-						var last = agent.LastPointInPath();
-						var lastCell = CoordsAtXY(last.X, last.Y);
-
-						var jpsParam = new JumpPointParam(
-							navGrid,
-							last == Point.Zero ? new GridPos(agentCell.X, agentCell.Y) : new GridPos(lastCell.X, lastCell.Y),
-							new GridPos(clickedCell.X, clickedCell.Y),
-							EndNodeUnWalkableTreatment.Disallow,
-							DiagonalMovement.Always,
-							HeuristicMode.EuclideanSquared);
-
-						var path = JumpPointFinder.FindPath(jpsParam);
-						foreach (var node in path)
-						{
-							agent.AddTask(new MoveToTask(agent, CentreOfCell(node.X, node.Y)));
-						}
+						PlotPath(agent, clickedCell);
 
 						var cell = CellAtXY(currMouseState.Position.X, currMouseState.Position.Y);
 						if (cell.CellType == CellType.Ore || cell.CellType == CellType.Stone)
@@ -280,7 +269,10 @@ namespace DwarvenFortification
 						{
 							if (agent.Inventory.Count > 0)
 							{
-								agent.AddTask(new PutDownTask(agent, agent.Inventory.First()));
+								// puts down all items of same type at once
+								var first = agent.Inventory.First();
+								var allFirst = agent.Inventory.Where(i => i.Name == first.Name);
+								agent.AddTask(new PutDownTask(agent, allFirst));
 							}
 						}
 					}
@@ -342,6 +334,39 @@ namespace DwarvenFortification
 			//debugGui.BoundObject = agents.First();
 
 			debugGui.Update(gameTime);
+		}
+
+		public void PlotPath(Agent agent, Point dstCell)
+		{
+			var agentCell = CoordsAtXY(agent.X, agent.Y);
+			// recreate nav grid every time (!)
+			var newg = navGrid.Clone();
+			newg.Reset();
+			for (var y = 0; y < Height; ++y)
+			{
+				for (var x = 0; x < Width; ++x)
+				{
+					newg.SetWalkableAt(x, y, world[y, x].CellType != CellType.Water);
+				}
+			}
+			navGrid = newg;
+
+			var last = agent.LastPointInPath();
+			var lastCell = CoordsAtXY(last.X, last.Y);
+
+			var jpsParam = new JumpPointParam(
+				navGrid,
+				last == Point.Zero ? new GridPos(agentCell.X, agentCell.Y) : new GridPos(lastCell.X, lastCell.Y),
+				new GridPos(dstCell.X, dstCell.Y),
+				EndNodeUnWalkableTreatment.Disallow,
+				DiagonalMovement.Always,
+				HeuristicMode.EuclideanSquared);
+
+			var path = JumpPointFinder.FindPath(jpsParam);
+			foreach (var node in path)
+			{
+				agent.AddTask(new MoveToTask(agent, CentreOfCellWithCoords(node.X, node.Y)));
+			}
 		}
 
 		public int Height => world.GetLength(0);

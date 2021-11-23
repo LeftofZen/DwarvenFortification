@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace DwarvenFortification.GOAP
 {
@@ -9,8 +8,8 @@ namespace DwarvenFortification.GOAP
 		public GOAPAction(string name, int cost)
 		{ mName = name; mCost = cost; }
 
-		List<IGOAPState> mPrerequisites = new List<IGOAPState>();
-		List<IGOAPState> mEffects = new List<IGOAPState>();
+		List<IGOAPState> mPrerequisites = new();
+		List<IGOAPState> mEffects = new();
 		public int mCost = 0;
 		public GOAPAgent mAgent = null;
 		public WorldObject mTarget = null;
