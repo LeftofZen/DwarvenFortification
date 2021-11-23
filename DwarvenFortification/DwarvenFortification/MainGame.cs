@@ -9,6 +9,7 @@ namespace DwarvenFortification
 	static class GameServices
 	{
 		public static Dictionary<string, SpriteFont> Fonts = new();
+		public static Dictionary<string, Texture2D> Textures = new();
 	}
 
 	public class MainGame : Game
@@ -20,6 +21,7 @@ namespace DwarvenFortification
 		private OrthographicCamera _camera;
 		private Vector2 _cameraPosition;
 		private GridWorld world;
+
 
 		Rectangle worldRenderRect;
 		//Rectangle
@@ -50,6 +52,7 @@ namespace DwarvenFortification
 			//_tiledMapRenderer = new TiledMapRenderer(GraphicsDevice, _tiledMap);
 
 			GameServices.Fonts.Add("Calibri", Content.Load<SpriteFont>("Calibri"));
+			GameServices.Textures.Add("ui", Content.Load<Texture2D>("tiles/18x18_ui"));
 
 			_spriteBatch = new SpriteBatch(GraphicsDevice);
 		}

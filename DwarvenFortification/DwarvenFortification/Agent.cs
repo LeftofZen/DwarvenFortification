@@ -37,6 +37,12 @@ namespace DwarvenFortification
 
 		public List<GOAPAction> PossibleActions;
 
+		public int Width => 32;
+		public int Height => 32;
+
+		public int Top => Y - Height / 2;
+		public int Left => X - Width / 2;
+
 		public int X { get; set; }
 		public int Y { get; set; }
 		public Point Position
@@ -141,7 +147,7 @@ namespace DwarvenFortification
 			// draw current task (debug)
 			if (taskQueue.TryPeek(out IAgentTask agentTask))
 			{
-
+				agentTask.Draw(sb);
 			}
 		}
 	}

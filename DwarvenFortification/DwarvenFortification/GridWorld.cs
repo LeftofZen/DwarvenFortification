@@ -242,7 +242,6 @@ namespace DwarvenFortification
 						world[clickedCell.Y, clickedCell.X].CellType = selectedCellType;
 						navGrid.SetWalkableAt(clickedCell.X, clickedCell.Y, selectedCellType != CellType.Water);
 					}
-
 				}
 			}
 

@@ -141,6 +141,18 @@
 /processor:TiledMapTilesetProcessor
 /build:tiles/[Base]BaseChip_pipo.tsx
 
+#begin tiles/18x18_ui.png
+/importer:TextureImporter
+/processor:TextureProcessor
+/processorParam:ColorKeyColor=255,255,255,255
+/processorParam:ColorKeyEnabled=True
+/processorParam:GenerateMipmaps=False
+/processorParam:PremultiplyAlpha=True
+/processorParam:ResizeToPowerOfTwo=False
+/processorParam:MakeSquare=False
+/processorParam:TextureFormat=Color
+/build:tiles/18x18_ui.png
+
 #begin tiles/LightShadow_pipo.png
 /importer:TextureImporter
 /processor:TextureProcessor
