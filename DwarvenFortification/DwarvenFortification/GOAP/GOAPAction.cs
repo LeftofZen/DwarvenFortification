@@ -6,7 +6,10 @@ namespace DwarvenFortification.GOAP
 	public class GOAPAction
 	{
 		public GOAPAction(string name, int cost)
-		{ mName = name; mCost = cost; }
+		{
+			mName = name;
+			mCost = cost;
+		}
 
 		List<IGOAPState> mPrerequisites = new();
 		List<IGOAPState> mEffects = new();
@@ -45,9 +48,11 @@ namespace DwarvenFortification.GOAP
 			bool result = true;
 			foreach (var v in mPrerequisites)
 			{
-				// every prere needs an agent
+				// every prereq needs an agent
 				if (v.GetAgent() == null)
+				{
 					v.SetAgent(mAgent);
+				}
 
 				result &= v.Evaluate();
 			}

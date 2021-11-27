@@ -134,17 +134,6 @@ namespace DwarvenFortification
 				sb.DrawRectangle(CellBounds, Color.Blue, 1);
 			}
 
-			// draw path if moving
-			var previousMoveToPoint = Position;
-			foreach (var task in taskQueue.ToArray())
-			{
-				if (task is MoveToTask mtTask)
-				{
-					sb.DrawLine(previousMoveToPoint.ToVector2(), mtTask.Goal.ToVector2(), Color.RosyBrown, 2);
-					previousMoveToPoint = mtTask.Goal;
-				}
-			}
-
 			// draw current task (debug)
 			if (taskQueue.TryPeek(out IAgentTask agentTask))
 			{

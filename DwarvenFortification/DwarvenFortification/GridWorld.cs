@@ -94,9 +94,9 @@ namespace DwarvenFortification
 			agents = new List<Agent>();
 
 			agents.Add(new Agent(100, 100, this));
-			agents.Add(new Agent(150, 100, this));
-			agents.Add(new Agent(190, 100, this));
-			agents.Add(new Agent(230, 100, this));
+			//agents.Add(new Agent(150, 100, this));
+			//agents.Add(new Agent(190, 100, this));
+			//agents.Add(new Agent(230, 100, this));
 
 			debugGui = new DebugGui();
 			debugGui.Bounds = new Rectangle(width * cellSize, 0, 400, 800);
@@ -362,10 +362,8 @@ namespace DwarvenFortification
 				HeuristicMode.EuclideanSquared);
 
 			var path = JumpPointFinder.FindPath(jpsParam);
-			foreach (var node in path)
-			{
-				agent.AddTask(new MoveToTask(agent, CentreOfCellWithCoords(node.X, node.Y)));
-			}
+			var pathPoints = path.Select(node => CentreOfCellWithCoords(node.X, node.Y));
+			agent.AddTask(new MoveAlongPathTask(agent, pathPoints));
 		}
 
 		public int Height => world.GetLength(0);

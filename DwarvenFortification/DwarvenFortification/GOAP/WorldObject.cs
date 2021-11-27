@@ -15,7 +15,9 @@ namespace DwarvenFortification.GOAP
 		}
 
 		public override string ToString()
-		{ return mName; }
+		{
+			return mName;
+		}
 
 		string mName;
 	}
