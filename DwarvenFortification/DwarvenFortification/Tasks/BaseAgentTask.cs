@@ -11,6 +11,8 @@ namespace DwarvenFortification
 			this.owner = owner;
 			this.Cost = cost;
 			this.Progress = 0;
+
+			GameServices.Logger.Log(Logging.LogLevel.Debug, $"new task created: {this.ToString()}");
 		}
 
 		protected int Progress;
@@ -18,6 +20,9 @@ namespace DwarvenFortification
 		protected bool success = false;
 
 		protected Agent owner;
+
+		public override string ToString()
+			=> $"Task={this.GetType().Name} Agent={owner.Name} Cost={Cost} Progress={Progress}";
 
 		// IAgentTask
 		public virtual bool Update()

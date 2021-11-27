@@ -13,8 +13,9 @@ namespace DwarvenFortification
 	{
 		static Random r = new(1);
 
-		public Agent(int x, int y, GridWorld world)
+		public Agent(string name, int x, int y, GridWorld world)
 		{
+			Name = name;
 			X = x;
 			Y = y;
 			this.world = world;
@@ -27,14 +28,7 @@ namespace DwarvenFortification
 		public Rectangle CellBounds => world.CellBoundsAt(X, Y);
 
 		internal GridWorld world;
-
-		public Point LastPointInPath()
-		{
-			var moveTasks = taskQueue.Where(t => t is MoveToTask);
-			return moveTasks.Any()
-				? (moveTasks.Last() as MoveToTask).Goal
-				: Point.Zero;
-		}
+		public string Name { get; set; }
 
 		public List<GOAPAction> PossibleActions;
 
@@ -58,6 +52,19 @@ namespace DwarvenFortification
 			set => speed = value;
 		}
 		float speed;
+
+
+		public List<Item> Inventory { get; set; }
+
+		public int InventorySize => 5;
+
+		public Point LastPointInPath()
+		{
+			var moveTasks = taskQueue.Where(t => t is MoveToTask);
+			return moveTasks.Any()
+				? (moveTasks.Last() as MoveToTask).Goal
+				: Point.Zero;
+		}
 
 		public void Update(GameTime gameTime)
 		{
@@ -110,10 +117,6 @@ namespace DwarvenFortification
 				return;
 			}
 		}
-
-		public List<Item> Inventory { get; set; }
-
-		public int InventorySize => 5;
 
 		public void AddTask(IAgentTask task, int count = 1)
 		{

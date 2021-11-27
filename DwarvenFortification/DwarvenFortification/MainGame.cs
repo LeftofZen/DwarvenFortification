@@ -1,15 +1,18 @@
-﻿using Microsoft.Xna.Framework;
+﻿using DwarvenFortification.Logging;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using MonoGame.Extended;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace DwarvenFortification
 {
-	static class GameServices
+	public static class GameServices
 	{
-		public static Dictionary<string, SpriteFont> Fonts = new();
-		public static Dictionary<string, Texture2D> Textures = new();
+		public static readonly Dictionary<string, SpriteFont> Fonts = new();
+		public static readonly Dictionary<string, Texture2D> Textures = new();
+		public static readonly GameLogger Logger = new();
 	}
 
 	public class MainGame : Game
@@ -18,12 +21,11 @@ namespace DwarvenFortification
 		private SpriteBatch _spriteBatch;
 		//private TiledMap _tiledMap;
 		//private TiledMapRenderer _tiledMapRenderer;
-		private OrthographicCamera _camera;
-		private Vector2 _cameraPosition;
+		//private OrthographicCamera _camera;
+		//private Vector2 _cameraPosition;
 		private GridWorld world;
 
-
-		Rectangle worldRenderRect;
+		//Rectangle worldRenderRect;
 		//Rectangle
 
 		public MainGame()
@@ -35,8 +37,8 @@ namespace DwarvenFortification
 
 		protected override void Initialize()
 		{
-			_graphics.PreferredBackBufferHeight = 960;
-			_graphics.PreferredBackBufferWidth = 1280;
+			_graphics.PreferredBackBufferHeight = 1080;
+			_graphics.PreferredBackBufferWidth = 1920;
 			_graphics.ApplyChanges();
 
 			//var viewportadapter = new BoxingViewportAdapter(Window, GraphicsDevice, 800, 600);
@@ -65,15 +67,14 @@ namespace DwarvenFortification
 			}
 
 			world.Update(gameTime);
+
 			//_tiledMapRenderer.Update(gameTime);
-
-
-
 			//MoveCamera(gameTime);
 			//_camera.LookAt(_cameraPosition);
 
 			base.Update(gameTime);
 		}
+
 		private Vector2 GetMovementDirection()
 		{
 			var movementDirection = Vector2.Zero;
@@ -104,13 +105,14 @@ namespace DwarvenFortification
 			return movementDirection;
 		}
 
-		private void MoveCamera(GameTime gameTime)
-		{
-			var speed = 200;
-			var seconds = gameTime.GetElapsedSeconds();
-			var movementDirection = GetMovementDirection();
-			_cameraPosition += speed * movementDirection * seconds;
-		}
+		//private void MoveCamera(GameTime gameTime)
+		//{
+		//	var speed = 200;
+		//	var seconds = gameTime.GetElapsedSeconds();
+		//	var movementDirection = GetMovementDirection();
+		//	_cameraPosition += speed * movementDirection * seconds;
+		//}
+
 		protected override void Draw(GameTime gameTime)
 		{
 			GraphicsDevice.Clear(Color.CornflowerBlue);
@@ -119,7 +121,6 @@ namespace DwarvenFortification
 
 			world.Draw(_spriteBatch);
 			//_tiledMapRenderer.Draw(_camera.GetViewMatrix());
-
 
 			_spriteBatch.End();
 

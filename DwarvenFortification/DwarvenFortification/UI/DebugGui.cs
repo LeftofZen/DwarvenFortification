@@ -13,7 +13,20 @@ namespace DwarvenFortification
 		public ISelectableGameObject BoundObject;
 
 		List<string> details;
-		public Rectangle Bounds;
+		public Rectangle Bounds
+		{
+			get => bounds;
+			set
+			{
+				bounds = value;
+				boundObjectDetailsBounds = new Rectangle(bounds.X, bounds.Y, bounds.Width, bounds.Height - 200);
+				loggingBounds = new Rectangle(bounds.X, bounds.Height - 200, bounds.Width, 200);
+			}
+		}
+		Rectangle bounds;
+
+		Rectangle boundObjectDetailsBounds;
+		Rectangle loggingBounds;
 
 		public DebugGui()
 		{
@@ -107,16 +120,38 @@ namespace DwarvenFortification
 
 		public void Draw(SpriteBatch sb)
 		{
-			sb.FillRectangle(Bounds, Color.LightGray);
+			// backgrounds
+			//sb.FillRectangle(Bounds, Color.LightGray);
+			sb.FillRectangle(boundObjectDetailsBounds, Color.PaleVioletRed);
+			sb.FillRectangle(loggingBounds, Color.LightSkyBlue);
 
-			var offset = 0;
+			// can't call these inside Begin(), they need to be called before, ie we need a separate SpriteBatch here
+			//sb.GraphicsDevice.RasterizerState.ScissorTestEnable = true;
+			//sb.GraphicsDevice.ScissorRectangle = boundObjectDetailsBounds;
+			//sb.GraphicsDevice.ScissorRectangle = loggingBounds;
+			//sb.GraphicsDevice.RasterizerState.ScissorTestEnable = false;
+
+			// bound object
+			var yOffset = 0;
 			foreach (var v in details)
 			{
-				sb.DrawString(GameServices.Fonts["Calibri"], v, new Vector2(Bounds.X + 5, Bounds.Y + 5 + offset), Color.Black);
-				offset += 20;
+				sb.DrawString(GameServices.Fonts["Calibri"], v, new Vector2(boundObjectDetailsBounds.X + 5, boundObjectDetailsBounds.Y + 5 + yOffset), Color.Black);
+				yOffset += 20;
 			}
 
+			// logs
+			yOffset = 0;
+			foreach (var log in GameServices.Logger.Logs.TakeLast(10))
+			{
+				sb.DrawString(GameServices.Fonts["Calibri"], log.ToString(), new Vector2(loggingBounds.X + 5, loggingBounds.Y + 5 + yOffset), Color.Black);
+				yOffset += 20;
+			}
+
+
+			// borders
 			sb.DrawRectangle(Bounds, Color.Black, 3);
+			sb.DrawRectangle(boundObjectDetailsBounds, Color.Red, 3);
+			sb.DrawRectangle(loggingBounds, Color.Blue, 3);
 		}
 	}
 }
