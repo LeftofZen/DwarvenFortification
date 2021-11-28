@@ -20,7 +20,7 @@ namespace DwarvenFortification
 			Colours = colours;
 		}
 
-		public void Update(GameTime gameTime, ref T param)
+		public bool Update(GameTime gameTime, ref T param)
 		{
 			var mouse = Mouse.GetState();
 			if (Bounds.Contains(mouse.Position) && mouse.LeftButton == ButtonState.Pressed)
@@ -28,7 +28,9 @@ namespace DwarvenFortification
 				var offset = mouse.Position - Bounds.Location;
 				var index = offset.X / (Bounds.Width / Count);
 				param = (T)(object)index;
+				return true;
 			}
+			return false;
 		}
 
 		public void Draw(SpriteBatch sb, T param)

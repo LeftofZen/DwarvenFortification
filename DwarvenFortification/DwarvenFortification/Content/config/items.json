@@ -1,0 +1,18 @@
+{
+  "items": [
+    {
+      "name": "pickaxe",
+      "action": "mine",
+      "owner": null
+    },
+    {
+      "name": "shovel",
+      "action": "dig",
+      "owner": null
+    },
+    {
+      "name": "ore",
+      "owner": null
+    }
+  ]
+}

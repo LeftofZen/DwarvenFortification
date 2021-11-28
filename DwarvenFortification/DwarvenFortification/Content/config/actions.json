@@ -1,0 +1,30 @@
+{
+  "actions": [
+    {
+      "name": "mine",
+      "requires":
+      {
+        "item": "pickaxe",
+        "tileProperty": "isMineable"
+      },
+      "outputs":
+      {
+        "item": "tile.minedOutput",
+        "owner": "action.owner"
+      }
+    },
+    {
+      "name": "dig",
+      "requires":
+      {
+        "item": "shovel",
+        "tileProperty": "isDiggable"
+      },
+      "outputs":
+      {
+        "item": "tile.dugOutput",
+        "owner": "action.owner"
+      }
+    }
+  ]
+}

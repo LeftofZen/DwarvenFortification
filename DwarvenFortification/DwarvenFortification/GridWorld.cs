@@ -35,19 +35,16 @@ namespace DwarvenFortification
 			//agents.Add(new Agent("Agent4", 230, 100, this));
 
 			debugGui = new DebugGui();
-			debugGui.Bounds = new Rectangle(width * cellSize, 0, 600, 800);
+			int debugWidth = 600;
+			debugGui.Bounds = new Rectangle(GameServices.GameWidth - debugWidth, 0, debugWidth, GameServices.GameHeight);
 
 			world = new GridCell[height, width];
 			navGrid = new StaticGrid(width, height);
-
-			//var rnd = new Random();
 
 			for (var y = 0; y < Height; ++y)
 			{
 				for (var x = 0; x < Width; ++x)
 				{
-					// random
-					//world[y, x] = new GridCell((CellType)rnd.Next(0, 5));
 
 					// island
 					if (x == 0 || y == 0 || x == Width - 1 || y == Height - 1)
@@ -149,7 +146,12 @@ namespace DwarvenFortification
 			bool debugGuiSetThisFrame = false;
 
 			mouseClickModeUI.Update(gameTime, ref selectedMouseClickMode);
-			cellTypeUI.Update(gameTime, ref selectedCellType);
+			
+			// if we clicked on a cell in the palette, we probably wanna paint, so just set the state to paint
+			if (cellTypeUI.Update(gameTime, ref selectedCellType))
+			{
+				selectedMouseClickMode = MouseClickMode.Paint;
+			}
 
 			if (currMouseState.LeftButton == ButtonState.Pressed)
 			{

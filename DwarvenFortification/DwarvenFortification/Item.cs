@@ -1,13 +1,27 @@
 ﻿namespace DwarvenFortification
 {
-	public class Item
+	public class ItemDefinition
+	{
+		public string Name { get; init; }
+		public string Action { get; init; }
+		public IGameEntity Owner { get; init; }
+		public int Value { get; init; }
+	}
+
+	public class ItemDefinitionJson
+	{
+		public ItemDefinition[] Items { get; set; }
+	}
+
+	public class Item : IGameEntity
 	{
 		public Item(string name)
 		{
 			Name = name;
 		}
 
-		public string Name;
+		public string Name { get; }
+
 		public override string ToString()
 			=> Name;
 	}

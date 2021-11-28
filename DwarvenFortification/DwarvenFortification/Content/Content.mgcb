@@ -22,6 +22,12 @@
 /processorParam:TextureFormat=Compressed
 /build:Calibri.spritefont
 
+#begin config/actions.json
+/copy:config/actions.json
+
+#begin config/items.json
+/copy:config/items.json
+
 #begin tiles/[A]Dirt_pipo.png
 /importer:TextureImporter
 /processor:TextureProcessor

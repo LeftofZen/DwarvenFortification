@@ -9,7 +9,7 @@ using DFCore.EnumerableExtensions;
 
 namespace DwarvenFortification
 {
-	public class Agent : ISelectableGameObject
+	public class Agent : ISelectableGameObject, IGameEntity
 	{
 		static Random r = new(1);
 
@@ -28,7 +28,6 @@ namespace DwarvenFortification
 		public Rectangle CellBounds => world.CellBoundsAt(X, Y);
 
 		internal GridWorld world;
-		public string Name { get; set; }
 
 		public List<GOAPAction> PossibleActions;
 
@@ -40,11 +39,14 @@ namespace DwarvenFortification
 
 		public int X { get; set; }
 		public int Y { get; set; }
+
 		public Point Position
 		{
 			get => new(X, Y);
 			set { X = value.X; Y = value.Y; }
 		}
+
+		public string Name { get; set; }
 
 		public float Speed
 		{

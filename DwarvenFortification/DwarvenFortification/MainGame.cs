@@ -4,7 +4,9 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using MonoGame.Extended;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text.Json;
 
 namespace DwarvenFortification
 {
@@ -13,6 +15,11 @@ namespace DwarvenFortification
 		public static readonly Dictionary<string, SpriteFont> Fonts = new();
 		public static readonly Dictionary<string, Texture2D> Textures = new();
 		public static readonly GameLogger Logger = new();
+		public static readonly Dictionary<string, IGameEntity> EntityDefinitions = new();
+
+		public static Game Game;
+		public static int GameWidth => Game.GraphicsDevice.Viewport.Width;
+		public static int GameHeight => Game.GraphicsDevice.Viewport.Height;
 	}
 
 	public class MainGame : Game
@@ -33,6 +40,7 @@ namespace DwarvenFortification
 			_graphics = new GraphicsDeviceManager(this);
 			Content.RootDirectory = "Content";
 			IsMouseVisible = true;
+			GameServices.Game = this;
 		}
 
 		protected override void Initialize()
@@ -55,6 +63,14 @@ namespace DwarvenFortification
 
 			GameServices.Fonts.Add("Calibri", Content.Load<SpriteFont>("Calibri"));
 			GameServices.Textures.Add("ui", Content.Load<Texture2D>("tiles/18x18_ui"));
+
+			//var path = Content.Load<ItemDefinition[]>("config/items");
+			var path = @"Content/config/items.json"; 
+			var options = new JsonSerializerOptions
+			{
+				PropertyNameCaseInsensitive = true
+			};
+			var entityDefs = JsonSerializer.Deserialize<ItemDefinitionJson>(File.ReadAllText(path), options);
 
 			_spriteBatch = new SpriteBatch(GraphicsDevice);
 		}

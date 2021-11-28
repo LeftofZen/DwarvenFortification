@@ -26,7 +26,13 @@ namespace DwarvenFortification
 
 		// IAgentTask
 		public virtual bool Update()
-			=> Progress++ >= Cost && success;
+		{
+			Progress++;
+
+			GameServices.Logger.Log(Logging.LogLevel.Debug, $"{this}");
+
+			return Progress >= Cost && success;
+		}
 
 		public abstract void Draw(SpriteBatch sb);
 
@@ -40,14 +46,15 @@ namespace DwarvenFortification
 				tileSize,
 				tileSize);
 
-			// progress to goal
-			var goalPercent = Cost == 0 ? 1f : Progress / (float)Cost;
-			const int thickness = 2;
-			sb.FillRectangle(owner.Left, owner.Top, owner.Width, owner.Height / 4, Color.Black); // border
-			sb.FillRectangle(owner.Left + thickness, owner.Top + thickness, (owner.Width - thickness * 2) * goalPercent, ((owner.Height / 4) - (thickness * 2)), Color.White); // inside
-
 			// task icon
 			sb.Draw(GameServices.Textures["ui"], owner.Position.ToVector2() + new Vector2(9, -22), srcRect, Color.White);
+
+			// progress bar to goal
+			var goalPercent = Cost == 0 ? 1f : Progress / (float)Cost;
+			const int borderThickness = 2;
+			int barHeight = owner.Height / 4;
+			sb.FillRectangle(owner.Left, owner.Top - barHeight, owner.Width, barHeight, Color.Black); // border
+			sb.FillRectangle(owner.Left + borderThickness, owner.Top - barHeight + borderThickness, (owner.Width - borderThickness * 2) * goalPercent, (barHeight - (borderThickness * 2)), Color.White); // inside
 		}
 	}
 }

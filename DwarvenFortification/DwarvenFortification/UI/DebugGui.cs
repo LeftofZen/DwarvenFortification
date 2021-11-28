@@ -19,14 +19,16 @@ namespace DwarvenFortification
 			set
 			{
 				bounds = value;
-				boundObjectDetailsBounds = new Rectangle(bounds.X, bounds.Y, bounds.Width, bounds.Height - 200);
-				loggingBounds = new Rectangle(bounds.X, bounds.Height - 200, bounds.Width, 200);
+				boundObjectDetailsBounds = new Rectangle(bounds.X, bounds.Y, bounds.Width, bounds.Height - logWindowHeight);
+				loggingBounds = new Rectangle(bounds.X, bounds.Height - logWindowHeight, bounds.Width, logWindowHeight);
 			}
 		}
 		Rectangle bounds;
 
 		Rectangle boundObjectDetailsBounds;
 		Rectangle loggingBounds;
+
+		const int logWindowHeight = 210;
 
 		public DebugGui()
 		{
@@ -38,16 +40,24 @@ namespace DwarvenFortification
 		{
 			var concreteType = obj.GetType();
 
-			yield return "=== Properties ===";
-			foreach (var prop in concreteType.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+			yield return $"=== ObjectType={concreteType} ===";
+
+			var properties = concreteType.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+			if (properties.Length != 0)
+				yield return "--- Properties ---";
+
+			foreach (var prop in properties)
 			{
-				yield return $"{prop.Name}({prop.PropertyType})={prop.GetValue(obj)}";
-				if (typeof(IEnumerable).IsAssignableFrom(prop.PropertyType))
+				//yield return $"{prop.Name}({prop.PropertyType})={prop.GetValue(obj)}";
+				yield return $" - {prop.Name}={prop.GetValue(obj)}";
+
+				if (typeof(IEnumerable).IsAssignableFrom(prop.PropertyType) && prop.PropertyType != typeof(string))
 				{
 					var tempList = new List<string>();
 					foreach (var item in (IEnumerable)prop.GetValue(obj, null))
 					{
-						tempList.Add($"  - {item}");
+						tempList.Add($"  * {item}");
 					}
 
 					//foreach (var line in tempList
@@ -69,19 +79,24 @@ namespace DwarvenFortification
 				}
 			}
 
-			yield return "=== Fields ===";
-			foreach (var fld in concreteType.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
-			{
-				yield return $"{fld.Name}({fld.FieldType})={fld.GetValue(obj)}";
+			var fields = concreteType.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
-				if (typeof(IEnumerable).IsAssignableFrom(fld.FieldType))
+			if (fields.Length != 0)
+				yield return "--- Fields ---";
+
+			foreach (var fld in fields)
+			{
+				//yield return $"{fld.Name}({fld.FieldType})={fld.GetValue(obj)}";
+				yield return $" - {fld.Name}={fld.GetValue(obj)}";
+
+				if (typeof(IEnumerable).IsAssignableFrom(fld.FieldType) && fld.FieldType != typeof(string))
 				{
 					var tempList = new List<string>();
 					var objFields = (IEnumerable)fld.GetValue(obj);
 
 					foreach (var item in objFields ?? Enumerable.Empty<object>())
 					{
-						tempList.Add($"  - {item}");
+						tempList.Add($"  * {item}");
 						var x = ReflectObject(item);
 						foreach (var xx in x)
 						{
@@ -146,7 +161,6 @@ namespace DwarvenFortification
 				sb.DrawString(GameServices.Fonts["Calibri"], log.ToString(), new Vector2(loggingBounds.X + 5, loggingBounds.Y + 5 + yOffset), Color.Black);
 				yOffset += 20;
 			}
-
 
 			// borders
 			sb.DrawRectangle(Bounds, Color.Black, 3);
