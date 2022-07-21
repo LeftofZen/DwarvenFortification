@@ -65,7 +65,7 @@ namespace DwarvenFortification
 			GameServices.Textures.Add("ui", Content.Load<Texture2D>("tiles/18x18_ui"));
 
 			//var path = Content.Load<ItemDefinition[]>("config/items");
-			var path = @"Content/config/items.json"; 
+			var path = @"Content/config/items.json";
 			var options = new JsonSerializerOptions
 			{
 				PropertyNameCaseInsensitive = true

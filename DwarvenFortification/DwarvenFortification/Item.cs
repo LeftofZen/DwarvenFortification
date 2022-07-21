@@ -10,7 +10,7 @@
 
 	public class ItemDefinitionJson
 	{
-		public ItemDefinition[] Items { get; set; }
+		public ItemDefinition[] Items { get; init; }
 	}
 
 	public class Item : IGameEntity
