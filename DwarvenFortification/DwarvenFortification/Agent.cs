@@ -21,7 +21,8 @@ namespace DwarvenFortification
 			this.world = world;
 			taskQueue = new Queue<IAgentTask>();
 			Inventory = new List<Item>();
-			Speed = ((float)r.NextDouble() * 1) + 2f;
+			Speed = ((float)r.NextDouble() * 2) + 2f;
+			Strength = (float)r.NextDouble() / 2f + 0.5f;
 		}
 
 		public GridCell CurrentCell => world.CellAtXY(X, Y);
@@ -30,6 +31,9 @@ namespace DwarvenFortification
 		internal GridWorld world;
 
 		public List<GOAPAction> PossibleActions;
+
+		//[Range(0f, 1f)]
+		public float Strength = 0.5f;
 
 		public int Width => 32;
 		public int Height => 32;

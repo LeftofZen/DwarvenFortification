@@ -13,12 +13,31 @@ namespace DwarvenFortification
 
 		public void Draw(SpriteBatch sb, Point2 xy, int cellSize)
 		{
-			sb.FillRectangle(xy.X * cellSize, xy.Y * cellSize, cellSize, cellSize, CellLookup[CellType]);
+			var cellColour = CellLookup[CellType];
+			if ((CellType == CellType.Ore || CellType == CellType.Stone) && ItemsInCell.Count <= 0)
+			{
+				var hslCell = cellColour.ToHsl();
+				var desatCell = new HslColor(hslCell.H, hslCell.S / 2, hslCell.L);
+				cellColour = desatCell.ToRgb();
+			}
+			else
+			{
+				// desaturate cells with lower durability
+				var hslCell = cellColour.ToHsl();
+				var desatCell = new HslColor(hslCell.H, hslCell.S * ((Durability / (float)InitialDurability)), hslCell.L);
+				cellColour = desatCell.ToRgb();
+			}
+
+			sb.FillRectangle(xy.X * cellSize, xy.Y * cellSize, cellSize, cellSize, cellColour);
 			if (ItemsInCell.Count > 0)
 			{
 				sb.DrawString(GameServices.Fonts["Calibri"], ItemsInCell.Count.ToString(), new Vector2(xy.X * cellSize, xy.Y * cellSize), Color.Black);
 			}
 		}
+
+		// 0 -> 100
+		public int Durability { get; set; } = InitialDurability;
+		public const int InitialDurability = 10000;
 
 		public override string ToString()
 			=> $"{CellType}";

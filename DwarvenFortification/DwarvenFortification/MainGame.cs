@@ -20,6 +20,8 @@ namespace DwarvenFortification
 		public static Game Game;
 		public static int GameWidth => Game.GraphicsDevice.Viewport.Width;
 		public static int GameHeight => Game.GraphicsDevice.Viewport.Height;
+
+		public static GridWorld GridWorld;
 	}
 
 	public class MainGame : Game
@@ -52,6 +54,7 @@ namespace DwarvenFortification
 			//var viewportadapter = new BoxingViewportAdapter(Window, GraphicsDevice, 800, 600);
 			//_camera = new OrthographicCamera(viewportadapter);
 			world = new GridWorld(24, 16);
+			GameServices.GridWorld = world;
 
 			base.Initialize();
 		}

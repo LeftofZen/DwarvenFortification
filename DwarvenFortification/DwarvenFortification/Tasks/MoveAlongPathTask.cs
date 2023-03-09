@@ -2,7 +2,6 @@
 using Microsoft.Xna.Framework.Graphics;
 using MonoGame.Extended;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -10,13 +9,12 @@ namespace DwarvenFortification
 {
 	public class MoveAlongPathTask : BaseAgentTask
 	{
-
 		public MoveAlongPathTask(Agent owner, IEnumerable<Point> path) : base(owner)
 		{
 			this.Path = new Queue<Point>(path);
 			var distances = Path.Zip(Path.Skip(1), Distance);
 			Cost = (int)distances.Sum();
-			
+
 			totalDistanceAlongPath = 0f;
 		}
 
@@ -73,9 +71,21 @@ namespace DwarvenFortification
 					{
 						owner.Position = newPos;
 						Progress = (int)totalDistanceAlongPath; // / totalPathDistance;
+
+					}
+
+					// degrade land when it's walked on
+					var cell = GameServices.GridWorld.CellAtXY(owner.Position);
+					if (cell.CellType == CellType.Grass)
+					{
+						cell.Durability--;
+						if (cell.Durability == 0)
+						{
+							cell.CellType = CellType.Dirt;
+							cell.Durability = GridCell.InitialDurability;
+						}
 					}
 				}
-
 			}
 
 			return base.Update();

@@ -5,9 +5,9 @@ namespace DwarvenFortification
 {
 	public class PickUpTask : BaseAgentTask
 	{
-		const int _cost = 200;
+		const int _cost = 100;
 
-		public PickUpTask(Agent owner, Item item) : base(owner, _cost)
+		public PickUpTask(Agent owner, Item item) : base(owner, (int)(_cost * (1 - owner.Strength)))
 		{
 			this.item = item;
 		}
@@ -23,8 +23,12 @@ namespace DwarvenFortification
 				{
 					owner.Inventory.Add(foundItem);
 					_ = owner.CurrentCell.ItemsInCell.Remove(foundItem);
-					success = true;
 				}
+				success = true;
+				//else
+				//{
+				//	success = false;
+				//}
 			}
 
 			return base.Update();

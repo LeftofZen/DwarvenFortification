@@ -6,9 +6,9 @@ namespace DwarvenFortification
 {
 	public class PutDownTask : BaseAgentTask
 	{
-		const int _cost = 200;
+		const int _cost = 100;
 
-		public PutDownTask(Agent owner, Item item) : base(owner, _cost)
+		public PutDownTask(Agent owner, Item item) : base(owner, (int)(_cost * (1 - owner.Strength)))
 		{
 			this.items.Clear();
 			this.items.Add(item);

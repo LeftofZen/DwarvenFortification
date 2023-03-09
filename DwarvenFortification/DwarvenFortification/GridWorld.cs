@@ -29,10 +29,10 @@ namespace DwarvenFortification
 		{
 			agents = new List<Agent>();
 
-			agents.Add(new Agent("Agent1", 100, 100, this));
-			//agents.Add(new Agent("Agent2", 150, 100, this));
-			//agents.Add(new Agent("Agent3", 190, 100, this));
-			//agents.Add(new Agent("Agent4", 230, 100, this));
+			for (var i = 0; i < 100; ++i)
+			{
+				agents.Add(new Agent($"Agent{i}", 100 + i, 100 + i, this));
+			}
 
 			debugGui = new DebugGui();
 			int debugWidth = 600;
@@ -83,6 +83,16 @@ namespace DwarvenFortification
 		public GridCell CellAtXY(int x, int y)
 		{
 			var cell = CoordsAtXY(x, y);
+			if (cell.X >= 0 && cell.X < Width && cell.Y >= 0 && cell.Y < Height)
+			{
+				return world[cell.Y, cell.X];
+			}
+			return null;
+		}
+
+		public GridCell CellAtXY(Point location)
+		{
+			var cell = CoordsAtXY(location.X, location.Y);
 			if (cell.X >= 0 && cell.X < Width && cell.Y >= 0 && cell.Y < Height)
 			{
 				return world[cell.Y, cell.X];
@@ -146,7 +156,7 @@ namespace DwarvenFortification
 			bool debugGuiSetThisFrame = false;
 
 			mouseClickModeUI.Update(gameTime, ref selectedMouseClickMode);
-			
+
 			// if we clicked on a cell in the palette, we probably wanna paint, so just set the state to paint
 			if (cellTypeUI.Update(gameTime, ref selectedCellType))
 			{
