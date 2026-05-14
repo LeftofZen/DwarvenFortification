@@ -1,37 +1,46 @@
-﻿using Microsoft.Xna.Framework;
+﻿using Arch.Core;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System.Linq;
 
 namespace DwarvenFortification
 {
 	public class PickUpTask : BaseAgentTask
 	{
 		const int _cost = 100;
+		const string _actionId = "pick-up";
 
-		public PickUpTask(Agent owner, Item item) : base(owner, (int)(_cost * (1 - owner.Strength)))
+		public PickUpTask(ITaskRuntimeContext runtimeContext, Entity owner, Entity item) : base(runtimeContext, owner, _actionId, (int)(_cost * (1 - owner.GetStrength())))
 		{
 			this.item = item;
 		}
 
-		Item item;
+		Entity item;
 
-		public override bool Update()
+		protected override bool CanStart()
+			=> owner.GetInventory().Count < owner.GetInventoryCapacity();
+
+		protected override string BuildCannotStartReason()
+			=> "Cannot pick up item because the inventory is full.";
+
+		protected override AgentTaskStatus OnTick()
 		{
-			if (!success)
+			var currentCell = owner.GetCurrentCell(runtimeContext.World);
+			if (currentCell == null)
 			{
-				var foundItem = owner.CurrentCell.ItemsInCell.Find(i => i.Name == item.Name);
-				if (foundItem != null)
-				{
-					owner.Inventory.Add(foundItem);
-					_ = owner.CurrentCell.ItemsInCell.Remove(foundItem);
-				}
-				success = true;
-				//else
-				//{
-				//	success = false;
-				//}
+				return FailTask("Cannot pick up item because the owner is not inside a valid cell.");
 			}
 
-			return base.Update();
+			var foundItem = currentCell.ItemsInCell.FirstOrDefault(i => i.Equals(item) || i.GetItemDefinitionId() == item.GetItemDefinitionId());
+			if (foundItem.Equals(default(Entity)))
+			{
+				return FailTask($"Could not find item '{item.GetItemDefinitionId()}' in the current cell.");
+			}
+
+			owner.AddInventoryItem(foundItem);
+			_ = currentCell.ItemsInCell.Remove(foundItem);
+			AdvanceProgress(Cost);
+			return CompleteTask();
 		}
 
 		public override void Draw(SpriteBatch sb)

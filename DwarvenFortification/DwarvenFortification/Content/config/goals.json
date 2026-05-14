@@ -1,0 +1,91 @@
+{
+  "goals": [
+    {
+      "id": "recover-and-store",
+      "name": "Recover And Store",
+      "priority": 100,
+      "desiredFacts": ["rest.ok"],
+      "forbiddenFacts": ["inventory.has-resource-items"],
+      "requiredFacts": ["rest.low", "inventory.has-resource-items"],
+      "blockedByFacts": []
+    },
+    {
+      "id": "recover-rest",
+      "name": "Recover Rest",
+      "priority": 90,
+      "desiredFacts": ["rest.ok"],
+      "forbiddenFacts": [],
+      "requiredFacts": ["rest.low"],
+      "blockedByFacts": []
+    },
+    {
+      "id": "satisfy-thirst",
+      "name": "Satisfy Thirst",
+      "priority": 95,
+      "desiredFacts": ["thirst.ok"],
+      "forbiddenFacts": [],
+      "requiredFacts": ["thirst.low"],
+      "blockedByFacts": []
+    },
+    {
+      "id": "satisfy-hunger",
+      "name": "Satisfy Hunger",
+      "priority": 92,
+      "desiredFacts": ["hunger.ok"],
+      "forbiddenFacts": [],
+      "requiredFacts": ["hunger.low"],
+      "blockedByFacts": []
+    },
+    {
+      "id": "hide-from-enemy",
+      "name": "Hide From Enemy",
+      "priority": 88,
+      "desiredFacts": ["self.hidden"],
+      "forbiddenFacts": [],
+      "requiredFacts": ["enemy.visible"],
+      "blockedByFacts": []
+    },
+    {
+      "id": "suppress-enemy",
+      "name": "Suppress Enemy",
+      "priority": 84,
+      "desiredFacts": ["enemy.suppressed"],
+      "forbiddenFacts": [],
+      "requiredFacts": ["enemy.visible", "has.item.throwing-stone"],
+      "blockedByFacts": ["self.hidden"]
+    },
+    {
+      "id": "store-resources",
+      "name": "Store Resources",
+      "priority": 80,
+      "desiredFacts": [],
+      "forbiddenFacts": ["inventory.has-resource-items"],
+      "requiredFacts": ["inventory.has-resource-items"],
+      "blockedByFacts": []
+    },
+    {
+      "id": "patrol-area",
+      "name": "Patrol Area",
+      "priority": 15,
+      "desiredFacts": ["area.patrolled"],
+      "forbiddenFacts": [],
+      "requiredFacts": [],
+      "blockedByFacts": [
+        "rest.low",
+        "hunger.low",
+        "thirst.low",
+        "inventory.has-resource-items",
+        "enemy.visible"
+      ]
+    },
+    {
+      "id": "gather-resource",
+      "name": "Gather Resource",
+      "priority": 10,
+      "desiredFacts": ["inventory.has-resource-items"],
+      "forbiddenFacts": [],
+      "requiredFacts": [],
+      "blockedByFacts": []
+    }
+  ]
+}

@@ -1,52 +1,48 @@
-﻿using Microsoft.Xna.Framework;
+﻿using Arch.Core;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System;
 
 namespace DwarvenFortification
 {
 	public class MoveToTask : BaseAgentTask
 	{
-		const int _cost = 0;
+		const string _actionId = "move-to";
 
-		public MoveToTask(Agent owner, Point goal) : base(owner, _cost)
+		public MoveToTask(ITaskRuntimeContext runtimeContext, Entity owner, Point goal) : base(runtimeContext, owner, _actionId)
 		{
 			this.Goal = goal;
 		}
 
 		public Point Goal;
 
-		public override bool Update()
+		protected override AgentTaskStatus OnTick()
 		{
-			if (!success)
+			var direction = (Goal - owner.GetPosition()).ToVector2();
+			var distance = direction.Length();
+
+			if (distance <= float.Epsilon)
 			{
-				var direction = (Goal - owner.Position).ToVector2();
-				var distance = direction.Length();
-
-				if (Cost == 0)
-				{
-					Cost = (int)distance;
-				}
-
-				direction.Normalize();
-				if (distance < owner.Speed)
-				{
-					owner.Position = Goal;
-					success = true;
-					Progress = Cost;
-				}
-				else
-				{
-					var newPos = owner.Position + (direction * owner.Speed).ToPoint();
-
-					//if (owner.world.CellTypeAtXY(newPos.X, newPos.Y) != CellType.Water)
-					{
-						owner.Position = newPos;
-						Progress = Cost - (int)(Goal - owner.Position).ToVector2().Length();
-					}
-				}
-
+				owner.SetPosition(Goal);
+				return CompleteTask();
 			}
 
-			return base.Update();
+			if (Cost == 0)
+			{
+				Cost = (int)distance;
+			}
+
+			direction.Normalize();
+			if (distance < owner.GetSpeed())
+			{
+				owner.SetPosition(Goal);
+				return CompleteTask();
+			}
+
+			var newPos = owner.GetPosition() + (direction * owner.GetSpeed()).ToPoint();
+			owner.SetPosition(newPos);
+			Progress = Math.Clamp(Cost - (int)(Goal - owner.GetPosition()).ToVector2().Length(), 0, Cost);
+			return AgentTaskStatus.Running;
 		}
 
 		public override void Draw(SpriteBatch sb)

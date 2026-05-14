@@ -1,40 +1,103 @@
-﻿using Microsoft.Xna.Framework;
+﻿using Arch.Core;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using MonoGame.Extended;
+using System;
 
 namespace DwarvenFortification
 {
 	public abstract class BaseAgentTask : IAgentTask
 	{
-		public BaseAgentTask(Agent owner, int cost = 0)
+		public BaseAgentTask(ITaskRuntimeContext runtimeContext, Entity owner, string actionId, int cost = 0)
 		{
+			this.runtimeContext = runtimeContext;
 			this.owner = owner;
+			ActionId = actionId;
 			this.Cost = cost;
 			this.Progress = 0;
 
-			GameServices.Logger.Log(Logging.LogLevel.Debug, $"new task created: {this.ToString()}");
+			runtimeContext.Logger.Log(Logging.LogLevel.Debug, $"new task created: {this.ToString()}");
 		}
 
+		protected readonly ITaskRuntimeContext runtimeContext;
 		protected int Progress;
 		protected int Cost;
-		protected bool success = false;
 
-		protected Agent owner;
+		protected Entity owner;
+
+		public string Name => GetType().Name;
+		public string ActionId { get; }
+		public AgentTaskStatus Status { get; protected set; } = AgentTaskStatus.Pending;
+		public string FailureReason { get; protected set; } = string.Empty;
 
 		public override string ToString()
-			=> $"Task={this.GetType().Name} Agent={owner.Name} Cost={Cost} Progress={Progress}";
+			=> $"Task={Name} Action={ActionId} Agent={owner.GetName()} Status={Status} Cost={Cost} Progress={Progress}";
 
-		// IAgentTask
-		public virtual bool Update()
+		public AgentTaskStatus Tick()
 		{
-			Progress++;
+			if (Status is AgentTaskStatus.Succeeded or AgentTaskStatus.Failed or AgentTaskStatus.Cancelled)
+			{
+				return Status;
+			}
 
-			GameServices.Logger.Log(Logging.LogLevel.Debug, $"{this}");
+			if (Status == AgentTaskStatus.Pending)
+			{
+				if (!CanStart())
+				{
+					Status = AgentTaskStatus.Failed;
+					FailureReason = BuildCannotStartReason();
+					runtimeContext.Logger.Log(Logging.LogLevel.Warning, $"task failed before start: {this}; reason={FailureReason}");
+					return Status;
+				}
 
-			return Progress >= Cost && success;
+				OnStarted();
+				Status = AgentTaskStatus.Running;
+			}
+
+			Status = OnTick();
+
+			runtimeContext.Logger.Log(Logging.LogLevel.Debug, $"{this}");
+
+			if (Status == AgentTaskStatus.Failed && string.IsNullOrWhiteSpace(FailureReason))
+			{
+				FailureReason = "Task failed without reporting a reason.";
+			}
+
+			return Status;
 		}
 
+		public virtual bool IsStillValid(ISimulationWorld world)
+			=> true;
+
 		public abstract void Draw(SpriteBatch sb);
+
+		protected virtual bool CanStart()
+			=> true;
+
+		protected virtual string BuildCannotStartReason()
+			=> $"Cannot start task {Name}.";
+
+		protected virtual void OnStarted()
+		{
+		}
+
+		protected abstract AgentTaskStatus OnTick();
+
+		protected void AdvanceProgress(int amount = 1)
+			=> Progress = Math.Clamp(Progress + amount, 0, Math.Max(0, Cost));
+
+		protected AgentTaskStatus CompleteTask()
+		{
+			Progress = Math.Max(Progress, Cost);
+			FailureReason = string.Empty;
+			return AgentTaskStatus.Succeeded;
+		}
+
+		protected AgentTaskStatus FailTask(string reason)
+		{
+			FailureReason = reason;
+			return AgentTaskStatus.Failed;
+		}
 
 		protected void Draw(SpriteBatch sb, Point tileIndex)
 		{
@@ -47,14 +110,14 @@ namespace DwarvenFortification
 				tileSize);
 
 			// task icon
-			sb.Draw(GameServices.Textures["ui"], owner.Position.ToVector2() + new Vector2(9, -22), srcRect, Color.White);
+			sb.Draw(runtimeContext.RenderAssets.UiTexture, owner.GetPosition().ToVector2() + new Vector2(9, -22), srcRect, Color.White);
 
 			// progress bar to goal
-			var goalPercent = Cost == 0 ? 1f : Progress / (float)Cost;
+			var goalPercent = Cost == 0 ? (Status == AgentTaskStatus.Succeeded ? 1f : 0f) : Progress / (float)Cost;
 			const int borderThickness = 2;
-			int barHeight = owner.Height / 4;
-			sb.FillRectangle(owner.Left, owner.Top - barHeight, owner.Width, barHeight, Color.Black); // border
-			sb.FillRectangle(owner.Left + borderThickness, owner.Top - barHeight + borderThickness, (owner.Width - borderThickness * 2) * goalPercent, (barHeight - (borderThickness * 2)), Color.White); // inside
+			int barHeight = owner.GetHeight() / 4;
+			sb.FillRectangle(owner.GetLeft(), owner.GetTop() - barHeight, owner.GetWidth(), barHeight, Color.Black); // border
+			sb.FillRectangle(owner.GetLeft() + borderThickness, owner.GetTop() - barHeight + borderThickness, (owner.GetWidth() - borderThickness * 2) * goalPercent, (barHeight - (borderThickness * 2)), Color.White); // inside
 		}
 	}
 }

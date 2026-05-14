@@ -1,0 +1,83 @@
+using Arch.Core;
+using Arch.Core.Extensions;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using System.Linq;
+
+namespace DwarvenFortification
+{
+	public class RetrieveRememberedItemTask : BaseAgentTask
+	{
+		readonly string itemDefinitionId;
+		readonly Point targetCell;
+
+		public RetrieveRememberedItemTask(ITaskRuntimeContext runtimeContext, Entity owner, string itemDefinitionId, Point targetCell) : base(runtimeContext, owner, "retrieve-known-item", 1)
+		{
+			this.itemDefinitionId = itemDefinitionId;
+			this.targetCell = targetCell;
+		}
+
+		public override bool IsStillValid(ISimulationWorld world)
+			=> owner.TryRecallItemLocation(itemDefinitionId, out var rememberedCell)
+				&& rememberedCell == targetCell
+				&& world.CellContainsItem(targetCell, itemDefinitionId);
+
+		protected override AgentTaskStatus OnTick()
+		{
+			var cell = runtimeContext.World.CellAtCoords(targetCell);
+			if (cell == null)
+			{
+				owner.ForgetItemLocation(itemDefinitionId);
+				return FailTask($"The remembered location for '{itemDefinitionId}' is invalid.");
+			}
+
+			var groundItem = cell.ItemsInCell.FirstOrDefault(item => string.Equals(item.GetItemDefinitionId(), itemDefinitionId, System.StringComparison.OrdinalIgnoreCase));
+			if (!groundItem.Equals(default(Entity)))
+			{
+				owner.AddInventoryItem(groundItem);
+				cell.ItemsInCell.Remove(groundItem);
+				if (runtimeContext.World.CellContainsItem(targetCell, itemDefinitionId))
+				{
+					owner.RememberItemLocation(itemDefinitionId, targetCell);
+				}
+				else
+				{
+					owner.ForgetItemLocation(itemDefinitionId);
+				}
+
+				AdvanceProgress(Cost);
+				return CompleteTask();
+			}
+
+			if (cell.TryGetWorldObject(out var worldObject) && worldObject.Has<InventoryComponent>())
+			{
+				ref var inventory = ref worldObject.Get<InventoryComponent>();
+				var storedItem = inventory.Items.FirstOrDefault(item => string.Equals(item.GetItemDefinitionId(), itemDefinitionId, System.StringComparison.OrdinalIgnoreCase));
+				if (!storedItem.Equals(default(Entity)))
+				{
+					inventory.Items.Remove(storedItem);
+					owner.AddInventoryItem(storedItem);
+					if (runtimeContext.World.CellContainsItem(targetCell, itemDefinitionId))
+					{
+						owner.RememberItemLocation(itemDefinitionId, targetCell);
+					}
+					else
+					{
+						owner.ForgetItemLocation(itemDefinitionId);
+					}
+
+					AdvanceProgress(Cost);
+					return CompleteTask();
+				}
+			}
+
+			owner.ForgetItemLocation(itemDefinitionId);
+			return FailTask($"The remembered location no longer contains '{itemDefinitionId}'.");
+		}
+
+		public override void Draw(SpriteBatch sb)
+		{
+			Draw(sb, new Point(5, 1));
+		}
+	}
+}

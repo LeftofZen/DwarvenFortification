@@ -1,29 +1,264 @@
 {
   "actions": [
     {
-      "name": "mine",
-      "requires":
-      {
-        "item": "pickaxe",
-        "tileProperty": "isMineable"
+      "id": "mine",
+      "name": "Mine Resource",
+      "baseCost": 4,
+      "durationTicks": 100,
+      "targetKind": "resourceNode",
+      "destinationMode": "adjacent",
+      "requires": {
+        "requiredItemIds": ["pickaxe"],
+        "requiredTargetTags": ["mineable"],
+        "requiredBodyParts": ["hands"],
+        "requiredSystems": ["musculoskeletal", "respiratory"],
+        "requiresFreeInventorySlot": true,
+        "requiresReservation": true
       },
-      "outputs":
-      {
-        "item": "tile.minedOutput",
-        "owner": "action.owner"
+      "outputs": [],
+      "effects": {
+        "addFacts": ["inventory.has-resource-items"],
+        "removeFacts": []
       }
     },
     {
-      "name": "dig",
-      "requires":
-      {
-        "item": "shovel",
-        "tileProperty": "isDiggable"
+      "id": "cut-tree",
+      "name": "Cut Tree",
+      "baseCost": 5,
+      "durationTicks": 120,
+      "targetKind": "resourceNode",
+      "destinationMode": "adjacent",
+      "requires": {
+        "requiredItemIds": ["axe"],
+        "requiredTargetTags": ["tree"],
+        "requiredBodyParts": ["hands"],
+        "requiredSystems": ["musculoskeletal", "respiratory"],
+        "requiresFreeInventorySlot": true,
+        "requiresReservation": true
       },
-      "outputs":
-      {
-        "item": "tile.dugOutput",
-        "owner": "action.owner"
+      "outputs": [],
+      "effects": {
+        "addFacts": ["inventory.has-resource-items"],
+        "removeFacts": []
+      }
+    },
+    {
+      "id": "store-items",
+      "name": "Store Items",
+      "baseCost": 2,
+      "durationTicks": 60,
+      "targetKind": "worldObject",
+      "destinationMode": "adjacent",
+      "requires": {
+        "requiredTargetTags": ["storage"],
+        "requiredBodyParts": ["hands"],
+        "requiresReservation": false
+      },
+      "outputs": [],
+      "effects": {
+        "addFacts": [],
+        "removeFacts": ["inventory.has-resource-items"]
+      }
+    },
+    {
+      "id": "sleep",
+      "name": "Sleep",
+      "baseCost": 3,
+      "durationTicks": 300,
+      "targetKind": "worldObject",
+      "destinationMode": "adjacent",
+      "requires": {
+        "requiredTargetTags": ["bed"],
+        "requiredBodyParts": ["legs", "feet"],
+        "requiredOrgans": ["brain", "lungs"],
+        "requiresReservation": true
+      },
+      "outputs": [],
+      "effects": {
+        "addFacts": ["rest.ok"],
+        "removeFacts": ["rest.low"]
+      }
+    },
+    {
+      "id": "eat",
+      "name": "Eat",
+      "baseCost": 3,
+      "durationTicks": 80,
+      "targetKind": "self",
+      "destinationMode": "current",
+      "requires": {
+        "requiredItemIds": ["ration"],
+        "requiredBodyParts": ["hands"],
+        "requiredOrgans": ["mouth", "stomach"],
+        "requiredSystems": ["digestion"],
+        "requiredFacts": ["hunger.low"]
+      },
+      "outputs": [],
+      "effects": {
+        "addFacts": ["hunger.ok"],
+        "removeFacts": ["hunger.low"]
+      }
+    },
+    {
+      "id": "drink",
+      "name": "Drink",
+      "baseCost": 2,
+      "durationTicks": 60,
+      "targetKind": "self",
+      "destinationMode": "current",
+      "requires": {
+        "requiredItemIds": ["water-skin"],
+        "requiredBodyParts": ["hands"],
+        "requiredOrgans": ["mouth", "stomach"],
+        "requiredSystems": ["digestion"],
+        "requiredFacts": ["thirst.low"]
+      },
+      "outputs": [],
+      "effects": {
+        "addFacts": ["thirst.ok"],
+        "removeFacts": ["thirst.low"]
+      }
+    },
+    {
+      "id": "scan-area",
+      "name": "Scan Area For Enemies",
+      "baseCost": 2,
+      "durationTicks": 40,
+      "targetKind": "self",
+      "destinationMode": "current",
+      "requires": {
+        "requiredOrgans": ["brain"],
+        "requiredSystems": ["nervous"],
+        "blockedByFacts": ["area.scanned"]
+      },
+      "outputs": [],
+      "effects": {
+        "addFacts": ["area.scanned"],
+        "removeFacts": []
+      }
+    },
+    {
+      "id": "hide",
+      "name": "Hide",
+      "baseCost": 4,
+      "durationTicks": 70,
+      "targetKind": "self",
+      "destinationMode": "current",
+      "requires": {
+        "requiredBodyParts": ["legs", "feet"],
+        "requiredOrgans": ["brain", "lungs"],
+        "requiredSystems": ["musculoskeletal"],
+        "requiredFacts": ["enemy.visible"],
+        "blockedByFacts": ["self.hidden"]
+      },
+      "outputs": [],
+      "effects": {
+        "addFacts": ["self.hidden"],
+        "removeFacts": []
+      }
+    },
+    {
+      "id": "patrol-area",
+      "name": "Patrol Area",
+      "baseCost": 6,
+      "durationTicks": 180,
+      "targetKind": "self",
+      "destinationMode": "current",
+      "requires": {
+        "requiredBodyParts": ["legs", "feet"],
+        "requiredOrgans": ["brain", "lungs"],
+        "requiredSystems": ["musculoskeletal", "respiratory"],
+        "blockedByFacts": ["area.patrolled"]
+      },
+      "outputs": [],
+      "effects": {
+        "addFacts": ["area.patrolled", "area.scanned"],
+        "removeFacts": []
+      }
+    },
+    {
+      "id": "throw-item",
+      "name": "Throw Item",
+      "baseCost": 5,
+      "durationTicks": 45,
+      "targetKind": "enemy",
+      "destinationMode": "current",
+      "requires": {
+        "requiredItemIds": ["throwing-stone"],
+        "requiredBodyParts": ["hands", "arms"],
+        "requiredOrgans": ["brain"],
+        "requiredSystems": ["musculoskeletal"],
+        "requiredFacts": ["enemy.visible"],
+        "blockedByFacts": ["self.hidden"]
+      },
+      "outputs": [],
+      "effects": {
+        "addFacts": ["enemy.suppressed"],
+        "removeFacts": []
+      }
+    },
+    {
+      "id": "search-for-item",
+      "name": "Search For Item",
+      "baseCost": 6,
+      "durationTicks": 90,
+      "targetKind": "self",
+      "destinationMode": "current",
+      "requires": {
+        "requiredFacts": ["memory.capable"]
+      },
+      "outputs": [],
+      "effects": {
+        "addFacts": [],
+        "removeFacts": []
+      }
+    },
+    {
+      "id": "retrieve-known-item",
+      "name": "Retrieve Known Item",
+      "baseCost": 3,
+      "durationTicks": 40,
+      "targetKind": "self",
+      "destinationMode": "current",
+      "requires": {
+        "requiredFacts": ["memory.capable"]
+      },
+      "outputs": [],
+      "effects": {
+        "addFacts": [],
+        "removeFacts": []
+      }
+    },
+    {
+      "id": "communicate",
+      "name": "Communicate",
+      "baseCost": 2,
+      "durationTicks": 30,
+      "targetKind": "ally",
+      "destinationMode": "adjacent",
+      "requires": {
+        "requiredFacts": ["memory.capable"]
+      },
+      "outputs": [],
+      "effects": {
+        "addFacts": [],
+        "removeFacts": []
+      }
+    },
+    {
+      "id": "read-cookbook",
+      "name": "Read Cookbook",
+      "baseCost": 2,
+      "durationTicks": 70,
+      "targetKind": "self",
+      "destinationMode": "current",
+      "requires": {
+        "requiredFacts": ["memory.capable"]
+      },
+      "outputs": [],
+      "effects": {
+        "addFacts": [],
+        "removeFacts": []
       }
     }
   ]

@@ -1,0 +1,147 @@
+{
+  "resourceNodes": [
+    {
+      "id": "tin-vein",
+      "name": "Tin Vein",
+      "displayColor": "#96A0AA",
+      "tags": ["mineable", "ore", "tin"],
+      "supportedActionIds": ["mine"],
+      "requiredToolItemIds": ["pickaxe"],
+      "yieldItemId": "tin-ore",
+      "yieldCount": 40,
+      "blocksMovement": false
+    },
+    {
+      "id": "copper-vein",
+      "name": "Copper Vein",
+      "displayColor": "#B5651D",
+      "tags": ["mineable", "ore", "copper"],
+      "supportedActionIds": ["mine"],
+      "requiredToolItemIds": ["pickaxe"],
+      "yieldItemId": "copper-ore",
+      "yieldCount": 36,
+      "blocksMovement": false
+    },
+    {
+      "id": "gold-vein",
+      "name": "Gold Vein",
+      "displayColor": "#D4AF37",
+      "tags": ["mineable", "ore", "gold"],
+      "supportedActionIds": ["mine"],
+      "requiredToolItemIds": ["pickaxe"],
+      "yieldItemId": "gold-ore",
+      "yieldCount": 18,
+      "blocksMovement": false
+    },
+    {
+      "id": "silver-vein",
+      "name": "Silver Vein",
+      "displayColor": "#C0C0C8",
+      "tags": ["mineable", "ore", "silver"],
+      "supportedActionIds": ["mine"],
+      "requiredToolItemIds": ["pickaxe"],
+      "yieldItemId": "silver-ore",
+      "yieldCount": 24,
+      "blocksMovement": false
+    },
+    {
+      "id": "iron-vein",
+      "name": "Iron Vein",
+      "displayColor": "#7A7F84",
+      "tags": ["mineable", "ore", "iron"],
+      "supportedActionIds": ["mine"],
+      "requiredToolItemIds": ["pickaxe"],
+      "yieldItemId": "iron-ore",
+      "yieldCount": 42,
+      "blocksMovement": false
+    },
+    {
+      "id": "coal-seam",
+      "name": "Coal Seam",
+      "displayColor": "#36454F",
+      "tags": ["mineable", "fuel", "coal"],
+      "supportedActionIds": ["mine"],
+      "requiredToolItemIds": ["pickaxe"],
+      "yieldItemId": "coal",
+      "yieldCount": 55,
+      "blocksMovement": false
+    },
+    {
+      "id": "stone-deposit",
+      "name": "Stone Deposit",
+      "displayColor": "#808080",
+      "tags": ["mineable", "stone"],
+      "supportedActionIds": ["mine"],
+      "requiredToolItemIds": ["pickaxe"],
+      "yieldItemId": "stone",
+      "yieldCount": 100,
+      "blocksMovement": false
+    },
+    {
+      "id": "oak-tree",
+      "name": "Oak Tree",
+      "displayColor": "#4C7C34",
+      "tags": ["tree", "wood", "oak"],
+      "supportedActionIds": ["cut-tree"],
+      "requiredToolItemIds": ["axe"],
+      "yieldItemId": "oak-log",
+      "yieldCount": 28,
+      "blocksMovement": true
+    },
+    {
+      "id": "birch-tree",
+      "name": "Birch Tree",
+      "displayColor": "#9BBA6F",
+      "tags": ["tree", "wood", "birch"],
+      "supportedActionIds": ["cut-tree"],
+      "requiredToolItemIds": ["axe"],
+      "yieldItemId": "birch-log",
+      "yieldCount": 24,
+      "blocksMovement": true
+    },
+    {
+      "id": "teak-tree",
+      "name": "Teak Tree",
+      "displayColor": "#5C6E36",
+      "tags": ["tree", "wood", "teak"],
+      "supportedActionIds": ["cut-tree"],
+      "requiredToolItemIds": ["axe"],
+      "yieldItemId": "teak-log",
+      "yieldCount": 30,
+      "blocksMovement": true
+    },
+    {
+      "id": "elm-tree",
+      "name": "Elm Tree",
+      "displayColor": "#41693C",
+      "tags": ["tree", "wood", "elm"],
+      "supportedActionIds": ["cut-tree"],
+      "requiredToolItemIds": ["axe"],
+      "yieldItemId": "elm-log",
+      "yieldCount": 26,
+      "blocksMovement": true
+    },
+    {
+      "id": "willow-tree",
+      "name": "Willow Tree",
+      "displayColor": "#6C8F5F",
+      "tags": ["tree", "wood", "willow"],
+      "supportedActionIds": ["cut-tree"],
+      "requiredToolItemIds": ["axe"],
+      "yieldItemId": "willow-log",
+      "yieldCount": 22,
+      "blocksMovement": true
+    },
+    {
+      "id": "maple-tree",
+      "name": "Maple Tree",
+      "displayColor": "#B55D3A",
+      "tags": ["tree", "wood", "maple"],
+      "supportedActionIds": ["cut-tree"],
+      "requiredToolItemIds": ["axe"],
+      "yieldItemId": "maple-log",
+      "yieldCount": 27,
+      "blocksMovement": true
+    }
+  ]
+}

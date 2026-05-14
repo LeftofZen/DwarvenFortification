@@ -1,0 +1,64 @@
+{
+  "objects": [
+    {
+      "id": "storage",
+      "name": "Storage",
+      "displayColor": "#800080",
+      "tags": ["storage", "container"],
+      "acceptedItemTags": ["resource", "ore", "wood", "tool"],
+      "blocksMovement": false,
+      "isReservable": false,
+      "capacity": 999
+    },
+    {
+      "id": "bed",
+      "name": "Bed",
+      "displayColor": "#BD9772",
+      "tags": ["bed", "sleep"],
+      "acceptedItemTags": [],
+      "blocksMovement": true,
+      "isReservable": true,
+      "capacity": 1
+    },
+    {
+      "id": "tool-rack",
+      "name": "Tool Rack",
+      "displayColor": "#6E482D",
+      "tags": ["storage", "container", "tools"],
+      "acceptedItemTags": ["tool"],
+      "blocksMovement": false,
+      "isReservable": false,
+      "capacity": 24
+    },
+    {
+      "id": "shelf",
+      "name": "Shelf",
+      "displayColor": "#A67B5B",
+      "tags": ["storage", "container", "shelving"],
+      "acceptedItemTags": ["resource", "wood", "ore", "masonry", "fuel"],
+      "blocksMovement": false,
+      "isReservable": false,
+      "capacity": 48
+    },
+    {
+      "id": "ore-bin",
+      "name": "Ore Bin",
+      "displayColor": "#705234",
+      "tags": ["storage", "container", "ore"],
+      "acceptedItemTags": ["ore", "metal", "coal", "fuel"],
+      "blocksMovement": false,
+      "isReservable": false,
+      "capacity": 80
+    },
+    {
+      "id": "wood-rack",
+      "name": "Wood Rack",
+      "displayColor": "#8B6544",
+      "tags": ["storage", "container", "wood"],
+      "acceptedItemTags": ["wood"],
+      "blocksMovement": false,
+      "isReservable": false,
+      "capacity": 64
+    }
+  ]
+}

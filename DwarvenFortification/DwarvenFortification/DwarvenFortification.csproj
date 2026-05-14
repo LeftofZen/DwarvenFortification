@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net7.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <PublishReadyToRun>false</PublishReadyToRun>
     <TieredCompilation>false</TieredCompilation>
   </PropertyGroup>
@@ -23,16 +23,18 @@
     <MonoGameContentReference Include="Content\Content.mgcb" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="C5" Version="2.5.3" />
-    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.0.1641" />
-    <PackageReference Include="MonoGame.Content.Builder.Task" Version="3.8.0.1641" />
-    <PackageReference Include="MonoGame.Extended" Version="3.8.0" />
-    <PackageReference Include="MonoGame.Extended.Graphics" Version="3.8.0" />
-    <PackageReference Include="MonoGame.Extended.Gui" Version="3.8.0" />
-    <PackageReference Include="MonoGame.Extended.Input" Version="3.8.0" />
-    <PackageReference Include="MonoGame.Extended.Particles" Version="3.8.0" />
-    <PackageReference Include="MonoGame.Extended.Tiled" Version="3.8.0" />
-    <PackageReference Include="MonoGame.Extended.Content.Pipeline" Version="3.8.0" />
+    <PackageReference Include="Arch" Version="2.1.0" />
+    <PackageReference Include="C5" Version="3.0.0" />
+    <PackageReference Include="ImGui.NET" Version="1.89.7.1" />
+    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.4.1" />
+    <PackageReference Include="MonoGame.Content.Builder.Task" Version="3.8.4.1" />
+    <PackageReference Include="MonoGame.Extended" Version="6.0.0" />
+    <PackageReference Include="MonoGame.Extended.Graphics" Version="3.9.0-prerelease.7" />
+    <PackageReference Include="MonoGame.Extended.Input" Version="3.9.0-prerelease.7" />
+    <PackageReference Include="MonoGame.Extended.Particles" Version="3.9.0-prerelease.7" />
+    <PackageReference Include="MonoGame.Extended.Tiled" Version="3.9.0-prerelease.7" />
+    <PackageReference Include="MonoGame.Extended.Content.Pipeline" Version="6.0.0" />
+    <PackageReference Include="Monogame.Imgui.Renderer" Version="1.0.5" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\DFCore\DFCore.csproj" />

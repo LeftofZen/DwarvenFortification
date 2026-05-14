@@ -1,18 +1,156 @@
 {
   "items": [
     {
-      "name": "pickaxe",
-      "action": "mine",
-      "owner": null
+      "id": "pickaxe",
+      "name": "Pickaxe",
+      "tags": ["tool", "mining"],
+      "isTool": true,
+      "stackable": false,
+      "weightKg": 3.2
     },
     {
-      "name": "shovel",
-      "action": "dig",
-      "owner": null
+      "id": "axe",
+      "name": "Axe",
+      "tags": ["tool", "woodcutting"],
+      "isTool": true,
+      "stackable": false,
+      "weightKg": 2.8
     },
     {
-      "name": "ore",
-      "owner": null
+      "id": "ration",
+      "name": "Ration",
+      "tags": ["food", "consumable"],
+      "isTool": false,
+      "stackable": true,
+      "weightKg": 0.4,
+      "nutritionValue": 40.0,
+      "hydrationValue": 0.0,
+      "throwRange": 4.0
+    },
+    {
+      "id": "water-skin",
+      "name": "Water Skin",
+      "tags": ["drink", "consumable", "container"],
+      "isTool": false,
+      "stackable": false,
+      "weightKg": 0.8,
+      "nutritionValue": 0.0,
+      "hydrationValue": 55.0,
+      "throwRange": 4.5
+    },
+    {
+      "id": "throwing-stone",
+      "name": "Throwing Stone",
+      "tags": ["weapon", "throwable", "stone"],
+      "isTool": false,
+      "stackable": true,
+      "weightKg": 0.3,
+      "nutritionValue": 0.0,
+      "hydrationValue": 0.0,
+      "throwRange": 8.0
+    },
+    {
+      "id": "cookbook",
+      "name": "Cookbook",
+      "tags": ["book", "knowledge", "cookbook"],
+      "learnedFacts": ["recipe.ration-broth"],
+      "isTool": false,
+      "stackable": false,
+      "weightKg": 1.1,
+      "nutritionValue": 0.0,
+      "hydrationValue": 0.0,
+      "throwRange": 3.0
+    },
+    {
+      "id": "tin-ore",
+      "name": "Tin Ore",
+      "tags": ["resource", "ore", "metal", "tin"],
+      "stackable": true,
+      "weightKg": 1.1
+    },
+    {
+      "id": "copper-ore",
+      "name": "Copper Ore",
+      "tags": ["resource", "ore", "metal", "copper"],
+      "stackable": true,
+      "weightKg": 1.2
+    },
+    {
+      "id": "gold-ore",
+      "name": "Gold Ore",
+      "tags": ["resource", "ore", "metal", "gold"],
+      "stackable": true,
+      "weightKg": 1.5
+    },
+    {
+      "id": "silver-ore",
+      "name": "Silver Ore",
+      "tags": ["resource", "ore", "metal", "silver"],
+      "stackable": true,
+      "weightKg": 1.3
+    },
+    {
+      "id": "iron-ore",
+      "name": "Iron Ore",
+      "tags": ["resource", "ore", "metal", "iron"],
+      "stackable": true,
+      "weightKg": 1.4
+    },
+    {
+      "id": "coal",
+      "name": "Coal",
+      "tags": ["resource", "fuel", "coal"],
+      "stackable": true,
+      "weightKg": 0.9
+    },
+    {
+      "id": "stone",
+      "name": "Stone",
+      "tags": ["resource", "masonry"],
+      "stackable": true,
+      "weightKg": 1.5
+    },
+    {
+      "id": "oak-log",
+      "name": "Oak Log",
+      "tags": ["resource", "wood", "oak"],
+      "stackable": true,
+      "weightKg": 2.6
+    },
+    {
+      "id": "birch-log",
+      "name": "Birch Log",
+      "tags": ["resource", "wood", "birch"],
+      "stackable": true,
+      "weightKg": 2.2
+    },
+    {
+      "id": "teak-log",
+      "name": "Teak Log",
+      "tags": ["resource", "wood", "teak"],
+      "stackable": true,
+      "weightKg": 2.9
+    },
+    {
+      "id": "elm-log",
+      "name": "Elm Log",
+      "tags": ["resource", "wood", "elm"],
+      "stackable": true,
+      "weightKg": 2.5
+    },
+    {
+      "id": "willow-log",
+      "name": "Willow Log",
+      "tags": ["resource", "wood", "willow"],
+      "stackable": true,
+      "weightKg": 2.0
+    },
+    {
+      "id": "maple-log",
+      "name": "Maple Log",
+      "tags": ["resource", "wood", "maple"],
+      "stackable": true,
+      "weightKg": 2.7
     }
   ]
 }

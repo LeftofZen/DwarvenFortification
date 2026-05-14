@@ -14,11 +14,13 @@ namespace DwarvenFortification.Logging
 
 	public class GameLogger : ILogger
 	{
+		public IReadOnlyList<LogLine> Logs => logs;
+
 		public void Log(LogLevel level, string message)
 		{
-			Logs.Add(new LogLine(level, message, DateTime.Now));
+			logs.Add(new LogLine(level, message, DateTime.Now));
 		}
 
-		public List<LogLine> Logs { get; } = new();
+		readonly List<LogLine> logs = new();
 	}
 }

@@ -2,11 +2,8 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
-using MonoGame.Extended;
+using Monogame.Imgui.Renderer;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text.Json;
 
 namespace DwarvenFortification
 {
@@ -15,7 +12,8 @@ namespace DwarvenFortification
 		public static readonly Dictionary<string, SpriteFont> Fonts = new();
 		public static readonly Dictionary<string, Texture2D> Textures = new();
 		public static readonly GameLogger Logger = new();
-		public static readonly Dictionary<string, IGameEntity> EntityDefinitions = new();
+
+		public static SimulationDefinitionRegistry Definitions { get; set; }
 
 		public static Game Game;
 		public static int GameWidth => Game.GraphicsDevice.Viewport.Width;
@@ -28,6 +26,9 @@ namespace DwarvenFortification
 	{
 		private GraphicsDeviceManager _graphics;
 		private SpriteBatch _spriteBatch;
+		private ImGuiRenderer _imGuiRenderer;
+		private SimulationRuntime simulationRuntime;
+		private ImGuiSimulationUi simulationUi;
 		//private TiledMap _tiledMap;
 		//private TiledMapRenderer _tiledMapRenderer;
 		//private OrthographicCamera _camera;
@@ -53,10 +54,11 @@ namespace DwarvenFortification
 
 			//var viewportadapter = new BoxingViewportAdapter(Window, GraphicsDevice, 800, 600);
 			//_camera = new OrthographicCamera(viewportadapter);
-			world = new GridWorld(24, 16);
-			GameServices.GridWorld = world;
 
 			base.Initialize();
+
+			_imGuiRenderer = new ImGuiRenderer(this);
+			_imGuiRenderer.RebuildFontAtlas();
 		}
 
 		protected override void LoadContent()
@@ -67,13 +69,20 @@ namespace DwarvenFortification
 			GameServices.Fonts.Add("Calibri", Content.Load<SpriteFont>("Calibri"));
 			GameServices.Textures.Add("ui", Content.Load<Texture2D>("tiles/18x18_ui"));
 
-			//var path = Content.Load<ItemDefinition[]>("config/items");
-			var path = @"Content/config/items.json";
-			var options = new JsonSerializerOptions
-			{
-				PropertyNameCaseInsensitive = true
-			};
-			var entityDefs = JsonSerializer.Deserialize<ItemDefinitionJson>(File.ReadAllText(path), options);
+			var definitions = SimulationDefinitionRegistry.LoadFromContentDirectory(@"Content/config");
+			GameServices.Definitions = definitions;
+			simulationUi = new ImGuiSimulationUi(definitions, GameServices.Logger);
+
+			var renderAssets = new SimulationRenderAssets(
+				GameServices.Fonts["Calibri"],
+				GameServices.Textures["ui"]);
+			simulationRuntime = SimulationCompositionRoot.Create(
+				definitions,
+				renderAssets,
+				GameServices.Logger,
+				simulationUi);
+			world = simulationRuntime.World;
+			GameServices.GridWorld = world;
 
 			_spriteBatch = new SpriteBatch(GraphicsDevice);
 		}
@@ -142,6 +151,10 @@ namespace DwarvenFortification
 			//_tiledMapRenderer.Draw(_camera.GetViewMatrix());
 
 			_spriteBatch.End();
+
+			_imGuiRenderer.BeforeLayout(this, gameTime);
+			simulationUi.Render();
+			_imGuiRenderer.AfterLayout();
 
 			base.Draw(gameTime);
 		}

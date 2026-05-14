@@ -1,4 +1,5 @@
-﻿using Microsoft.Xna.Framework;
+﻿using Arch.Core;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using MonoGame.Extended;
 using System;
@@ -9,7 +10,9 @@ namespace DwarvenFortification
 {
 	public class MoveAlongPathTask : BaseAgentTask
 	{
-		public MoveAlongPathTask(Agent owner, IEnumerable<Point> path) : base(owner)
+		const string _actionId = "move-path";
+
+		public MoveAlongPathTask(ITaskRuntimeContext runtimeContext, Entity owner, IEnumerable<Point> path) : base(runtimeContext, owner, _actionId)
 		{
 			this.Path = new Queue<Point>(path);
 			var distances = Path.Zip(Path.Skip(1), Distance);
@@ -30,65 +33,61 @@ namespace DwarvenFortification
 		//float totalPathDistance;
 		float totalDistanceAlongPath;
 
-		public override bool Update()
+		public Point Destination => Path.Count > 0 ? Path.Last() : currentGoal;
+
+		protected override bool CanStart()
+			=> Path.Count > 0;
+
+		protected override string BuildCannotStartReason()
+			=> "MoveAlongPathTask requires a non-empty path.";
+
+		protected override AgentTaskStatus OnTick()
 		{
 			if (currentGoal == Point.Zero)
 				currentGoal = Path.Peek();
 
-			if (!success)
+			var direction = (currentGoal - owner.GetPosition()).ToVector2();
+			var distance = direction.Length();
+
+			if (distance <= float.Epsilon)
 			{
-				var direction = (currentGoal - owner.Position).ToVector2();
-				var distance = direction.Length();
-
-				if (Cost == 0)
+				Path.Dequeue();
+				owner.SetPosition(currentGoal);
+				if (!Path.TryPeek(out var nextNode))
 				{
-					Cost = (int)distance;
+					return CompleteTask();
 				}
 
-				direction.Normalize();
-				if (distance < owner.Speed)
-				{
-					Path.Dequeue();
-					owner.Position = currentGoal; // need to account for this extra distance in the % to goal
-					if (Path.TryPeek(out Point node))
-					{
-						currentGoal = node;
-					}
-					else
-					{
-						// at the very end
-						success = true;
-						Progress = Cost;
-					}
-				}
-				else
-				{
-					var distanceTravelled = direction * owner.Speed;
-					var newPos = owner.Position + distanceTravelled.ToPoint();
-					totalDistanceAlongPath += distanceTravelled.Length();
-
-					//if (owner.world.CellTypeAtXY(newPos.X, newPos.Y) != CellType.Water)
-					{
-						owner.Position = newPos;
-						Progress = (int)totalDistanceAlongPath; // / totalPathDistance;
-
-					}
-
-					// degrade land when it's walked on
-					var cell = GameServices.GridWorld.CellAtXY(owner.Position);
-					if (cell.CellType == CellType.Grass)
-					{
-						cell.Durability--;
-						if (cell.Durability == 0)
-						{
-							cell.CellType = CellType.Dirt;
-							cell.Durability = GridCell.InitialDurability;
-						}
-					}
-				}
+				currentGoal = nextNode;
+				return AgentTaskStatus.Running;
 			}
 
-			return base.Update();
+			if (Cost == 0)
+			{
+				Cost = (int)distance;
+			}
+
+			direction.Normalize();
+			if (distance < owner.GetSpeed())
+			{
+				Path.Dequeue();
+				owner.SetPosition(currentGoal);
+				if (Path.TryPeek(out var node))
+				{
+					currentGoal = node;
+					return AgentTaskStatus.Running;
+				}
+
+				return CompleteTask();
+			}
+
+			var distanceTravelled = direction * owner.GetSpeed();
+			var newPos = owner.GetPosition() + distanceTravelled.ToPoint();
+			totalDistanceAlongPath += distanceTravelled.Length();
+			owner.SetPosition(newPos);
+			Progress = Math.Clamp((int)totalDistanceAlongPath, 0, Cost);
+
+			return AgentTaskStatus.Running;
 		}
 
 		public override void Draw(SpriteBatch sb)
@@ -97,7 +96,7 @@ namespace DwarvenFortification
 			Draw(sb, tileIndex);
 
 			// draw path if moving
-			var previousMoveToPoint = owner.Position;
+			var previousMoveToPoint = owner.GetPosition();
 			foreach (var node in Path)
 			{
 				sb.DrawLine(previousMoveToPoint.ToVector2(), node.ToVector2(), Color.RosyBrown, 2);

@@ -1,0 +1,39 @@
+{
+  "agents": [
+    {
+      "id": "dwarf",
+      "name": "Dwarf",
+      "factionId": "dwarves",
+      "memoryProviderId": "brain",
+      "startingItemIds": [
+        "pickaxe",
+        "axe",
+        "ration",
+        "water-skin",
+        "throwing-stone"
+      ],
+      "bodyParts": ["torso", "legs", "arms", "feet", "hands", "head"],
+      "organs": ["mouth", "stomach", "lungs", "brain"],
+      "systems": ["digestion", "respiratory", "nervous", "musculoskeletal"],
+      "inventoryCapacity": 8,
+      "minSpeed": 2.0,
+      "maxSpeed": 4.0,
+      "minStrength": 0.5,
+      "maxStrength": 1.0,
+      "startingRest": 100.0,
+      "maxRest": 100.0,
+      "restDecayPerTick": 0.02,
+      "restRecoveryPerTick": 1.0,
+      "startingHunger": 100.0,
+      "maxHunger": 100.0,
+      "hungerDecayPerTick": 0.03,
+      "hungerRecoveryPerTick": 35.0,
+      "startingThirst": 100.0,
+      "maxThirst": 100.0,
+      "thirstDecayPerTick": 0.05,
+      "thirstRecoveryPerTick": 45.0,
+      "bodyWidth": 32,
+      "bodyHeight": 32
+    }
+  ]
+}
