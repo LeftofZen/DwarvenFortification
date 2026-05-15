@@ -1,10 +1,14 @@
 ﻿using Arch.Core;
+using DwarvenFortification.ECS.Runtime;
+using DwarvenFortification.Simulation.Composition;
+using DwarvenFortification.Simulation.World;
+using DwarvenFortification.UI;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using MonoGame.Extended;
 using System;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.Actions
 {
 	public abstract class BaseAgentAction : IAgentAction
 	{
@@ -118,23 +122,17 @@ namespace DwarvenFortification
 
 		protected void Draw(SpriteBatch sb, Point tileIndex)
 		{
-			const int tileSize = 18;
+			//const int tileSize = 16;
 
-			var srcRect = new Rectangle(
-				tileSize * tileIndex.X,
-				tileSize * tileIndex.Y,
-				tileSize,
-				tileSize);
-
-			// action icon
-			sb.Draw(runtimeContext.RenderAssets.UiTexture, owner.GetPosition().ToVector2() + new Vector2(9, -22), srcRect, Color.White);
+			// action icon - specific to the action being performed
+			//sb.FillRectangle(owner.GetPosition().ToVector2() + new Vector2(tileSize / 2, -tileSize), new Vector2(tileSize, tileSize), Color.Blue);
 
 			// progress bar to goal
 			var goalPercent = Cost == 0 ? (Status == AgentActionStatus.Succeeded ? 1f : 0f) : Progress / (float)Cost;
 			const int borderThickness = 2;
-			int barHeight = owner.GetHeight() / 4;
+			var barHeight = owner.GetHeight() / 4;
 			sb.FillRectangle(owner.GetLeft(), owner.GetTop() - barHeight, owner.GetWidth(), barHeight, Color.Black); // border
-			sb.FillRectangle(owner.GetLeft() + borderThickness, owner.GetTop() - barHeight + borderThickness, (owner.GetWidth() - borderThickness * 2) * goalPercent, (barHeight - (borderThickness * 2)), Color.White); // inside
+			sb.FillRectangle(owner.GetLeft() + borderThickness, owner.GetTop() - barHeight + borderThickness, (owner.GetWidth() - (borderThickness * 2)) * goalPercent, barHeight - (borderThickness * 2), Color.White); // inside
 		}
 	}
 }

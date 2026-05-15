@@ -1,9 +1,12 @@
 using Arch.Core;
+using DwarvenFortification.Actions;
+using DwarvenFortification.ECS.Components;
+using DwarvenFortification.Simulation.Composition;
 using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.ECS.Runtime
 {
 	public sealed class SimulationEntityFactory : ISimulationEntityFactory
 	{
@@ -11,9 +14,7 @@ namespace DwarvenFortification
 		readonly SimulationDefinitionRegistry definitions;
 
 		public SimulationEntityFactory(SimulationDefinitionRegistry definitions)
-		{
-			this.definitions = definitions;
-		}
+			=> this.definitions = definitions;
 
 		public Entity CreateAgent(string name, Point position, string archetypeId = "dwarf")
 		{
@@ -71,7 +72,7 @@ namespace DwarvenFortification
 					KnownFacts = new HashSet<string>(StringComparer.OrdinalIgnoreCase),
 					KnownItemLocations = new Dictionary<string, Point>(StringComparer.OrdinalIgnoreCase),
 				},
-				new InventoryComponent { Items = new List<Entity>(), Capacity = definition.InventoryCapacity },
+				new InventoryComponent { Items = [], Capacity = definition.InventoryCapacity },
 				new ActionQueueComponent { Actions = new Queue<IAgentAction>() });
 
 			foreach (var itemId in definition.StartingItemIds)

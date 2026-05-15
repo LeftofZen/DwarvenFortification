@@ -1,4 +1,4 @@
-namespace DwarvenFortification
+namespace DwarvenFortification.Actions
 {
 	public enum AgentActionStatus
 	{

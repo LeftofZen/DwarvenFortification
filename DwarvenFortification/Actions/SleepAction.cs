@@ -1,9 +1,13 @@
 using Arch.Core;
 using Arch.Core.Extensions;
+using DwarvenFortification.ECS.Components;
+using DwarvenFortification.ECS.Runtime;
+using DwarvenFortification.Simulation.Composition;
+using DwarvenFortification.Simulation.World;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.Actions
 {
 	public class SleepAction : BaseAgentAction
 	{

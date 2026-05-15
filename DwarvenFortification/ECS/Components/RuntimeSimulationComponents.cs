@@ -1,8 +1,9 @@
 using Arch.Core;
+using DwarvenFortification.Actions;
 using Microsoft.Xna.Framework;
 using System.Collections.Generic;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.ECS.Components
 {
 	public struct AgentTagComponent
 	{

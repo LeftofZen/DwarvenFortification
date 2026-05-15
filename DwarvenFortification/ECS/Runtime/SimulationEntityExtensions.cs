@@ -1,10 +1,14 @@
 using Arch.Core;
 using Arch.Core.Extensions;
+using DwarvenFortification.Actions;
+using DwarvenFortification.ECS.Components;
+using DwarvenFortification.GOAP;
+using DwarvenFortification.Simulation.World;
 using Microsoft.Xna.Framework;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.ECS.Runtime
 {
 	public static class SimulationEntityExtensions
 	{

@@ -3,7 +3,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using MonoGame.Extended;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.ECS.Runtime.Agents
 {
 	public sealed class SimpleAgentRenderer : IAgentRenderer
 	{

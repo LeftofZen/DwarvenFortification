@@ -1,7 +1,7 @@
 using Arch.Core;
 using System.Collections.Generic;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.GOAP
 {
 	public interface IGoapWorldQueryService
 	{

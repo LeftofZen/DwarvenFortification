@@ -1,9 +1,12 @@
 using Arch.Core;
+using DwarvenFortification.ECS.Runtime;
+using DwarvenFortification.Simulation.Composition;
+using DwarvenFortification.Simulation.World;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System.Linq;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.Actions
 {
 	public class ThrowItemAction : BaseAgentAction
 	{

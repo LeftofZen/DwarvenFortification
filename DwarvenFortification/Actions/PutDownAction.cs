@@ -1,9 +1,11 @@
 ﻿using Arch.Core;
+using DwarvenFortification.ECS.Runtime;
+using DwarvenFortification.Simulation.Composition;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System.Collections.Generic;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.Actions
 {
 	public class PutDownAction : BaseAgentAction
 	{
@@ -21,7 +23,7 @@ namespace DwarvenFortification
 			this.items = new List<Entity>(items);
 		}
 
-		List<Entity> items = new();
+		List<Entity> items = [];
 
 		protected override bool CanStart()
 			=> items.Count > 0;
@@ -42,7 +44,7 @@ namespace DwarvenFortification
 				: default;
 
 			var placedCount = 0;
-			for (int i = 0; i < items.Count; ++i)
+			for (var i = 0; i < items.Count; ++i)
 			{
 				if (!owner.GetInventory().Contains(items[i]))
 				{

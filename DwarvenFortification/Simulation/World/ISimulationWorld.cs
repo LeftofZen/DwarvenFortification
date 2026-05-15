@@ -1,8 +1,9 @@
 using Arch.Core;
+using DwarvenFortification.UI;
 using Microsoft.Xna.Framework;
 using System.Collections.Generic;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.Simulation.World
 {
 	public interface ISimulationWorld
 	{

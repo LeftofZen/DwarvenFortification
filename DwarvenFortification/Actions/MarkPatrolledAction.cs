@@ -1,8 +1,10 @@
 using Arch.Core;
+using DwarvenFortification.ECS.Runtime;
+using DwarvenFortification.Simulation.Composition;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.Actions
 {
 	public class MarkPatrolledAction : BaseAgentAction
 	{

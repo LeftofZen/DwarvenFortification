@@ -1,8 +1,9 @@
 using System;
 using System.Linq;
+using DwarvenFortification.ECS.Authoring;
 using Microsoft.Xna.Framework;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.ECS.Components
 {
 	public readonly record struct DefinitionIdentityComponent(string Id, string Name);
 

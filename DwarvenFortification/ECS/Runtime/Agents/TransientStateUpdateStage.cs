@@ -1,8 +1,9 @@
 using Arch.Core;
 using Arch.Core.Extensions;
+using DwarvenFortification.ECS.Components;
 using Microsoft.Xna.Framework;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.ECS.Runtime.Agents
 {
 	public sealed class TransientStateUpdateStage : IAgentUpdateStage
 	{

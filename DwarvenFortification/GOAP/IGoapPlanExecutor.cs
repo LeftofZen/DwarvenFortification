@@ -1,6 +1,6 @@
 using Arch.Core;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.GOAP
 {
 	public interface IGoapPlanExecutor
 	{

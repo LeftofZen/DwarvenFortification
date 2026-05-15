@@ -1,16 +1,14 @@
 using Microsoft.Xna.Framework.Graphics;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.Simulation.Composition
 {
 	public sealed class SimulationRenderAssets
 	{
-		public SimulationRenderAssets(SpriteFont uiFont, Texture2D uiTexture)
+		public SimulationRenderAssets(SpriteFont uiFont)
 		{
 			UiFont = uiFont;
-			UiTexture = uiTexture;
 		}
 
 		public SpriteFont UiFont { get; }
-		public Texture2D UiTexture { get; }
 	}
 }

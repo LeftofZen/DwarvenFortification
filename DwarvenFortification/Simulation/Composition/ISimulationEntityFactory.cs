@@ -1,7 +1,7 @@
 using Arch.Core;
 using Microsoft.Xna.Framework;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.Simulation.Composition
 {
 	public interface ISimulationEntityFactory
 	{

@@ -1,8 +1,11 @@
 using Arch.Core;
+using DwarvenFortification.ECS.Runtime;
+using DwarvenFortification.Simulation.Composition;
+using DwarvenFortification.Simulation.World;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.Actions
 {
 	public class CommunicateAction : BaseAgentAction
 	{

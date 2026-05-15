@@ -1,8 +1,14 @@
 using Arch.Core;
 using Arch.Core.Extensions;
+using DwarvenFortification.Actions;
+using DwarvenFortification.ECS.Components;
+using DwarvenFortification.ECS.Runtime;
+using DwarvenFortification.Simulation.Composition;
+using DwarvenFortification.Simulation.World;
+using DwarvenFortification.UI;
 using System.Linq;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.GOAP
 {
 	public sealed class GoapPlanExecutor : IGoapPlanExecutor
 	{

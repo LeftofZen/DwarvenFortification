@@ -1,9 +1,10 @@
 using Arch.Core;
+using DwarvenFortification.GOAP;
 using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.UI
 {
 	public enum AgentActionSource
 	{

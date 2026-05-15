@@ -1,6 +1,8 @@
+using DwarvenFortification.Simulation.World;
+using DwarvenFortification.UI;
 using Microsoft.Xna.Framework.Graphics;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.Actions
 {
 	public interface IAgentAction
 	{

@@ -32,7 +32,6 @@
     <PackageReference Include="MonoGame.Extended.Graphics" Version="3.9.0-prerelease.7" />
     <PackageReference Include="MonoGame.Extended.Input" Version="3.9.0-prerelease.7" />
     <PackageReference Include="MonoGame.Extended.Particles" Version="3.9.0-prerelease.7" />
-    <PackageReference Include="MonoGame.Extended.Tiled" Version="3.9.0-prerelease.7" />
     <PackageReference Include="MonoGame.Extended.Content.Pipeline" Version="6.0.0" />
     <PackageReference Include="Monogame.Imgui.Renderer" Version="1.0.5" />
   </ItemGroup>

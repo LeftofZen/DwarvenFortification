@@ -1,6 +1,10 @@
+using DwarvenFortification.ECS;
+using DwarvenFortification.ECS.Runtime.Agents;
 using DwarvenFortification.Logging;
+using DwarvenFortification.Simulation.World;
+using DwarvenFortification.UI;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.Simulation.Composition
 {
 	public sealed class SimulationRuntime
 	{

@@ -1,7 +1,7 @@
 using Arch.Core;
 using DwarvenFortification.Logging;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.ECS.Runtime.Agents
 {
 	public sealed class ActionQueueIntegrityStage : IAgentUpdateStage
 	{

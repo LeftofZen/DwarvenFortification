@@ -1,6 +1,6 @@
 using Microsoft.Xna.Framework;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.ECS
 {
 	public enum OccupantPaletteKind
 	{

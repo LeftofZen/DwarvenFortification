@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace DFCore.EnumerableExtensions
+namespace DFCore
 {
 	public static class IEnumerableExtensions
 	{

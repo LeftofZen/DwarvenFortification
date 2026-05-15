@@ -1,7 +1,8 @@
 using Arch.Core;
 using Arch.Core.Extensions;
+using DwarvenFortification.ECS.Components;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.ECS.Runtime.Agents
 {
 	public sealed class NeedStateUpdateStage : IAgentUpdateStage
 	{

@@ -1,7 +1,7 @@
 using Arch.Core;
 using Microsoft.Xna.Framework.Graphics;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.ECS.Runtime.Agents
 {
 	public interface IAgentRenderer
 	{

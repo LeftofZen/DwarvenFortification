@@ -1,6 +1,6 @@
 using Arch.Core;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.ECS.Runtime.Agents
 {
 	public interface IAgentUpdateStage
 	{

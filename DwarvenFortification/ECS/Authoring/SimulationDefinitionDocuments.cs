@@ -1,6 +1,6 @@
 using System;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.ECS.Authoring
 {
 	public sealed class ItemDefinition
 	{

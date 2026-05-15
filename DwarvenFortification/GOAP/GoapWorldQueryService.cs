@@ -1,11 +1,15 @@
 using Arch.Core;
 using Arch.Core.Extensions;
+using DwarvenFortification.ECS;
+using DwarvenFortification.ECS.Components;
+using DwarvenFortification.ECS.Runtime;
+using DwarvenFortification.Simulation.World;
 using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.GOAP
 {
 	public sealed class GoapWorldQueryService : IGoapWorldQueryService
 	{

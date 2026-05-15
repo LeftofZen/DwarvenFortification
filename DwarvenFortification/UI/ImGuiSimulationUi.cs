@@ -1,6 +1,11 @@
 using Arch.Core;
 using Arch.Core.Extensions;
+using DwarvenFortification.ECS;
+using DwarvenFortification.ECS.Components;
+using DwarvenFortification.ECS.Runtime;
+using DwarvenFortification.GOAP;
 using DwarvenFortification.Logging;
+using DwarvenFortification.Simulation.World;
 using ImGuiNET;
 using Microsoft.Xna.Framework;
 using System;
@@ -11,7 +16,7 @@ using System.Reflection;
 using NumericsVector2 = System.Numerics.Vector2;
 using NumericsVector4 = System.Numerics.Vector4;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.UI
 {
 	public sealed class ImGuiSimulationUi
 	{
@@ -325,7 +330,7 @@ namespace DwarvenFortification
 				var manifestations = candidatesByAction.TryGetValue(definition.Id, out var actionCandidates)
 					? actionCandidates
 					: null;
-				var manifestationOptions = manifestations ?? new List<GoapActionCandidate>();
+				var manifestationOptions = manifestations ?? [];
 				var manifestationCount = manifestationOptions.Count;
 				var header = $"{definition.Name} [{(isAvailableAction ? "Available" : "Unavailable")}] - {manifestationCount} manifestations";
 

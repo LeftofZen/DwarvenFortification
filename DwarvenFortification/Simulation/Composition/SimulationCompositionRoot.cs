@@ -1,7 +1,12 @@
+using DwarvenFortification.ECS;
+using DwarvenFortification.ECS.Runtime;
+using DwarvenFortification.ECS.Runtime.Agents;
 using DwarvenFortification.Logging;
-using Microsoft.Xna.Framework;
+using DwarvenFortification.Simulation.Pathfinding;
+using DwarvenFortification.Simulation.World;
+using DwarvenFortification.UI;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.Simulation.Composition
 {
 	public static class SimulationCompositionRoot
 	{

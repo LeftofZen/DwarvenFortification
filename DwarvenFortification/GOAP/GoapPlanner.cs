@@ -1,8 +1,9 @@
 using Arch.Core;
+using DwarvenFortification.ECS;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.GOAP
 {
 	public sealed class GoapPlanner
 	{
@@ -67,7 +68,7 @@ namespace DwarvenFortification
 				new()
 				{
 					Facts = new HashSet<string>(currentFacts),
-					Steps = new List<GoapActionCandidate>(),
+					Steps = [],
 					Cost = 0,
 					StateKey = BuildStateKey(currentFacts),
 				},

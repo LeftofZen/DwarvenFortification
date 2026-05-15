@@ -1,7 +1,9 @@
+using DwarvenFortification.GOAP;
 using DwarvenFortification.Logging;
+using DwarvenFortification.Simulation.Composition;
 using System.Collections.Generic;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.ECS.Runtime.Agents
 {
 	public static class AgentRuntimeFactory
 	{

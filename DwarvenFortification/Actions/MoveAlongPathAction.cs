@@ -1,4 +1,6 @@
 ﻿using Arch.Core;
+using DwarvenFortification.ECS.Runtime;
+using DwarvenFortification.Simulation.Composition;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using MonoGame.Extended;
@@ -6,7 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.Actions
 {
 	public class MoveAlongPathAction : BaseAgentAction
 	{
@@ -25,7 +27,7 @@ namespace DwarvenFortification
 		{
 			float dx = p1.X - p2.X;
 			float dy = p1.Y - p2.Y;
-			return (float)Math.Sqrt(dx * dx + dy * dy);
+			return (float)Math.Sqrt((dx * dx) + (dy * dy));
 		}
 
 		public Queue<Point> Path;

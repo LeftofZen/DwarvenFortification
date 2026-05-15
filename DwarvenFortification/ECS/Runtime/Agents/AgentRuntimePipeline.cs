@@ -1,9 +1,10 @@
 using Arch.Core;
 using DwarvenFortification.Logging;
+using DwarvenFortification.Simulation.World;
 using Microsoft.Xna.Framework.Graphics;
 using System.Collections.Generic;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.ECS.Runtime.Agents
 {
 	public sealed class AgentRuntimePipeline : IAgentRuntime
 	{

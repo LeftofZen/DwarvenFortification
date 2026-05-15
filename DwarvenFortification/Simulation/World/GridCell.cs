@@ -1,19 +1,23 @@
 using Arch.Core;
 using Arch.Core.Extensions;
+using DwarvenFortification.ECS;
+using DwarvenFortification.ECS.Components;
+using DwarvenFortification.ECS.Runtime;
+using DwarvenFortification.Simulation.Composition;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using MonoGame.Extended;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.Simulation.World
 {
 	public class GridCell
 	{
 		readonly SimulationDefinitionRegistry definitions;
 		readonly ISimulationEntityFactory entityFactory;
 		readonly SimulationRenderAssets renderAssets;
-		readonly List<Entity> occupants = new();
+		readonly List<Entity> occupants = [];
 
 		public GridCell(CellType type, SimulationDefinitionRegistry definitions, ISimulationEntityFactory entityFactory, SimulationRenderAssets renderAssets)
 		{
@@ -32,7 +36,7 @@ namespace DwarvenFortification
 			if (TryGetDisplayOccupant(out var displayOccupant) && displayOccupant.Has<OccupantVisualComponent>())
 			{
 				var occupantColor = displayOccupant.Get<OccupantVisualComponent>().Color;
-				sb.FillRectangle(xy.X * cellSize + 2, xy.Y * cellSize + 2, cellSize - 4, cellSize - 4, occupantColor);
+				sb.FillRectangle((xy.X * cellSize) + 2, (xy.Y * cellSize) + 2, cellSize - 4, cellSize - 4, occupantColor);
 			}
 
 			if (TryGetBlockingOccupant(out _))
@@ -50,7 +54,7 @@ namespace DwarvenFortification
 				var count = placedWorldObject.Get<InventoryComponent>().Items.Count;
 				if (count > 0)
 				{
-					sb.DrawString(renderAssets.UiFont, $"[{count}]", new Vector2(xy.X * cellSize, xy.Y * cellSize + (cellSize / 2f)), Color.Black);
+					sb.DrawString(renderAssets.UiFont, $"[{count}]", new Vector2(xy.X * cellSize, (xy.Y * cellSize) + (cellSize / 2f)), Color.Black);
 				}
 			}
 		}
@@ -70,7 +74,7 @@ namespace DwarvenFortification
 			{ CellType.Water, Color.Blue },
 		};
 
-		public List<Entity> ItemsInCell = new();
+		public List<Entity> ItemsInCell = [];
 
 		public IReadOnlyList<Entity> Occupants => occupants;
 

@@ -1,4 +1,9 @@
-﻿using DwarvenFortification.Logging;
+﻿using DwarvenFortification.ECS;
+using DwarvenFortification.GOAP;
+using DwarvenFortification.Logging;
+using DwarvenFortification.Simulation.Composition;
+using DwarvenFortification.Simulation.World;
+using DwarvenFortification.UI;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -9,8 +14,8 @@ namespace DwarvenFortification
 {
 	public static class GameServices
 	{
-		public static readonly Dictionary<string, SpriteFont> Fonts = new();
-		public static readonly Dictionary<string, Texture2D> Textures = new();
+		public static readonly Dictionary<string, SpriteFont> Fonts = [];
+		public static readonly Dictionary<string, Texture2D> Textures = [];
 		public static readonly GameLogger Logger = new();
 
 		public static SimulationDefinitionRegistry Definitions { get; set; }
@@ -24,7 +29,7 @@ namespace DwarvenFortification
 
 	public class MainGame : Game
 	{
-		private GraphicsDeviceManager _graphics;
+		private readonly GraphicsDeviceManager _graphics;
 		private SpriteBatch _spriteBatch;
 		private ImGuiRenderer _imGuiRenderer;
 		private SimulationRuntime simulationRuntime;
@@ -67,7 +72,7 @@ namespace DwarvenFortification
 			//_tiledMapRenderer = new TiledMapRenderer(GraphicsDevice, _tiledMap);
 
 			GameServices.Fonts.Add("Calibri", Content.Load<SpriteFont>("Calibri"));
-			GameServices.Textures.Add("ui", Content.Load<Texture2D>("tiles/18x18_ui"));
+			//GameServices.Textures.Add("ui", Content.Load<Texture2D>("tiles/18x18_ui"));
 
 			var definitions = SimulationDefinitionRegistry.LoadFromContentDirectory(@"Content/config");
 			GameServices.Definitions = definitions;
@@ -77,8 +82,7 @@ namespace DwarvenFortification
 			simulationUi.PlanningSnapshotProvider = inspectorPlanner.Inspect;
 
 			var renderAssets = new SimulationRenderAssets(
-				GameServices.Fonts["Calibri"],
-				GameServices.Textures["ui"]);
+				GameServices.Fonts["Calibri"]);
 			simulationRuntime = SimulationCompositionRoot.Create(
 				definitions,
 				renderAssets,

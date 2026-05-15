@@ -1,8 +1,9 @@
 using Arch.Core;
+using DwarvenFortification.Simulation.Composition;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.Actions
 {
 	public class TimedAction : BaseAgentAction
 	{

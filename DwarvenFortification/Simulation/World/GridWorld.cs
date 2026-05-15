@@ -6,9 +6,17 @@ using Microsoft.Xna.Framework.Input;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using DwarvenFortification.Logging;
+using DwarvenFortification.Simulation.Composition;
+using DwarvenFortification.ECS.Runtime.Agents;
+using DwarvenFortification.ECS.Components;
+using DwarvenFortification.Actions;
+using DwarvenFortification.GOAP;
+using DwarvenFortification.ECS;
+using DwarvenFortification.Simulation.Pathfinding;
+using DwarvenFortification.ECS.Runtime;
+using DwarvenFortification.UI;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.Simulation.World
 {
 	public class GridWorld : ISimulationWorld
 	{
@@ -39,7 +47,7 @@ namespace DwarvenFortification
 			this.ui = ui;
 			manualActionExecutor = new GoapPlanExecutor(taskRuntimeContext);
 			ui.ActionRequestHandler = HandleActionRequest;
-			agents = new List<Entity>();
+			agents = [];
 
 			for (var i = 0; i < agentCount; ++i)
 			{
@@ -107,7 +115,7 @@ namespace DwarvenFortification
 			var cell = CoordsAtXY(x, y);
 			if (cell.X >= 0 && cell.X < Width && cell.Y >= 0 && cell.Y < Height)
 			{
-				return new Rectangle(x - x % cellSize, y - y % cellSize, cellSize, cellSize);
+				return new Rectangle(x - (x % cellSize), y - (y % cellSize), cellSize, cellSize);
 			}
 
 			return Rectangle.Empty;
@@ -141,7 +149,7 @@ namespace DwarvenFortification
 
 		public Point CentreOfCellWithCoords(int x, int y)
 		{
-			return new Point(x * cellSize + cellSize / 2, y * cellSize + cellSize / 2);
+			return new Point((x * cellSize) + (cellSize / 2), (y * cellSize) + (cellSize / 2));
 		}
 
 		public Point CentreOfCellWithCoords(Point p)
@@ -324,7 +332,7 @@ namespace DwarvenFortification
 		public void Update(GameTime gameTime)
 		{
 			var currMouseState = Mouse.GetState();
-			bool selectionBoundThisFrame = false;
+			var selectionBoundThisFrame = false;
 
 			if (!ui.WantsMouseCapture && currMouseState.LeftButton == ButtonState.Pressed)
 			{

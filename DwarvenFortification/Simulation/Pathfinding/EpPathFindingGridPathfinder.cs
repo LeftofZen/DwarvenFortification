@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.Simulation.Pathfinding
 {
 	public sealed class EpPathFindingGridPathfinder : IGridPathfinder
 	{

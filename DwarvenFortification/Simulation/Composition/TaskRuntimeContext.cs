@@ -1,7 +1,8 @@
 using DwarvenFortification.Logging;
+using DwarvenFortification.Simulation.World;
 using System;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.Simulation.Composition
 {
 	public sealed class ActionRuntimeContext : IActionRuntimeContext
 	{

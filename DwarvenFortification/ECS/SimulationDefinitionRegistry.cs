@@ -1,5 +1,9 @@
 using Arch.Core;
 using Arch.Core.Extensions;
+using DwarvenFortification.ECS.Authoring;
+using DwarvenFortification.ECS.Components;
+using DwarvenFortification.GOAP;
+using DwarvenFortification.Simulation.World;
 using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
@@ -8,7 +12,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.ECS
 {
 	public sealed class SimulationDefinitionRegistry
 	{
@@ -36,7 +40,7 @@ namespace DwarvenFortification
 			actionDefinitionEntities = new Dictionary<string, Entity>(StringComparer.OrdinalIgnoreCase);
 			worldObjectDefinitionEntities = new Dictionary<string, Entity>(StringComparer.OrdinalIgnoreCase);
 			worldObjectDefinitionEntitiesById = new Dictionary<string, Entity>(StringComparer.OrdinalIgnoreCase);
-			paintableOccupants = new List<OccupantPaletteEntry>();
+			paintableOccupants = [];
 			resourceNodeDefinitionEntitiesById = new Dictionary<string, Entity>(StringComparer.OrdinalIgnoreCase);
 			agentArchetypeEntities = new Dictionary<string, Entity>(StringComparer.OrdinalIgnoreCase);
 			goalDefinitionEntities = new Dictionary<string, Entity>(StringComparer.OrdinalIgnoreCase);
@@ -230,7 +234,7 @@ namespace DwarvenFortification
 				new OccupantVisualComponent(definitionEntity.Get<OccupantVisualComponent>().Color),
 				new RuntimeTransformComponent { Position = position },
 				new CellReferenceComponent { Cell = cell },
-				new InventoryComponent { Items = new List<Entity>(), Capacity = worldObjectDefinition.Capacity });
+				new InventoryComponent { Items = [], Capacity = worldObjectDefinition.Capacity });
 
 			return true;
 		}

@@ -1,7 +1,7 @@
 using Microsoft.Xna.Framework;
 using System.Collections.Generic;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.Simulation.Pathfinding
 {
 	public readonly record struct GridPathRequest(
 		bool[,] WalkableCells,

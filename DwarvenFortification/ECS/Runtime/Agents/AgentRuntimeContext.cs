@@ -1,6 +1,7 @@
 using DwarvenFortification.Logging;
+using DwarvenFortification.Simulation.World;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.ECS.Runtime.Agents
 {
 	public sealed class AgentRuntimeContext
 	{

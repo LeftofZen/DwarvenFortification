@@ -1,9 +1,8 @@
 using Arch.Core;
 using Microsoft.Xna.Framework;
-using System;
 using System.Collections.Generic;
 
-namespace DwarvenFortification
+namespace DwarvenFortification.GOAP
 {
 	public readonly record struct ActionDefinitionSnapshot(
 		string Id,
