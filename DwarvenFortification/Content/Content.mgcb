@@ -25,6 +25,9 @@
 #begin config/actions.json
 /copy:config/actions.json
 
+#begin config/agents.json
+/copy:config/agents.json
+
 #begin config/items.json
 /copy:config/items.json
 
@@ -33,64 +36,4 @@
 
 #begin config/resources.json
 /copy:config/resources.json
-
-#begin config/agents.json
-/copy:config/agents.json
-
-#begin tiles/[A]Dirt_pipo.tsx
-/importer:TiledMapTilesetImporter
-/processor:TiledMapTilesetProcessor
-/build:tiles/[A]Dirt_pipo.tsx
-
-#begin tiles/[A]Flower_pipo.tsx
-/importer:TiledMapTilesetImporter
-/processor:TiledMapTilesetProcessor
-/build:tiles/[A]Flower_pipo.tsx
-
-#begin tiles/[A]Grass_pipo.tsx
-/importer:TiledMapTilesetImporter
-/processor:TiledMapTilesetProcessor
-/build:tiles/[A]Grass_pipo.tsx
-
-#begin tiles/[A]Wall-Up_pipo.tsx
-/importer:TiledMapTilesetImporter
-/processor:TiledMapTilesetProcessor
-/build:tiles/[A]Wall-Up_pipo.tsx
-
-#begin tiles/[A]Water_pipo.tsx
-/importer:TiledMapTilesetImporter
-/processor:TiledMapTilesetProcessor
-/build:tiles/[A]Water_pipo.tsx
-
-#begin tiles/[A]WaterFall_pipo.tsx
-/importer:TiledMapTilesetImporter
-/processor:TiledMapTilesetProcessor
-/build:tiles/[A]WaterFall_pipo.tsx
-
-#begin tiles/[Base]BaseChip_pipo.tsx
-/importer:TiledMapTilesetImporter
-/processor:TiledMapTilesetProcessor
-/build:tiles/[Base]BaseChip_pipo.tsx
-
-#begin tiles/18x18_ui.png
-/importer:TextureImporter
-/processor:TextureProcessor
-/processorParam:ColorKeyColor=255,255,255,255
-/processorParam:ColorKeyEnabled=True
-/processorParam:GenerateMipmaps=False
-/processorParam:PremultiplyAlpha=True
-/processorParam:ResizeToPowerOfTwo=False
-/processorParam:MakeSquare=False
-/processorParam:TextureFormat=Color
-/build:tiles/18x18_ui.png
-
-#begin tiles/LightShadow_pipo.tsx
-/importer:TiledMapTilesetImporter
-/processor:TiledMapTilesetProcessor
-/build:tiles/LightShadow_pipo.tsx
-
-#begin tiles/samplemap.tmx
-/importer:TiledMapImporter
-/processor:TiledMapProcessor
-/build:tiles/samplemap.tmx
 
