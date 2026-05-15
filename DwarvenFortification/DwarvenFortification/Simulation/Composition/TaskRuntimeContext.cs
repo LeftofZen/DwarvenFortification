@@ -3,11 +3,11 @@ using System;
 
 namespace DwarvenFortification
 {
-	public sealed class TaskRuntimeContext : ITaskRuntimeContext
+	public sealed class ActionRuntimeContext : IActionRuntimeContext
 	{
 		readonly Func<ISimulationWorld> worldAccessor;
 
-		public TaskRuntimeContext(Func<ISimulationWorld> worldAccessor, ILogger logger, SimulationRenderAssets renderAssets)
+		public ActionRuntimeContext(Func<ISimulationWorld> worldAccessor, ILogger logger, SimulationRenderAssets renderAssets)
 		{
 			this.worldAccessor = worldAccessor;
 			Logger = logger;

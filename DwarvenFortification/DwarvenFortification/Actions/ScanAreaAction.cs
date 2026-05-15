@@ -5,18 +5,18 @@ using System.Linq;
 
 namespace DwarvenFortification
 {
-	public class ScanAreaTask : BaseAgentTask
+	public class ScanAreaAction : BaseAgentAction
 	{
 		readonly int radiusCells;
 		readonly int memoryDurationTicks;
 
-		public ScanAreaTask(ITaskRuntimeContext runtimeContext, Entity owner, int radiusCells, int memoryDurationTicks) : base(runtimeContext, owner, "scan-area", 1)
+		public ScanAreaAction(IActionRuntimeContext runtimeContext, Entity owner, int radiusCells, int memoryDurationTicks) : base(runtimeContext, owner, "scan-area", 1)
 		{
 			this.radiusCells = radiusCells;
 			this.memoryDurationTicks = memoryDurationTicks;
 		}
 
-		protected override AgentTaskStatus OnTick()
+		protected override AgentActionStatus OnTick()
 		{
 			var world = runtimeContext.World;
 			var ownerCell = world.CoordsAtXY(owner.GetPosition());
@@ -43,7 +43,7 @@ namespace DwarvenFortification
 			}
 
 			AdvanceProgress(Cost);
-			return CompleteTask();
+			return CompleteAction();
 		}
 
 		public override void Draw(SpriteBatch sb)

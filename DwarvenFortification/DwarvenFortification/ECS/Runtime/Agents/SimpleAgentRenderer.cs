@@ -18,9 +18,9 @@ namespace DwarvenFortification
 				spriteBatch.DrawRectangle(cellBounds, Color.Blue, 1);
 			}
 
-			if (agent.TryPeekTask(out var task))
+			if (agent.TryPeekAction(out var currentAction))
 			{
-				task.Draw(spriteBatch);
+				currentAction.Draw(spriteBatch);
 			}
 		}
 	}

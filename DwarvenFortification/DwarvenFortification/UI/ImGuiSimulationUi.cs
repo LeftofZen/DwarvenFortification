@@ -19,6 +19,13 @@ namespace DwarvenFortification
 		readonly ILogger logger;
 		object boundObject;
 		Entity? boundEntity;
+		int taskTargetCellX;
+		int taskTargetCellY;
+		int taskDurationTicks = 60;
+		bool replaceQueuedActions = true;
+		string lastIssuedActionMessage = string.Empty;
+		readonly Dictionary<string, int> selectedActionManifestationIndices = new(StringComparer.OrdinalIgnoreCase);
+		int selectedDropInventoryItemIndex;
 
 		public ImGuiSimulationUi(SimulationDefinitionRegistry definitions, ILogger logger)
 		{
@@ -30,6 +37,8 @@ namespace DwarvenFortification
 		public CellType SelectedCellType { get; set; } = CellType.Dirt;
 		public string SelectedOccupantId { get; set; } = string.Empty;
 		public bool WantsMouseCapture { get; private set; }
+		public Func<Entity, AgentActionRequest, string> ActionRequestHandler { get; set; }
+		public Func<Entity, GoapPlanningSnapshot> PlanningSnapshotProvider { get; set; }
 
 		public void BindObject(object obj)
 		{
@@ -41,6 +50,13 @@ namespace DwarvenFortification
 		{
 			boundEntity = entity;
 			boundObject = null;
+
+			if (entity.IsAgent())
+			{
+				var position = entity.GetPosition();
+				taskTargetCellX = Math.Max(0, position.X / 16);
+				taskTargetCellY = Math.Max(0, position.Y / 16);
+			}
 		}
 
 		public bool TryGetBoundEntity(out Entity entity)
@@ -83,6 +99,7 @@ namespace DwarvenFortification
 				{
 					SelectedMouseClickMode = mode;
 				}
+
 				if (mode != MouseClickMode.Select)
 				{
 					ImGui.SameLine();
@@ -137,10 +154,7 @@ namespace DwarvenFortification
 
 			if (boundEntity.HasValue)
 			{
-				foreach (var line in ReflectEntity(boundEntity.Value))
-				{
-					ImGui.TextUnformatted(line);
-				}
+				DrawEntityInspector(boundEntity.Value);
 			}
 			else if (boundObject != null)
 			{
@@ -155,6 +169,562 @@ namespace DwarvenFortification
 			}
 
 			ImGui.End();
+		}
+
+		void DrawEntityInspector(Entity entity)
+		{
+			var planningSnapshot = entity.IsAgent() && PlanningSnapshotProvider != null
+				? PlanningSnapshotProvider(entity)
+				: null;
+
+			DrawEntityOverview(entity);
+			DrawAgentActionControls(entity);
+
+			if (!entity.IsAgent())
+			{
+				DrawEntityReflectionSection(entity);
+				return;
+			}
+
+			DrawGoalSection(entity, planningSnapshot);
+			DrawInventorySection(entity);
+			DrawActionSection(entity, planningSnapshot);
+			DrawPlanningSection(planningSnapshot);
+			DrawEntityReflectionSection(entity);
+		}
+
+		void DrawEntityOverview(Entity entity)
+		{
+			foreach (var line in ReflectEntityOverview(entity))
+			{
+				ImGui.TextUnformatted(line);
+			}
+
+			ImGui.Separator();
+		}
+
+		void DrawGoalSection(Entity entity, GoapPlanningSnapshot planningSnapshot)
+		{
+			if (!ImGui.CollapsingHeader("Current Goals", ImGuiTreeNodeFlags.DefaultOpen))
+			{
+				return;
+			}
+
+			if (planningSnapshot == null || planningSnapshot.Goals.Count == 0)
+			{
+				ImGui.TextUnformatted("No goals available.");
+				return;
+			}
+
+			foreach (var goal in planningSnapshot.Goals)
+			{
+				var status = goal.IsSatisfied
+					? "Satisfied"
+					: goal.Plan != null
+						? "Planned"
+						: goal.IsEligible
+							? "Eligible"
+							: "Blocked";
+				var statusColor = GetGoalStatusColor(goal);
+				var isSelected = planningSnapshot.SelectedPlan != null && string.Equals(planningSnapshot.SelectedPlan.Goal.Id, goal.Goal.Id, StringComparison.OrdinalIgnoreCase);
+				ImGui.PushID($"goal-{goal.Goal.Id}");
+				ImGui.PushStyleColor(ImGuiCol.Text, statusColor);
+				if (ImGui.TreeNodeEx($"{goal.Goal.Name} [{status}]##goal", isSelected ? ImGuiTreeNodeFlags.DefaultOpen : ImGuiTreeNodeFlags.None))
+				{
+					ImGui.PopStyleColor();
+					ImGui.TextUnformatted($"Id: {goal.Goal.Id}");
+					ImGui.TextUnformatted($"Priority: {goal.Goal.Priority}");
+					ImGui.TextWrapped($"Desired facts: {FormatList(goal.Goal.DesiredFacts)}");
+					if (goal.Goal.ForbiddenFacts.Length > 0)
+					{
+						ImGui.TextWrapped($"Forbidden facts: {FormatList(goal.Goal.ForbiddenFacts)}");
+					}
+
+					if (goal.MissingRequiredFacts.Count > 0)
+					{
+						ImGui.TextWrapped($"Missing required facts: {FormatList(goal.MissingRequiredFacts)}");
+					}
+
+					if (goal.ActiveBlockingFacts.Count > 0)
+					{
+						ImGui.TextWrapped($"Blocking facts: {FormatList(goal.ActiveBlockingFacts)}");
+					}
+
+					if (goal.Plan != null)
+					{
+						ImGui.TextUnformatted($"Plan cost: {goal.Plan.Cost}");
+						for (var i = 0; i < goal.Plan.Steps.Count; ++i)
+						{
+							ImGui.BulletText(FormatCandidate(goal.Plan.Steps[i], i + 1));
+						}
+					}
+
+					ImGui.TreePop();
+				}
+				else
+				{
+					ImGui.PopStyleColor();
+				}
+
+				ImGui.PopID();
+			}
+		}
+
+		void DrawInventorySection(Entity entity)
+		{
+			if (!ImGui.CollapsingHeader("Inventory / Items", ImGuiTreeNodeFlags.DefaultOpen))
+			{
+				return;
+			}
+
+			if (!entity.Has<InventoryComponent>())
+			{
+				ImGui.TextUnformatted("No inventory component.");
+				return;
+			}
+
+			var inventory = entity.Get<InventoryComponent>();
+			ImGui.TextUnformatted($"Capacity: {inventory.Items.Count}/{inventory.Capacity}");
+			if (inventory.Items.Count == 0)
+			{
+				ImGui.TextUnformatted("Inventory empty.");
+				return;
+			}
+
+			for (var i = 0; i < inventory.Items.Count; ++i)
+			{
+				var item = inventory.Items[i];
+				var itemDefinition = item.Get<ItemDefinitionComponent>();
+				var itemKind = itemDefinition.IsTool ? "Tool" : "Item";
+				ImGui.BulletText($"{item.GetName()} [{item.GetItemDefinitionId()}] {itemKind} weight={itemDefinition.WeightKg:0.##}kg");
+			}
+		}
+
+		void DrawActionSection(Entity entity, GoapPlanningSnapshot planningSnapshot)
+		{
+			if (!ImGui.CollapsingHeader("Actions", ImGuiTreeNodeFlags.DefaultOpen))
+			{
+				return;
+			}
+
+			var plannerFacts = planningSnapshot?.CurrentFacts != null
+				? new HashSet<string>(planningSnapshot.CurrentFacts, StringComparer.OrdinalIgnoreCase)
+				: new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			var candidatesByAction = planningSnapshot?.Candidates
+				.GroupBy(candidate => candidate.Definition.Id, StringComparer.OrdinalIgnoreCase)
+				.ToDictionary(group => group.Key, group => group.ToList(), StringComparer.OrdinalIgnoreCase)
+				?? new Dictionary<string, List<GoapActionCandidate>>(StringComparer.OrdinalIgnoreCase);
+
+			DrawDirectActions(entity);
+
+			foreach (var definition in definitions.GetActionDefinitions())
+			{
+				var missingPrerequisiteFacts = GetMissingPrerequisiteFacts(definition, plannerFacts);
+				var isAvailableAction = missingPrerequisiteFacts.Count == 0;
+				var actionColor = isAvailableAction ? ColorOk : ColorBlocked;
+				var manifestations = candidatesByAction.TryGetValue(definition.Id, out var actionCandidates)
+					? actionCandidates
+					: null;
+				var manifestationOptions = manifestations ?? new List<GoapActionCandidate>();
+				var manifestationCount = manifestationOptions.Count;
+				var header = $"{definition.Name} [{(isAvailableAction ? "Available" : "Unavailable")}] - {manifestationCount} manifestations";
+
+				ImGui.PushID($"action-{definition.Id}");
+				ImGui.PushStyleColor(ImGuiCol.Text, actionColor);
+				if (ImGui.TreeNode(header))
+				{
+					ImGui.PopStyleColor();
+					ImGui.TextUnformatted($"Action Id: {definition.Id}");
+					ImGui.TextWrapped($"Target kind: {definition.TargetKind}; destination mode: {definition.DestinationMode}");
+					if (missingPrerequisiteFacts.Count > 0)
+					{
+						ImGui.TextWrapped($"Missing prerequisite facts: {FormatList(missingPrerequisiteFacts)}");
+					}
+					else
+					{
+						ImGui.TextUnformatted("Prerequisite facts satisfied.");
+					}
+
+					if (manifestationCount == 0)
+					{
+						ImGui.TextUnformatted("No current action manifestations in the world.");
+					}
+					else
+					{
+						for (var i = 0; i < manifestationOptions.Count; ++i)
+						{
+							ImGui.BulletText(FormatCandidate(manifestationOptions[i], i + 1));
+						}
+
+						DrawManualActionControls(entity, definition, manifestationOptions);
+					}
+
+					ImGui.TreePop();
+				}
+				else
+				{
+					ImGui.PopStyleColor();
+				}
+
+				ImGui.PopID();
+			}
+		}
+
+		void DrawDirectActions(Entity entity)
+		{
+			if (!ImGui.TreeNodeEx("Direct Actions", ImGuiTreeNodeFlags.DefaultOpen))
+			{
+				return;
+			}
+
+			DrawMoveToCellDirectAction(entity);
+			DrawWaitDirectAction(entity);
+			DrawPickUpFirstItemDirectAction(entity);
+			DrawPutDownInventoryDirectAction(entity);
+			DrawDropItemDirectAction(entity);
+
+			ImGui.TreePop();
+		}
+
+		void DrawMoveToCellDirectAction(Entity entity)
+		{
+			if (!ImGui.TreeNode("Move To Cell [Direct Action]"))
+			{
+				return;
+			}
+
+			ImGui.InputInt("Move Cell X", ref taskTargetCellX);
+			ImGui.InputInt("Move Cell Y", ref taskTargetCellY);
+			if (ImGui.Button("Queue Move To Cell Action"))
+			{
+				lastIssuedActionMessage = RequestAction(entity, AgentActionIds.MoveToCell, tags: new[] { "manual", "direct-action" });
+			}
+
+			ImGui.TreePop();
+		}
+
+		void DrawWaitDirectAction(Entity entity)
+		{
+			if (!ImGui.TreeNode("Wait [Direct Action]"))
+			{
+				return;
+			}
+
+			ImGui.InputInt("Wait Duration Ticks", ref taskDurationTicks);
+			taskDurationTicks = Math.Max(1, taskDurationTicks);
+			if (ImGui.Button("Queue Wait Action"))
+			{
+				lastIssuedActionMessage = RequestAction(entity, AgentActionIds.Wait, durationTicks: taskDurationTicks, tags: new[] { "manual", "direct-action" });
+			}
+
+			ImGui.TreePop();
+		}
+
+		void DrawPickUpFirstItemDirectAction(Entity entity)
+		{
+			if (!ImGui.TreeNode("Pick Up First Item [Direct Action]"))
+			{
+				return;
+			}
+
+			ImGui.InputInt("Pick Up Cell X", ref taskTargetCellX);
+			ImGui.InputInt("Pick Up Cell Y", ref taskTargetCellY);
+			if (ImGui.Button("Queue Pick Up Action"))
+			{
+				lastIssuedActionMessage = RequestAction(entity, AgentActionIds.PickUpFirstItemAtCell, tags: new[] { "manual", "direct-action" });
+			}
+
+			ImGui.TreePop();
+		}
+
+		void DrawPutDownInventoryDirectAction(Entity entity)
+		{
+			if (!ImGui.TreeNode("Put Down Inventory [Direct Action]"))
+			{
+				return;
+			}
+
+			ImGui.InputInt("Put Down Cell X", ref taskTargetCellX);
+			ImGui.InputInt("Put Down Cell Y", ref taskTargetCellY);
+			if (ImGui.Button("Queue Put Down Inventory Action"))
+			{
+				lastIssuedActionMessage = RequestAction(entity, AgentActionIds.PutDownInventoryAtCell, tags: new[] { "manual", "direct-action" });
+			}
+
+			ImGui.TreePop();
+		}
+
+		void DrawDropItemDirectAction(Entity entity)
+		{
+			if (!ImGui.TreeNode("Drop Item [Direct Action]"))
+			{
+				return;
+			}
+
+			var inventory = entity.GetInventory();
+			if (inventory.Count == 0)
+			{
+				ImGui.TextUnformatted("Inventory empty.");
+				ImGui.TreePop();
+				return;
+			}
+
+			selectedDropInventoryItemIndex = Math.Clamp(selectedDropInventoryItemIndex, 0, inventory.Count - 1);
+			var preview = FormatInventoryItemLabel(inventory[selectedDropInventoryItemIndex]);
+			if (ImGui.BeginCombo("Inventory Item", preview))
+			{
+				for (var i = 0; i < inventory.Count; ++i)
+				{
+					var isSelected = i == selectedDropInventoryItemIndex;
+					if (ImGui.Selectable(FormatInventoryItemLabel(inventory[i]), isSelected))
+					{
+						selectedDropInventoryItemIndex = i;
+					}
+
+					if (isSelected)
+					{
+						ImGui.SetItemDefaultFocus();
+					}
+				}
+
+				ImGui.EndCombo();
+			}
+
+			if (ImGui.Button("Queue Drop Item Action"))
+			{
+				lastIssuedActionMessage = RequestAction(entity, AgentActionIds.DropInventoryItem, selectedItem: inventory[selectedDropInventoryItemIndex], tags: new[] { "manual", "direct-action", "inventory" });
+			}
+
+			ImGui.TreePop();
+		}
+
+		void DrawManualActionControls(Entity entity, ActionDefinitionSnapshot definition, List<GoapActionCandidate> manifestations)
+		{
+			ImGui.Separator();
+			ImGui.TextUnformatted("Issue action manually");
+
+			if (ActionRequestHandler == null)
+			{
+				ImGui.TextUnformatted("Action request handler is not configured.");
+				return;
+			}
+
+			if (manifestations.Count == 0)
+			{
+				ImGui.TextUnformatted("No queueable manifestations are currently available.");
+				return;
+			}
+
+			selectedActionManifestationIndices.TryGetValue(definition.Id, out var selectedIndex);
+			selectedIndex = Math.Clamp(selectedIndex, 0, manifestations.Count - 1);
+
+			if (manifestations.Count == 1)
+			{
+				ImGui.TextWrapped($"Target: {FormatActionManifestationLabel(manifestations[0])}");
+			}
+			else
+			{
+				var preview = FormatActionManifestationLabel(manifestations[selectedIndex]);
+				if (ImGui.BeginCombo("Action Target", preview))
+				{
+					for (var i = 0; i < manifestations.Count; ++i)
+					{
+						var isSelected = i == selectedIndex;
+						if (ImGui.Selectable(FormatActionManifestationLabel(manifestations[i]), isSelected))
+						{
+							selectedIndex = i;
+						}
+
+						if (isSelected)
+						{
+							ImGui.SetItemDefaultFocus();
+						}
+					}
+
+					ImGui.EndCombo();
+				}
+			}
+
+			selectedActionManifestationIndices[definition.Id] = selectedIndex;
+			var selectedCandidate = manifestations[selectedIndex];
+			ImGui.TextWrapped($"Selected manifestation: {FormatActionManifestationLabel(selectedCandidate)}");
+			if (ImGui.Button($"Queue Action##{definition.Id}"))
+			{
+				lastIssuedActionMessage = RequestAction(entity, AgentActionIds.ExecuteAction, selectedCandidate: selectedCandidate, tags: new[] { "manual", "goap-action" });
+			}
+		}
+
+		void DrawPlanningSection(GoapPlanningSnapshot planningSnapshot)
+		{
+			if (!ImGui.CollapsingHeader("Goal Planning", ImGuiTreeNodeFlags.DefaultOpen))
+			{
+				return;
+			}
+
+			if (planningSnapshot == null)
+			{
+				ImGui.TextUnformatted("Planning snapshot unavailable.");
+				return;
+			}
+
+			ImGui.TextUnformatted($"Planner facts: {planningSnapshot.CurrentFacts.Count}");
+			if (planningSnapshot.CurrentFacts.Count > 0 && ImGui.TreeNode("Planner facts"))
+			{
+				foreach (var fact in planningSnapshot.CurrentFacts)
+				{
+					ImGui.BulletText(fact);
+				}
+
+				ImGui.TreePop();
+			}
+
+			if (planningSnapshot.SelectedPlan == null)
+			{
+				ImGui.TextColored(ColorBlocked, "No plan selected.");
+			}
+			else
+			{
+				ImGui.TextColored(ColorPlanned, $"Selected goal: {planningSnapshot.SelectedPlan.Goal.Name}");
+				ImGui.TextUnformatted($"Selected plan cost: {planningSnapshot.SelectedPlan.Cost}");
+			}
+
+			var plannerFacts = new HashSet<string>(planningSnapshot.CurrentFacts, StringComparer.OrdinalIgnoreCase);
+			var immediatelyAvailable = planningSnapshot.Candidates
+				.Where(candidate => GetCurrentStateBlockers(candidate, plannerFacts).Count == 0)
+				.ToList();
+			var deferredCandidates = planningSnapshot.Candidates
+				.Select(candidate => new CandidateBlockersView(candidate, GetCurrentStateBlockers(candidate, plannerFacts)))
+				.Where(view => view.Blockers.Count > 0)
+				.ToList();
+			var rejectedDiagnostics = planningSnapshot.ActionDiagnostics
+				.Where(diagnostic => diagnostic.Status == GoapActionDiagnosticStatus.Rejected)
+				.ToList();
+
+			ImGui.TextUnformatted($"Available now: {immediatelyAvailable.Count}");
+			ImGui.TextUnformatted($"Deferred by planner facts: {deferredCandidates.Count}");
+			ImGui.TextUnformatted($"Rejected by world query: {rejectedDiagnostics.Count}");
+
+			if (ImGui.TreeNode($"Available manifestations ({immediatelyAvailable.Count})"))
+			{
+				for (var i = 0; i < immediatelyAvailable.Count; ++i)
+				{
+					ImGui.TextColored(ColorOk, FormatCandidate(immediatelyAvailable[i], i + 1));
+				}
+
+				ImGui.TreePop();
+			}
+
+			if (ImGui.TreeNode($"Deferred by planner facts ({deferredCandidates.Count})"))
+			{
+				for (var i = 0; i < deferredCandidates.Count; ++i)
+				{
+					var view = deferredCandidates[i];
+					ImGui.TextColored(ColorDeferred, FormatCandidate(view.Candidate, i + 1));
+					ImGui.TextWrapped($"Blocked by: {FormatList(view.Blockers)}");
+				}
+
+				ImGui.TreePop();
+			}
+
+			if (ImGui.TreeNode($"Rejected during world query ({rejectedDiagnostics.Count})"))
+			{
+				for (var i = 0; i < rejectedDiagnostics.Count; ++i)
+				{
+					ImGui.TextColored(ColorBlocked, FormatDiagnostic(rejectedDiagnostics[i], i + 1));
+				}
+
+				ImGui.TreePop();
+			}
+		}
+
+		void DrawEntityReflectionSection(Entity entity)
+		{
+			if (!ImGui.CollapsingHeader("Raw Entity Data"))
+			{
+				return;
+			}
+
+			foreach (var line in ReflectEntity(entity))
+			{
+				ImGui.TextUnformatted(line);
+			}
+		}
+
+		void DrawAgentActionControls(Entity entity)
+		{
+			if (!entity.IsAgent())
+			{
+				return;
+			}
+
+			ImGui.Separator();
+			ImGui.Text("Direct Actions");
+
+			ImGui.InputInt("Target Cell X", ref taskTargetCellX);
+			ImGui.InputInt("Target Cell Y", ref taskTargetCellY);
+			ImGui.InputInt("Duration Ticks", ref taskDurationTicks);
+			taskDurationTicks = Math.Max(1, taskDurationTicks);
+			ImGui.Checkbox("Replace queued actions", ref replaceQueuedActions);
+
+			if (ImGui.Button("Queue Move To Cell"))
+			{
+				lastIssuedActionMessage = RequestAction(entity, AgentActionIds.MoveToCell, tags: new[] { "manual", "direct-action" });
+			}
+
+			if (ImGui.Button("Queue Wait"))
+			{
+				lastIssuedActionMessage = RequestAction(entity, AgentActionIds.Wait, durationTicks: taskDurationTicks, tags: new[] { "manual", "direct-action" });
+			}
+
+			if (ImGui.Button("Queue Pick Up First Item"))
+			{
+				lastIssuedActionMessage = RequestAction(entity, AgentActionIds.PickUpFirstItemAtCell, tags: new[] { "manual", "direct-action" });
+			}
+
+			if (ImGui.Button("Queue Put Down Inventory"))
+			{
+				lastIssuedActionMessage = RequestAction(entity, AgentActionIds.PutDownInventoryAtCell, tags: new[] { "manual", "direct-action" });
+			}
+
+			if (ImGui.Button("Clear Queue"))
+			{
+				entity.ClearQueuedActions();
+				lastIssuedActionMessage = $"Cleared queued actions for {entity.GetName()}.";
+			}
+
+			if (!string.IsNullOrWhiteSpace(lastIssuedActionMessage))
+			{
+				ImGui.TextWrapped(lastIssuedActionMessage);
+			}
+
+			ImGui.Separator();
+		}
+
+		string RequestAction(
+			Entity entity,
+			string actionId,
+			Point? targetCell = null,
+			int? durationTicks = null,
+			Entity selectedItem = default,
+			GoapActionCandidate selectedCandidate = default,
+			string[] tags = null)
+		{
+			if (ActionRequestHandler == null)
+			{
+				return "Action request handler is not configured.";
+			}
+
+			var metadata = new AgentActionMetadata(AgentActionSource.Manual, tags ?? new[] { "manual" });
+			var actionRequest = new AgentActionRequest(
+				actionId,
+				targetCell ?? new Point(taskTargetCellX, taskTargetCellY),
+				durationTicks ?? taskDurationTicks,
+				replaceQueuedActions,
+				selectedItem,
+				selectedCandidate,
+				metadata);
+
+			return ActionRequestHandler(entity, actionRequest);
 		}
 
 		void DrawLogWindow()
@@ -184,11 +754,118 @@ namespace DwarvenFortification
 			{
 				onSelect();
 			}
+
 			ImGui.PopID();
 		}
 
 		static NumericsVector4 ToVector4(Color color)
 			=> new(color.R / 255f, color.G / 255f, color.B / 255f, color.A / 255f);
+
+		static readonly NumericsVector4 ColorOk = new(0.52f, 0.82f, 0.56f, 1f);
+		static readonly NumericsVector4 ColorPlanned = new(0.95f, 0.78f, 0.34f, 1f);
+		static readonly NumericsVector4 ColorDeferred = new(0.96f, 0.65f, 0.27f, 1f);
+		static readonly NumericsVector4 ColorBlocked = new(0.9f, 0.34f, 0.34f, 1f);
+
+		static string FormatList(IEnumerable<string> values)
+		{
+			var materialized = values?.Where(value => !string.IsNullOrWhiteSpace(value)).ToArray() ?? Array.Empty<string>();
+			return materialized.Length == 0 ? "none" : string.Join(", ", materialized);
+		}
+
+		static string FormatCandidate(GoapActionCandidate candidate, int index)
+		{
+			var targetName = candidate.TargetEntity.HasValue && !candidate.TargetEntity.Value.Equals(default(Entity))
+				? candidate.TargetEntity.Value.GetName()
+				: "none";
+			return $"{index}. action={candidate.Definition.Name} actionId={candidate.Definition.Id} cost={candidate.Cost} targetCell={candidate.TargetCell} destination={candidate.DestinationCell} target={targetName}";
+		}
+
+		static string FormatActionManifestationLabel(GoapActionCandidate candidate)
+		{
+			var targetName = candidate.TargetEntity.HasValue && !candidate.TargetEntity.Value.Equals(default(Entity))
+				? candidate.TargetEntity.Value.GetName()
+				: candidate.Definition.TargetKind;
+			return $"{targetName} at {candidate.TargetCell} -> {candidate.DestinationCell}";
+		}
+
+		static string FormatInventoryItemLabel(Entity item)
+			=> $"{item.GetName()} [{item.GetItemDefinitionId()}]";
+
+		static string FormatDiagnostic(GoapActionDiagnostic diagnostic, int index)
+		{
+			var targetCell = diagnostic.TargetCell?.ToString() ?? "n/a";
+			var destinationCell = diagnostic.DestinationCell?.ToString() ?? "n/a";
+			return $"{index}. action={diagnostic.Definition.Name} actionId={diagnostic.Definition.Id} target={diagnostic.TargetSummary} targetCell={targetCell} destination={destinationCell} reason={diagnostic.Reason}";
+		}
+
+		static NumericsVector4 GetGoalStatusColor(GoapGoalDebugView goal)
+			=> goal.IsSatisfied
+				? ColorOk
+				: goal.Plan != null
+					? ColorPlanned
+					: goal.IsEligible
+						? ColorDeferred
+						: ColorBlocked;
+
+		static List<string> GetCurrentStateBlockers(GoapActionCandidate candidate, HashSet<string> plannerFacts)
+		{
+			var blockers = new List<string>();
+			foreach (var requiredFact in candidate.RequiredFacts)
+			{
+				if (requiredFact.StartsWith('!'))
+				{
+					var blockedFact = requiredFact[1..];
+					if (plannerFacts.Contains(blockedFact))
+					{
+						blockers.Add($"blocked by active fact {blockedFact}");
+					}
+				}
+				else if (!plannerFacts.Contains(requiredFact))
+				{
+					blockers.Add($"missing fact {requiredFact}");
+				}
+			}
+
+			return blockers;
+		}
+
+		static List<string> GetMissingPrerequisiteFacts(ActionDefinitionSnapshot definition, HashSet<string> plannerFacts)
+		{
+			var missingPrerequisiteFacts = new List<string>();
+			AddMissingFacts(missingPrerequisiteFacts, plannerFacts, definition.RequiredItemIds.Select(GoapFacts.HasItem));
+			AddMissingFacts(missingPrerequisiteFacts, plannerFacts, definition.RequiredBodyParts.Select(GoapFacts.HasBodyPart));
+			AddMissingFacts(missingPrerequisiteFacts, plannerFacts, definition.RequiredOrgans.Select(GoapFacts.HasOrgan));
+			AddMissingFacts(missingPrerequisiteFacts, plannerFacts, definition.RequiredSystems.Select(GoapFacts.HasSystem));
+			AddMissingFacts(missingPrerequisiteFacts, plannerFacts, definition.RequiredFacts);
+
+			if (definition.RequiresFreeInventorySlot && !plannerFacts.Contains(GoapFacts.InventoryHasSpace))
+			{
+				missingPrerequisiteFacts.Add(GoapFacts.InventoryHasSpace);
+			}
+
+			foreach (var blockedFact in definition.BlockedByFacts.Where(plannerFacts.Contains))
+			{
+				missingPrerequisiteFacts.Add($"blocked:{blockedFact}");
+			}
+
+			if (string.Equals(definition.Id, "store-items", StringComparison.OrdinalIgnoreCase)
+				&& !plannerFacts.Contains(GoapFacts.InventoryHasResourceItems))
+			{
+				missingPrerequisiteFacts.Add(GoapFacts.InventoryHasResourceItems);
+			}
+
+			return missingPrerequisiteFacts;
+		}
+
+		static void AddMissingFacts(List<string> missingFacts, HashSet<string> plannerFacts, IEnumerable<string> requiredFacts)
+		{
+			foreach (var fact in requiredFacts.Where(fact => !plannerFacts.Contains(fact)))
+			{
+				missingFacts.Add(fact);
+			}
+		}
+
+		readonly record struct CandidateBlockersView(GoapActionCandidate Candidate, List<string> Blockers);
 
 		IEnumerable<string> ReflectObject(object obj)
 		{
@@ -225,7 +902,7 @@ namespace DwarvenFortification
 			}
 		}
 
-		IEnumerable<string> ReflectEntity(Entity entity)
+		IEnumerable<string> ReflectEntityOverview(Entity entity)
 		{
 			yield return $"=== Entity={entity} ===";
 
@@ -255,6 +932,14 @@ namespace DwarvenFortification
 				yield return $" - BaseSpeed={stats.BaseSpeed}";
 				yield return $" - EffectiveSpeed={entity.GetSpeed()}";
 			}
+		}
+
+		IEnumerable<string> ReflectEntity(Entity entity)
+		{
+			foreach (var line in ReflectEntityOverview(entity))
+			{
+				yield return line;
+			}
 
 			if (entity.Has<InventoryComponent>())
 			{
@@ -266,13 +951,13 @@ namespace DwarvenFortification
 				}
 			}
 
-			if (entity.Has<TaskQueueComponent>())
+			if (entity.Has<ActionQueueComponent>())
 			{
-				var taskQueue = entity.Get<TaskQueueComponent>();
-				yield return $" - Tasks={taskQueue.Tasks.Count}";
-				foreach (var task in taskQueue.Tasks)
+				var actionQueue = entity.Get<ActionQueueComponent>();
+				yield return $" - Actions={actionQueue.Actions.Count}";
+				foreach (var queuedAction in actionQueue.Actions)
 				{
-					yield return $"  * {task}";
+					yield return $"  * {queuedAction}";
 				}
 			}
 

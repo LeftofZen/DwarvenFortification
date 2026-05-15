@@ -17,30 +17,47 @@ namespace DwarvenFortification
 		}
 
 		public GoapPlan Plan(Entity agent)
+			=> Inspect(agent).SelectedPlan;
+
+		public GoapPlanningSnapshot Inspect(Entity agent)
 		{
-			var actions = definitions.GetActionDefinitions();
 			var currentFacts = worldQueryService.BuildCurrentFacts(agent);
-			var candidates = worldQueryService.BuildCandidates(agent, actions, currentFacts).ToList();
-			if (candidates.Count == 0)
-			{
-				return null;
-			}
+			var actions = definitions.GetActionDefinitions();
+			var candidateQuery = worldQueryService.InspectCandidates(agent, actions, currentFacts);
+			var candidates = candidateQuery.Candidates.ToList();
+			var goals = new List<GoapGoalDebugView>();
+			GoapPlan selectedPlan = null;
 
 			foreach (var goal in definitions.GetGoalDefinitions())
 			{
-				if (!GoalIsEligible(goal, currentFacts))
+				var missingRequiredFacts = goal.RequiredFacts
+					.Where(fact => !currentFacts.Contains(fact))
+					.ToArray();
+				var activeBlockingFacts = goal.BlockedByFacts
+					.Where(currentFacts.Contains)
+					.ToArray();
+				var isEligible = missingRequiredFacts.Length == 0 && activeBlockingFacts.Length == 0;
+				var isSatisfied = GoalSatisfied(goal, currentFacts);
+
+				GoapPlan plan = null;
+				if (isEligible && candidates.Count > 0)
 				{
-					continue;
+					plan = Search(goal, currentFacts, candidates);
+					if (selectedPlan == null && plan != null)
+					{
+						selectedPlan = plan;
+					}
 				}
 
-				var plan = Search(goal, currentFacts, candidates);
-				if (plan != null)
-				{
-					return plan;
-				}
+				goals.Add(new GoapGoalDebugView(goal, isEligible, isSatisfied, missingRequiredFacts, activeBlockingFacts, plan));
 			}
 
-			return null;
+			return new GoapPlanningSnapshot(
+				currentFacts.OrderBy(fact => fact, System.StringComparer.OrdinalIgnoreCase).ToArray(),
+				candidates,
+				candidateQuery.Diagnostics,
+				goals,
+				selectedPlan);
 		}
 
 		GoapPlan Search(GoapGoal goal, HashSet<string> currentFacts, List<GoapActionCandidate> candidates)
@@ -91,6 +108,7 @@ namespace DwarvenFortification
 					{
 						nextFacts.Remove(fact);
 					}
+
 					foreach (var fact in candidate.AddFacts)
 					{
 						nextFacts.Add(fact);

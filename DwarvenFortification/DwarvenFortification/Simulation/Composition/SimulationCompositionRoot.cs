@@ -8,10 +8,11 @@ namespace DwarvenFortification
 		public static SimulationRuntime Create(SimulationDefinitionRegistry definitions, SimulationRenderAssets renderAssets, ILogger logger, ImGuiSimulationUi ui)
 		{
 			GridWorld world = null;
-			var taskRuntimeContext = new TaskRuntimeContext(() => world, logger, renderAssets);
+			var taskRuntimeContext = new ActionRuntimeContext(() => world, logger, renderAssets);
 			var entityFactory = new SimulationEntityFactory(definitions);
+			var pathfinder = new EpPathFindingGridPathfinder();
 			var agentRuntime = AgentRuntimeFactory.CreateDefault(definitions, logger, taskRuntimeContext);
-			world = new GridWorld(48, 32, agentRuntime, definitions, entityFactory, renderAssets, taskRuntimeContext, ui);
+			world = new GridWorld(48, 32, agentRuntime, definitions, entityFactory, pathfinder, renderAssets, taskRuntimeContext, ui);
 
 			return new SimulationRuntime(definitions, renderAssets, logger, entityFactory, agentRuntime, world, ui);
 		}

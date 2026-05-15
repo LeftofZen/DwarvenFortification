@@ -40,10 +40,12 @@ namespace DwarvenFortification
 				{
 					facts.Add(GoapFacts.HasBodyPart(bodyPart));
 				}
+
 				foreach (var organ in body.Organs)
 				{
 					facts.Add(GoapFacts.HasOrgan(organ));
 				}
+
 				foreach (var system in body.Systems)
 				{
 					facts.Add(GoapFacts.HasSystem(system));
@@ -58,6 +60,7 @@ namespace DwarvenFortification
 				{
 					facts.Add(knownFact);
 				}
+
 				foreach (var entry in agent.GetKnownItemLocations())
 				{
 					if (world.CellContainsItem(entry.Value, entry.Key))
@@ -95,6 +98,7 @@ namespace DwarvenFortification
 				{
 					facts.Add(GoapFacts.AreaScanned);
 				}
+
 				if (perception.EnemyVisible)
 				{
 					facts.Add(GoapFacts.EnemyVisible);
@@ -113,13 +117,32 @@ namespace DwarvenFortification
 			return facts;
 		}
 
-		public IEnumerable<GoapActionCandidate> BuildCandidates(Entity agent, IReadOnlyList<ActionDefinitionSnapshot> actions, HashSet<string> currentFacts)
+		public GoapCandidateQuerySnapshot InspectCandidates(Entity agent, IReadOnlyList<ActionDefinitionSnapshot> actions, HashSet<string> currentFacts)
 		{
+			var accepted = new List<GoapActionCandidate>();
+			var diagnostics = new List<GoapActionDiagnostic>();
 			var world = worldAccessor();
 			var agentCell = world.CoordsAtXY(agent.GetPosition());
-			foreach (var bridgeCandidate in BuildKnowledgeBridgeCandidates(agent, actions, currentFacts))
+
+			void AddAccepted(GoapActionCandidate candidate, string targetSummary)
 			{
-				yield return bridgeCandidate;
+				accepted.Add(candidate);
+				diagnostics.Add(new GoapActionDiagnostic(
+					candidate.Definition,
+					GoapActionDiagnosticStatus.Available,
+					"Action manifestation available.",
+					candidate.TargetCell,
+					candidate.DestinationCell,
+					targetSummary,
+					candidate.Cost));
+			}
+
+			void AddRejected(ActionDefinitionSnapshot definition, string reason, Point? targetCell = null, Point? destinationCell = null, string targetSummary = "none")
+				=> diagnostics.Add(new GoapActionDiagnostic(definition, GoapActionDiagnosticStatus.Rejected, reason, targetCell, destinationCell, targetSummary, null));
+
+			foreach (var bridgeCandidate in BuildKnowledgeBridgeCandidates(agent, actions, currentFacts, AddRejected))
+			{
+				AddAccepted(bridgeCandidate, FormatTargetSummary(bridgeCandidate.TargetEntity, bridgeCandidate.TargetCell));
 			}
 
 			foreach (var action in actions.Where(action => action.Id is not "search-for-item" and not "retrieve-known-item" and not "communicate" and not "read-cookbook"))
@@ -133,27 +156,33 @@ namespace DwarvenFortification
 							continue;
 						}
 
+						var targetSummary = resourceNode.GetName();
 						if (!definitions.TryGetResourceNodeDefinition(resourceNode.GetName(), out var resourceDefinition))
 						{
+							AddRejected(action, $"Missing resource node definition for {targetSummary}.", coords, null, targetSummary);
 							continue;
 						}
 
 						if (!resourceDefinition.SupportedActionIds.Any(id => string.Equals(id, action.Id, StringComparison.OrdinalIgnoreCase)))
 						{
+							AddRejected(action, $"Target does not support action '{action.Id}'.", coords, null, targetSummary);
 							continue;
 						}
 
 						if (!action.RequiredTargetTags.All(tag => resourceDefinition.Tags.Contains(tag, StringComparer.OrdinalIgnoreCase)))
 						{
+							AddRejected(action, $"Target is missing required tags: {string.Join(", ", action.RequiredTargetTags.Where(tag => !resourceDefinition.Tags.Contains(tag, StringComparer.OrdinalIgnoreCase)))}.", coords, null, targetSummary);
 							continue;
 						}
 
 						if (!world.TryFindActionDestinationCell(agentCell, coords, action.DestinationMode, out var destinationCell))
 						{
+							AddRejected(action, "No valid destination cell found for this target.", coords, null, targetSummary);
 							continue;
 						}
 
-						yield return new GoapActionCandidate(action, coords, destinationCell, resourceNode, action.BaseCost + action.DurationTicks, BuildRequiredFacts(action), action.AddFacts, action.RemoveFacts);
+						var candidate = new GoapActionCandidate(action, coords, destinationCell, resourceNode, action.BaseCost + action.DurationTicks, BuildRequiredFacts(action), action.AddFacts, action.RemoveFacts);
+						AddAccepted(candidate, targetSummary);
 					}
 				}
 				else if (string.Equals(action.TargetKind, "worldObject", StringComparison.OrdinalIgnoreCase))
@@ -165,8 +194,10 @@ namespace DwarvenFortification
 							continue;
 						}
 
+						var targetSummary = worldObject.GetName();
 						if (!action.RequiredTargetTags.All(tag => worldObject.Get<TagCollectionComponent>().Contains(tag)))
 						{
+							AddRejected(action, $"Target is missing required tags: {string.Join(", ", action.RequiredTargetTags.Where(tag => !worldObject.Get<TagCollectionComponent>().Contains(tag)))}.", coords, null, targetSummary);
 							continue;
 						}
 
@@ -175,26 +206,31 @@ namespace DwarvenFortification
 							var storable = agent.GetInventory().Any(item => !item.Get<ItemDefinitionComponent>().IsTool && worldObject.CanStore(item));
 							if (!storable)
 							{
+								AddRejected(action, "Agent has no non-tool inventory items that this target can store.", coords, null, targetSummary);
 								continue;
 							}
 						}
 
 						if (string.Equals(action.Id, "sleep", StringComparison.OrdinalIgnoreCase) && !agent.IsRestLow())
 						{
+							AddRejected(action, "Agent is not tired enough to sleep.", coords, null, targetSummary);
 							continue;
 						}
 
 						if (!world.TryFindActionDestinationCell(agentCell, coords, action.DestinationMode, out var destinationCell))
 						{
+							AddRejected(action, "No valid destination cell found for this target.", coords, null, targetSummary);
 							continue;
 						}
 
-						yield return new GoapActionCandidate(action, coords, destinationCell, worldObject, action.BaseCost + action.DurationTicks, BuildRequiredFacts(action), action.AddFacts, action.RemoveFacts);
+						var candidate = new GoapActionCandidate(action, coords, destinationCell, worldObject, action.BaseCost + action.DurationTicks, BuildRequiredFacts(action), action.AddFacts, action.RemoveFacts);
+						AddAccepted(candidate, targetSummary);
 					}
 				}
 				else if (string.Equals(action.TargetKind, "self", StringComparison.OrdinalIgnoreCase))
 				{
-					yield return new GoapActionCandidate(action, agentCell, agentCell, agent, action.BaseCost + action.DurationTicks, BuildRequiredFacts(action), action.AddFacts, action.RemoveFacts);
+					var candidate = new GoapActionCandidate(action, agentCell, agentCell, agent, action.BaseCost + action.DurationTicks, BuildRequiredFacts(action), action.AddFacts, action.RemoveFacts);
+					AddAccepted(candidate, agent.GetName());
 				}
 				else if (string.Equals(action.TargetKind, "enemy", StringComparison.OrdinalIgnoreCase))
 				{
@@ -206,23 +242,35 @@ namespace DwarvenFortification
 						}
 
 						var otherCell = world.CoordsAtXY(other.GetPosition());
+						var targetSummary = other.GetName();
 						var throwItem = action.RequiredItemIds.Select(itemId => agent.GetInventory().FirstOrDefault(item => string.Equals(item.GetItemDefinitionId(), itemId, StringComparison.OrdinalIgnoreCase))).FirstOrDefault();
 						if (!throwItem.Equals(default(Entity)))
 						{
 							var range = throwItem.Get<ItemDefinitionComponent>().ThrowRange;
 							if (Vector2.DistanceSquared(otherCell.ToVector2(), agentCell.ToVector2()) > range * range)
 							{
+								AddRejected(action, $"Target is out of range for required item '{throwItem.GetItemDefinitionId()}'.", otherCell, agentCell, targetSummary);
 								continue;
 							}
 						}
 
-						yield return new GoapActionCandidate(action, otherCell, agentCell, other, action.BaseCost + action.DurationTicks, BuildRequiredFacts(action), action.AddFacts, action.RemoveFacts);
+						var candidate = new GoapActionCandidate(action, otherCell, agentCell, other, action.BaseCost + action.DurationTicks, BuildRequiredFacts(action), action.AddFacts, action.RemoveFacts);
+						AddAccepted(candidate, targetSummary);
 					}
 				}
+				else
+				{
+					AddRejected(action, $"Unsupported target kind '{action.TargetKind}'.");
+				}
 			}
+
+			return new GoapCandidateQuerySnapshot(accepted, diagnostics);
 		}
 
-		IEnumerable<GoapActionCandidate> BuildKnowledgeBridgeCandidates(Entity agent, IReadOnlyList<ActionDefinitionSnapshot> actions, HashSet<string> currentFacts)
+		public IEnumerable<GoapActionCandidate> BuildCandidates(Entity agent, IReadOnlyList<ActionDefinitionSnapshot> actions, HashSet<string> currentFacts)
+			=> InspectCandidates(agent, actions, currentFacts).Candidates;
+
+		IEnumerable<GoapActionCandidate> BuildKnowledgeBridgeCandidates(Entity agent, IReadOnlyList<ActionDefinitionSnapshot> actions, HashSet<string> currentFacts, Action<ActionDefinitionSnapshot, string, Point?, Point?, string> addRejected)
 		{
 			var world = worldAccessor();
 			var agentCell = world.CoordsAtXY(agent.GetPosition());
@@ -245,6 +293,11 @@ namespace DwarvenFortification
 					{
 						yield return new GoapActionCandidate(retrieveAction, knownCell, retrieveDestination, null, retrieveAction.BaseCost + retrieveAction.DurationTicks, BuildRequiredFacts(retrieveAction, GoapFacts.KnowsItemLocation(itemId)), new[] { GoapFacts.HasItem(itemId) }, Array.Empty<string>());
 					}
+					else
+					{
+						addRejected(retrieveAction, "Remembered item location exists but no route to a valid action destination was found.", knownCell, null, itemId);
+					}
+
 					continue;
 				}
 
@@ -255,6 +308,7 @@ namespace DwarvenFortification
 						var allyCell = world.CoordsAtXY(ally.GetPosition());
 						if (!world.TryFindActionDestinationCell(agentCell, allyCell, communicateAction.DestinationMode, out var communicateDestination))
 						{
+							addRejected(communicateAction, "Ally knows the item location, but no communication position was reachable.", allyCell, null, ally.GetName());
 							continue;
 						}
 
@@ -268,6 +322,14 @@ namespace DwarvenFortification
 					{
 						yield return new GoapActionCandidate(searchAction, searchCell, searchDestination, null, searchAction.BaseCost + searchAction.DurationTicks, BuildRequiredFacts(searchAction), new[] { GoapFacts.KnowsItemLocation(itemId) }, Array.Empty<string>());
 					}
+					else
+					{
+						addRejected(searchAction, "Item exists in the world, but no valid search destination was reachable.", searchCell, null, itemId);
+					}
+				}
+				else if (!string.IsNullOrWhiteSpace(searchAction.Id))
+				{
+					addRejected(searchAction, "No known or discoverable world location for the required item.", null, null, itemId);
 				}
 			}
 
@@ -286,6 +348,7 @@ namespace DwarvenFortification
 						var allyCell = world.CoordsAtXY(ally.GetPosition());
 						if (!world.TryFindActionDestinationCell(agentCell, allyCell, communicateAction.DestinationMode, out var communicateDestination))
 						{
+							addRejected(communicateAction, "Ally knows the fact, but no communication position was reachable.", allyCell, null, ally.GetName());
 							continue;
 						}
 
@@ -317,6 +380,11 @@ namespace DwarvenFortification
 						{
 							yield return new GoapActionCandidate(retrieveAction, knownBookCell, retrieveDestination, null, retrieveAction.BaseCost + retrieveAction.DurationTicks, BuildRequiredFacts(retrieveAction, GoapFacts.KnowsItemLocation(readableDefinitionId)), new[] { GoapFacts.HasItem(readableDefinitionId) }, Array.Empty<string>());
 						}
+						else
+						{
+							addRejected(retrieveAction, "Readable item location is known, but no retrieval destination was reachable.", knownBookCell, null, readableDefinitionId);
+						}
+
 						continue;
 					}
 
@@ -327,6 +395,7 @@ namespace DwarvenFortification
 							var allyCell = world.CoordsAtXY(ally.GetPosition());
 							if (!world.TryFindActionDestinationCell(agentCell, allyCell, communicateAction.DestinationMode, out var communicateDestination))
 							{
+								addRejected(communicateAction, "Ally remembers the readable item, but no communication position was reachable.", allyCell, null, ally.GetName());
 								continue;
 							}
 
@@ -345,10 +414,23 @@ namespace DwarvenFortification
 						{
 							yield return new GoapActionCandidate(searchAction, searchCell, searchDestination, null, searchAction.BaseCost + searchAction.DurationTicks, BuildRequiredFacts(searchAction), new[] { GoapFacts.KnowsItemLocation(readableDefinitionId) }, Array.Empty<string>());
 						}
+						else
+						{
+							addRejected(searchAction, "Readable item exists in the world, but no valid search destination was reachable.", searchCell, null, readableDefinitionId);
+						}
+					}
+					else if (!string.IsNullOrWhiteSpace(searchAction.Id))
+					{
+						addRejected(searchAction, "No discoverable readable item instance exists for the missing fact.", null, null, readableDefinitionId);
 					}
 				}
 			}
 		}
+
+		static string FormatTargetSummary(Entity? entity, Point targetCell)
+			=> entity.HasValue && !entity.Value.Equals(default(Entity))
+				? entity.Value.GetName()
+				: targetCell.ToString();
 
 		string[] BuildRequiredFacts(ActionDefinitionSnapshot action, params string[] extraFacts)
 		{

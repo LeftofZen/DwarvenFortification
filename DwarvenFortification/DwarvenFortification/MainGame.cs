@@ -72,6 +72,9 @@ namespace DwarvenFortification
 			var definitions = SimulationDefinitionRegistry.LoadFromContentDirectory(@"Content/config");
 			GameServices.Definitions = definitions;
 			simulationUi = new ImGuiSimulationUi(definitions, GameServices.Logger);
+			var inspectorWorldQueryService = new GoapWorldQueryService(definitions, () => world);
+			var inspectorPlanner = new GoapPlanner(definitions, inspectorWorldQueryService);
+			simulationUi.PlanningSnapshotProvider = inspectorPlanner.Inspect;
 
 			var renderAssets = new SimulationRenderAssets(
 				GameServices.Fonts["Calibri"],
@@ -111,14 +114,17 @@ namespace DwarvenFortification
 			{
 				movementDirection += Vector2.UnitY;
 			}
+
 			if (state.IsKeyDown(Keys.Up))
 			{
 				movementDirection -= Vector2.UnitY;
 			}
+
 			if (state.IsKeyDown(Keys.Left))
 			{
 				movementDirection -= Vector2.UnitX;
 			}
+
 			if (state.IsKeyDown(Keys.Right))
 			{
 				movementDirection += Vector2.UnitX;

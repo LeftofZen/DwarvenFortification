@@ -6,13 +6,13 @@ using System.Linq;
 
 namespace DwarvenFortification
 {
-	public class ConsumeInventoryItemTask : BaseAgentTask
+	public class ConsumeInventoryItemAction : BaseAgentAction
 	{
 		readonly string itemDefinitionId;
 		readonly bool restoreHunger;
 		readonly bool restoreThirst;
 
-		public ConsumeInventoryItemTask(ITaskRuntimeContext runtimeContext, Entity owner, string itemDefinitionId, bool restoreHunger, bool restoreThirst) : base(runtimeContext, owner, "consume-item", 1)
+		public ConsumeInventoryItemAction(IActionRuntimeContext runtimeContext, Entity owner, string itemDefinitionId, bool restoreHunger, bool restoreThirst) : base(runtimeContext, owner, "consume-item", 1)
 		{
 			this.itemDefinitionId = itemDefinitionId;
 			this.restoreHunger = restoreHunger;
@@ -22,12 +22,12 @@ namespace DwarvenFortification
 		public override bool IsStillValid(ISimulationWorld world)
 			=> owner.HasItemDefinition(itemDefinitionId);
 
-		protected override AgentTaskStatus OnTick()
+		protected override AgentActionStatus OnTick()
 		{
 			var item = owner.GetInventory().FirstOrDefault(entity => string.Equals(entity.GetItemDefinitionId(), itemDefinitionId, System.StringComparison.OrdinalIgnoreCase));
 			if (item.Equals(default(Entity)))
 			{
-				return FailTask($"No '{itemDefinitionId}' item was available to consume.");
+				return FailAction($"No '{itemDefinitionId}' item was available to consume.");
 			}
 
 			var definition = item.Get<ItemDefinitionComponent>();
@@ -43,7 +43,7 @@ namespace DwarvenFortification
 
 			owner.RemoveInventoryItem(item);
 			AdvanceProgress(Cost);
-			return CompleteTask();
+			return CompleteAction();
 		}
 
 		public override void Draw(SpriteBatch sb)

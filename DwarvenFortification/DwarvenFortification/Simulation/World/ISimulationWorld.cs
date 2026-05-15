@@ -22,6 +22,6 @@ namespace DwarvenFortification
 		bool TryFindPatrolRoute(Point origin, int radius, int waypointCount, out IReadOnlyList<Point> route);
 		bool TryFindHideDestination(Point origin, Point dangerCell, int radius, out Point hideCell);
 		bool TryFindActionDestinationCell(Point agentCell, Point targetCell, string destinationMode, out Point destinationCell);
-		void PlotPath(Entity agent, Point destinationCell);
+		void PlotPath(Entity agent, Point destinationCell, AgentActionMetadata metadata = null);
 	}
 	}

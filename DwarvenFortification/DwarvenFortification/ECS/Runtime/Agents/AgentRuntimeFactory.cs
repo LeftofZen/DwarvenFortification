@@ -5,7 +5,7 @@ namespace DwarvenFortification
 {
 	public static class AgentRuntimeFactory
 	{
-		public static IAgentRuntime CreateDefault(SimulationDefinitionRegistry definitions, ILogger logger, ITaskRuntimeContext taskRuntimeContext)
+		public static IAgentRuntime CreateDefault(SimulationDefinitionRegistry definitions, ILogger logger, IActionRuntimeContext taskRuntimeContext)
 		{
 			var planner = new GoapPlanner(definitions, new GoapWorldQueryService(definitions, () => taskRuntimeContext.World));
 			var planExecutor = new GoapPlanExecutor(taskRuntimeContext);
@@ -14,9 +14,9 @@ namespace DwarvenFortification
 			{
 				new NeedStateUpdateStage(),
 				new TransientStateUpdateStage(),
-				new TaskQueueIntegrityStage(),
+				new ActionQueueIntegrityStage(),
 				new PlanningStage(planningService),
-				new TaskExecutionStage(),
+				new ActionExecutionStage(),
 			};
 
 			return new AgentRuntimePipeline(updateStages, new SimpleAgentRenderer(), logger);

@@ -4,12 +4,12 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace DwarvenFortification
 {
-	public class SearchForItemTask : BaseAgentTask
+	public class SearchForItemAction : BaseAgentAction
 	{
 		readonly string itemDefinitionId;
 		readonly Point targetCell;
 
-		public SearchForItemTask(ITaskRuntimeContext runtimeContext, Entity owner, string itemDefinitionId, Point targetCell) : base(runtimeContext, owner, "search-for-item", 1)
+		public SearchForItemAction(IActionRuntimeContext runtimeContext, Entity owner, string itemDefinitionId, Point targetCell) : base(runtimeContext, owner, "search-for-item", 1)
 		{
 			this.itemDefinitionId = itemDefinitionId;
 			this.targetCell = targetCell;
@@ -18,16 +18,16 @@ namespace DwarvenFortification
 		public override bool IsStillValid(ISimulationWorld world)
 			=> world.CellContainsItem(targetCell, itemDefinitionId);
 
-		protected override AgentTaskStatus OnTick()
+		protected override AgentActionStatus OnTick()
 		{
 			if (!runtimeContext.World.CellContainsItem(targetCell, itemDefinitionId))
 			{
-				return FailTask($"Could not find '{itemDefinitionId}' while searching.");
+				return FailAction($"Could not find '{itemDefinitionId}' while searching.");
 			}
 
 			owner.RememberItemLocation(itemDefinitionId, targetCell);
 			AdvanceProgress(Cost);
-			return CompleteTask();
+			return CompleteAction();
 		}
 
 		public override void Draw(SpriteBatch sb)

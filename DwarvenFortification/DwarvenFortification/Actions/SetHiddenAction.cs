@@ -4,20 +4,20 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace DwarvenFortification
 {
-	public class SetHiddenTask : BaseAgentTask
+	public class SetHiddenAction : BaseAgentAction
 	{
 		readonly int durationTicks;
 
-		public SetHiddenTask(ITaskRuntimeContext runtimeContext, Entity owner, int durationTicks) : base(runtimeContext, owner, "set-hidden", 1)
+		public SetHiddenAction(IActionRuntimeContext runtimeContext, Entity owner, int durationTicks) : base(runtimeContext, owner, "set-hidden", 1)
 		{
 			this.durationTicks = durationTicks;
 		}
 
-		protected override AgentTaskStatus OnTick()
+		protected override AgentActionStatus OnTick()
 		{
 			owner.SetHidden(durationTicks);
 			AdvanceProgress(Cost);
-			return CompleteTask();
+			return CompleteAction();
 		}
 
 		public override void Draw(SpriteBatch sb)

@@ -6,12 +6,12 @@ using System.Linq;
 
 namespace DwarvenFortification
 {
-	public class RetrieveRememberedItemTask : BaseAgentTask
+	public class RetrieveRememberedItemAction : BaseAgentAction
 	{
 		readonly string itemDefinitionId;
 		readonly Point targetCell;
 
-		public RetrieveRememberedItemTask(ITaskRuntimeContext runtimeContext, Entity owner, string itemDefinitionId, Point targetCell) : base(runtimeContext, owner, "retrieve-known-item", 1)
+		public RetrieveRememberedItemAction(IActionRuntimeContext runtimeContext, Entity owner, string itemDefinitionId, Point targetCell) : base(runtimeContext, owner, "retrieve-known-item", 1)
 		{
 			this.itemDefinitionId = itemDefinitionId;
 			this.targetCell = targetCell;
@@ -22,13 +22,13 @@ namespace DwarvenFortification
 				&& rememberedCell == targetCell
 				&& world.CellContainsItem(targetCell, itemDefinitionId);
 
-		protected override AgentTaskStatus OnTick()
+		protected override AgentActionStatus OnTick()
 		{
 			var cell = runtimeContext.World.CellAtCoords(targetCell);
 			if (cell == null)
 			{
 				owner.ForgetItemLocation(itemDefinitionId);
-				return FailTask($"The remembered location for '{itemDefinitionId}' is invalid.");
+				return FailAction($"The remembered location for '{itemDefinitionId}' is invalid.");
 			}
 
 			var groundItem = cell.ItemsInCell.FirstOrDefault(item => string.Equals(item.GetItemDefinitionId(), itemDefinitionId, System.StringComparison.OrdinalIgnoreCase));
@@ -46,7 +46,7 @@ namespace DwarvenFortification
 				}
 
 				AdvanceProgress(Cost);
-				return CompleteTask();
+				return CompleteAction();
 			}
 
 			if (cell.TryGetWorldObject(out var worldObject) && worldObject.Has<InventoryComponent>())
@@ -67,12 +67,12 @@ namespace DwarvenFortification
 					}
 
 					AdvanceProgress(Cost);
-					return CompleteTask();
+					return CompleteAction();
 				}
 			}
 
 			owner.ForgetItemLocation(itemDefinitionId);
-			return FailTask($"The remembered location no longer contains '{itemDefinitionId}'.");
+			return FailAction($"The remembered location no longer contains '{itemDefinitionId}'.");
 		}
 
 		public override void Draw(SpriteBatch sb)

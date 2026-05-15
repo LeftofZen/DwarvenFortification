@@ -5,18 +5,18 @@ using System.Collections.Generic;
 
 namespace DwarvenFortification
 {
-	public class PutDownTask : BaseAgentTask
+	public class PutDownAction : BaseAgentAction
 	{
 		const int _cost = 100;
 		const string _actionId = "put-down";
 
-		public PutDownTask(ITaskRuntimeContext runtimeContext, Entity owner, Entity item) : base(runtimeContext, owner, _actionId, (int)(_cost * (1 - owner.GetStrength())))
+		public PutDownAction(IActionRuntimeContext runtimeContext, Entity owner, Entity item) : base(runtimeContext, owner, _actionId, (int)(_cost * (1 - owner.GetStrength())))
 		{
 			this.items.Clear();
 			this.items.Add(item);
 		}
 
-		public PutDownTask(ITaskRuntimeContext runtimeContext, Entity owner, IEnumerable<Entity> items) : base(runtimeContext, owner, _actionId, _cost)
+		public PutDownAction(IActionRuntimeContext runtimeContext, Entity owner, IEnumerable<Entity> items) : base(runtimeContext, owner, _actionId, _cost)
 		{
 			this.items = new List<Entity>(items);
 		}
@@ -29,12 +29,12 @@ namespace DwarvenFortification
 		protected override string BuildCannotStartReason()
 			=> "Cannot put down items because no items were supplied.";
 
-		protected override AgentTaskStatus OnTick()
+		protected override AgentActionStatus OnTick()
 		{
 			var currentCell = owner.GetCurrentCell(runtimeContext.World);
 			if (currentCell == null)
 			{
-				return FailTask("Cannot put down items because the owner is not inside a valid cell.");
+				return FailAction("Cannot put down items because the owner is not inside a valid cell.");
 			}
 
 			var targetStorage = currentCell.TryGetWorldObject(out var worldObject) && worldObject.IsStorageObject()
@@ -67,11 +67,11 @@ namespace DwarvenFortification
 			items.Clear();
 			if (placedCount == 0)
 			{
-				return FailTask("No matching items could be put down from the owner's inventory.");
+				return FailAction("No matching items could be put down from the owner's inventory.");
 			}
 
 			AdvanceProgress(Cost);
-			return CompleteTask();
+			return CompleteAction();
 		}
 
 		public override void Draw(SpriteBatch sb)

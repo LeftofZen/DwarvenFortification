@@ -13,7 +13,7 @@ namespace DwarvenFortification
 
 		public void Update(AgentRuntimeContext context, Entity agent)
 		{
-			if (agent.HasQueuedTasks())
+			if (agent.HasQueuedActions())
 			{
 				return;
 			}

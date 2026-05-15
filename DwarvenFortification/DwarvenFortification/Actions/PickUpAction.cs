@@ -5,12 +5,12 @@ using System.Linq;
 
 namespace DwarvenFortification
 {
-	public class PickUpTask : BaseAgentTask
+	public class PickUpAction : BaseAgentAction
 	{
 		const int _cost = 100;
 		const string _actionId = "pick-up";
 
-		public PickUpTask(ITaskRuntimeContext runtimeContext, Entity owner, Entity item) : base(runtimeContext, owner, _actionId, (int)(_cost * (1 - owner.GetStrength())))
+		public PickUpAction(IActionRuntimeContext runtimeContext, Entity owner, Entity item) : base(runtimeContext, owner, _actionId, (int)(_cost * (1 - owner.GetStrength())))
 		{
 			this.item = item;
 		}
@@ -23,24 +23,24 @@ namespace DwarvenFortification
 		protected override string BuildCannotStartReason()
 			=> "Cannot pick up item because the inventory is full.";
 
-		protected override AgentTaskStatus OnTick()
+		protected override AgentActionStatus OnTick()
 		{
 			var currentCell = owner.GetCurrentCell(runtimeContext.World);
 			if (currentCell == null)
 			{
-				return FailTask("Cannot pick up item because the owner is not inside a valid cell.");
+				return FailAction("Cannot pick up item because the owner is not inside a valid cell.");
 			}
 
 			var foundItem = currentCell.ItemsInCell.FirstOrDefault(i => i.Equals(item) || i.GetItemDefinitionId() == item.GetItemDefinitionId());
 			if (foundItem.Equals(default(Entity)))
 			{
-				return FailTask($"Could not find item '{item.GetItemDefinitionId()}' in the current cell.");
+				return FailAction($"Could not find item '{item.GetItemDefinitionId()}' in the current cell.");
 			}
 
 			owner.AddInventoryItem(foundItem);
 			_ = currentCell.ItemsInCell.Remove(foundItem);
 			AdvanceProgress(Cost);
-			return CompleteTask();
+			return CompleteAction();
 		}
 
 		public override void Draw(SpriteBatch sb)

@@ -68,6 +68,102 @@ namespace DwarvenFortification
 		public int Cost { get; }
 	}
 
+	public enum GoapActionDiagnosticStatus
+	{
+		Available,
+		Rejected,
+	}
+
+	public sealed class GoapActionDiagnostic
+	{
+		public GoapActionDiagnostic(
+			ActionDefinitionSnapshot definition,
+			GoapActionDiagnosticStatus status,
+			string reason,
+			Point? targetCell,
+			Point? destinationCell,
+			string targetSummary,
+			int? cost)
+		{
+			Definition = definition;
+			Status = status;
+			Reason = reason;
+			TargetCell = targetCell;
+			DestinationCell = destinationCell;
+			TargetSummary = targetSummary;
+			Cost = cost;
+		}
+
+		public ActionDefinitionSnapshot Definition { get; }
+		public GoapActionDiagnosticStatus Status { get; }
+		public string Reason { get; }
+		public Point? TargetCell { get; }
+		public Point? DestinationCell { get; }
+		public string TargetSummary { get; }
+		public int? Cost { get; }
+	}
+
+	public sealed class GoapCandidateQuerySnapshot
+	{
+		public GoapCandidateQuerySnapshot(IReadOnlyList<GoapActionCandidate> candidates, IReadOnlyList<GoapActionDiagnostic> diagnostics)
+		{
+			Candidates = candidates;
+			Diagnostics = diagnostics;
+		}
+
+		public IReadOnlyList<GoapActionCandidate> Candidates { get; }
+		public IReadOnlyList<GoapActionDiagnostic> Diagnostics { get; }
+	}
+
+	public sealed class GoapGoalDebugView
+	{
+		public GoapGoalDebugView(
+			GoapGoal goal,
+			bool isEligible,
+			bool isSatisfied,
+			IReadOnlyList<string> missingRequiredFacts,
+			IReadOnlyList<string> activeBlockingFacts,
+			GoapPlan plan)
+		{
+			Goal = goal;
+			IsEligible = isEligible;
+			IsSatisfied = isSatisfied;
+			MissingRequiredFacts = missingRequiredFacts;
+			ActiveBlockingFacts = activeBlockingFacts;
+			Plan = plan;
+		}
+
+		public GoapGoal Goal { get; }
+		public bool IsEligible { get; }
+		public bool IsSatisfied { get; }
+		public IReadOnlyList<string> MissingRequiredFacts { get; }
+		public IReadOnlyList<string> ActiveBlockingFacts { get; }
+		public GoapPlan Plan { get; }
+	}
+
+	public sealed class GoapPlanningSnapshot
+	{
+		public GoapPlanningSnapshot(
+			IReadOnlyList<string> currentFacts,
+			IReadOnlyList<GoapActionCandidate> candidates,
+			IReadOnlyList<GoapActionDiagnostic> actionDiagnostics,
+			IReadOnlyList<GoapGoalDebugView> goals,
+			GoapPlan selectedPlan)
+		{
+			CurrentFacts = currentFacts;
+			Candidates = candidates;
+			ActionDiagnostics = actionDiagnostics;
+			Goals = goals;
+			SelectedPlan = selectedPlan;
+		}
+
+		public IReadOnlyList<string> CurrentFacts { get; }
+		public IReadOnlyList<GoapActionCandidate> Candidates { get; }
+		public IReadOnlyList<GoapActionDiagnostic> ActionDiagnostics { get; }
+		public IReadOnlyList<GoapGoalDebugView> Goals { get; }
+		public GoapPlan SelectedPlan { get; }
+	}
+
 	internal sealed class GoapSearchNode
 	{
 		public required HashSet<string> Facts { get; init; }

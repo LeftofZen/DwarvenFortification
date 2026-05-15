@@ -5,12 +5,12 @@ using System.Linq;
 
 namespace DwarvenFortification
 {
-	public class CollectItemsFromCellTask : BaseAgentTask
+	public class CollectItemsFromCellAction : BaseAgentAction
 	{
 		readonly Point targetCell;
 		readonly int maxItems;
 
-		public CollectItemsFromCellTask(ITaskRuntimeContext runtimeContext, Entity owner, Point targetCell, int maxItems) : base(runtimeContext, owner, "collect-items", 1)
+		public CollectItemsFromCellAction(IActionRuntimeContext runtimeContext, Entity owner, Point targetCell, int maxItems) : base(runtimeContext, owner, "collect-items", 1)
 		{
 			this.targetCell = targetCell;
 			this.maxItems = maxItems;
@@ -22,24 +22,24 @@ namespace DwarvenFortification
 			return cell != null && cell.ItemsInCell.Count > 0;
 		}
 
-		protected override AgentTaskStatus OnTick()
+		protected override AgentActionStatus OnTick()
 		{
 			var cell = runtimeContext.World.CellAtCoords(targetCell);
 			if (cell == null)
 			{
-				return FailTask("Target cell does not exist for item collection.");
+				return FailAction("Target cell does not exist for item collection.");
 			}
 
 			var availableSlots = owner.GetInventoryCapacity() - owner.GetInventory().Count;
 			if (availableSlots <= 0)
 			{
-				return FailTask("Inventory is full.");
+				return FailAction("Inventory is full.");
 			}
 
 			var items = cell.ItemsInCell.Take(System.Math.Min(maxItems, availableSlots)).ToList();
 			if (items.Count == 0)
 			{
-				return FailTask("No collectible items remained in the target cell.");
+				return FailAction("No collectible items remained in the target cell.");
 			}
 
 			foreach (var item in items)
@@ -58,7 +58,7 @@ namespace DwarvenFortification
 			}
 
 			AdvanceProgress(Cost);
-			return CompleteTask();
+			return CompleteAction();
 		}
 
 		public override void Draw(SpriteBatch sb)

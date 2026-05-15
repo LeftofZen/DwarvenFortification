@@ -72,7 +72,7 @@ namespace DwarvenFortification
 					KnownItemLocations = new Dictionary<string, Point>(StringComparer.OrdinalIgnoreCase),
 				},
 				new InventoryComponent { Items = new List<Entity>(), Capacity = definition.InventoryCapacity },
-				new TaskQueueComponent { Tasks = new Queue<IAgentTask>() });
+				new ActionQueueComponent { Actions = new Queue<IAgentAction>() });
 
 			foreach (var itemId in definition.StartingItemIds)
 			{

@@ -5,12 +5,12 @@ using System.Linq;
 
 namespace DwarvenFortification
 {
-	public class ThrowItemTask : BaseAgentTask
+	public class ThrowItemAction : BaseAgentAction
 	{
 		readonly Entity target;
 		readonly string itemDefinitionId;
 
-		public ThrowItemTask(ITaskRuntimeContext runtimeContext, Entity owner, Entity target, string itemDefinitionId) : base(runtimeContext, owner, "throw-item", 1)
+		public ThrowItemAction(IActionRuntimeContext runtimeContext, Entity owner, Entity target, string itemDefinitionId) : base(runtimeContext, owner, "throw-item", 1)
 		{
 			this.target = target;
 			this.itemDefinitionId = itemDefinitionId;
@@ -28,12 +28,12 @@ namespace DwarvenFortification
 			return Vector2.DistanceSquared(ownerCell.ToVector2(), targetCell.ToVector2()) <= 64f;
 		}
 
-		protected override AgentTaskStatus OnTick()
+		protected override AgentActionStatus OnTick()
 		{
 			var item = owner.GetInventory().FirstOrDefault(entity => string.Equals(entity.GetItemDefinitionId(), itemDefinitionId, System.StringComparison.OrdinalIgnoreCase));
 			if (item.Equals(default(Entity)))
 			{
-				return FailTask($"No '{itemDefinitionId}' item was available to throw.");
+				return FailAction($"No '{itemDefinitionId}' item was available to throw.");
 			}
 
 			owner.RemoveInventoryItem(item);
@@ -45,8 +45,9 @@ namespace DwarvenFortification
 			{
 				owner.RememberItemLocation(itemDefinitionId, runtimeContext.World.CoordsAtXY(target.GetPosition()));
 			}
+
 			AdvanceProgress(Cost);
-			return CompleteTask();
+			return CompleteAction();
 		}
 
 		public override void Draw(SpriteBatch sb)

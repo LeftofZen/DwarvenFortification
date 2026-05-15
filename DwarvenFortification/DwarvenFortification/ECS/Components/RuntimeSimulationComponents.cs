@@ -100,9 +100,9 @@ namespace DwarvenFortification
 		public int Capacity;
 	}
 
-	public struct TaskQueueComponent
+	public struct ActionQueueComponent
 	{
-		public Queue<IAgentTask> Tasks;
+		public Queue<IAgentAction> Actions;
 	}
 
 	public struct AgentArchetypeReferenceComponent

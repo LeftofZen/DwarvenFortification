@@ -5,12 +5,12 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace DwarvenFortification
 {
-	public class SleepTask : BaseAgentTask
+	public class SleepAction : BaseAgentAction
 	{
 		readonly Entity targetWorldObject;
 		readonly Point targetCell;
 
-		public SleepTask(ITaskRuntimeContext runtimeContext, Entity owner, Entity targetWorldObject, int durationTicks) : base(runtimeContext, owner, "sleep", durationTicks)
+		public SleepAction(IActionRuntimeContext runtimeContext, Entity owner, Entity targetWorldObject, int durationTicks) : base(runtimeContext, owner, "sleep", durationTicks)
 		{
 			this.targetWorldObject = targetWorldObject;
 			this.targetCell = targetWorldObject.GetCellReference();
@@ -28,11 +28,11 @@ namespace DwarvenFortification
 		protected override string BuildCannotStartReason()
 			=> "Cannot sleep because the target world object is not a bed.";
 
-		protected override AgentTaskStatus OnTick()
+		protected override AgentActionStatus OnTick()
 		{
 			owner.RestoreRest();
 			AdvanceProgress();
-			return Progress >= Cost || !owner.IsRestLow() ? CompleteTask() : AgentTaskStatus.Running;
+			return Progress >= Cost || !owner.IsRestLow() ? CompleteAction() : AgentActionStatus.Running;
 		}
 
 		public override void Draw(SpriteBatch sb)

@@ -8,11 +8,11 @@ using System.Linq;
 
 namespace DwarvenFortification
 {
-	public class MoveAlongPathTask : BaseAgentTask
+	public class MoveAlongPathAction : BaseAgentAction
 	{
 		const string _actionId = "move-path";
 
-		public MoveAlongPathTask(ITaskRuntimeContext runtimeContext, Entity owner, IEnumerable<Point> path) : base(runtimeContext, owner, _actionId)
+		public MoveAlongPathAction(IActionRuntimeContext runtimeContext, Entity owner, IEnumerable<Point> path) : base(runtimeContext, owner, _actionId)
 		{
 			this.Path = new Queue<Point>(path);
 			var distances = Path.Zip(Path.Skip(1), Distance);
@@ -41,7 +41,7 @@ namespace DwarvenFortification
 		protected override string BuildCannotStartReason()
 			=> "MoveAlongPathTask requires a non-empty path.";
 
-		protected override AgentTaskStatus OnTick()
+		protected override AgentActionStatus OnTick()
 		{
 			if (currentGoal == Point.Zero)
 				currentGoal = Path.Peek();
@@ -55,11 +55,11 @@ namespace DwarvenFortification
 				owner.SetPosition(currentGoal);
 				if (!Path.TryPeek(out var nextNode))
 				{
-					return CompleteTask();
+					return CompleteAction();
 				}
 
 				currentGoal = nextNode;
-				return AgentTaskStatus.Running;
+				return AgentActionStatus.Running;
 			}
 
 			if (Cost == 0)
@@ -75,10 +75,10 @@ namespace DwarvenFortification
 				if (Path.TryPeek(out var node))
 				{
 					currentGoal = node;
-					return AgentTaskStatus.Running;
+					return AgentActionStatus.Running;
 				}
 
-				return CompleteTask();
+				return CompleteAction();
 			}
 
 			var distanceTravelled = direction * owner.GetSpeed();
@@ -87,7 +87,7 @@ namespace DwarvenFortification
 			owner.SetPosition(newPos);
 			Progress = Math.Clamp((int)totalDistanceAlongPath, 0, Cost);
 
-			return AgentTaskStatus.Running;
+			return AgentActionStatus.Running;
 		}
 
 		public override void Draw(SpriteBatch sb)

@@ -1,6 +1,6 @@
 namespace DwarvenFortification
 {
-	public enum AgentTaskStatus
+	public enum AgentActionStatus
 	{
 		Pending,
 		Running,

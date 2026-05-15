@@ -4,12 +4,12 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace DwarvenFortification
 {
-	public class CommunicateTask : BaseAgentTask
+	public class CommunicateAction : BaseAgentAction
 	{
 		readonly Entity otherAgent;
 		readonly string requestedFact;
 
-		public CommunicateTask(ITaskRuntimeContext runtimeContext, Entity owner, Entity otherAgent, string requestedFact) : base(runtimeContext, owner, "communicate", 1)
+		public CommunicateAction(IActionRuntimeContext runtimeContext, Entity owner, Entity otherAgent, string requestedFact) : base(runtimeContext, owner, "communicate", 1)
 		{
 			this.otherAgent = otherAgent;
 			this.requestedFact = requestedFact;
@@ -29,7 +29,7 @@ namespace DwarvenFortification
 				: otherAgent.KnowsFact(requestedFact);
 		}
 
-		protected override AgentTaskStatus OnTick()
+		protected override AgentActionStatus OnTick()
 		{
 			if (requestedFact.StartsWith("knows.item-location.", System.StringComparison.OrdinalIgnoreCase))
 			{
@@ -41,7 +41,7 @@ namespace DwarvenFortification
 			}
 
 			AdvanceProgress(Cost);
-			return CompleteTask();
+			return CompleteAction();
 		}
 
 		public override void Draw(SpriteBatch sb)

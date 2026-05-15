@@ -7,13 +7,13 @@ using System.Linq;
 
 namespace DwarvenFortification
 {
-	public class StoreItemsInWorldObjectTask : BaseAgentTask
+	public class StoreItemsInWorldObjectAction : BaseAgentAction
 	{
 		readonly Entity targetWorldObject;
 		readonly Point targetCell;
 		readonly List<Entity> items;
 
-		public StoreItemsInWorldObjectTask(ITaskRuntimeContext runtimeContext, Entity owner, Entity targetWorldObject, IEnumerable<Entity> items) : base(runtimeContext, owner, "store-items", 1)
+		public StoreItemsInWorldObjectAction(IActionRuntimeContext runtimeContext, Entity owner, Entity targetWorldObject, IEnumerable<Entity> items) : base(runtimeContext, owner, "store-items", 1)
 		{
 			this.targetWorldObject = targetWorldObject;
 			this.targetCell = targetWorldObject.GetCellReference();
@@ -37,7 +37,7 @@ namespace DwarvenFortification
 		protected override string BuildCannotStartReason()
 			=> "Cannot store items because the target is not a storage object or no items were supplied.";
 
-		protected override AgentTaskStatus OnTick()
+		protected override AgentActionStatus OnTick()
 		{
 			var placed = 0;
 			foreach (var item in items.ToList())
@@ -60,11 +60,11 @@ namespace DwarvenFortification
 
 			if (placed == 0)
 			{
-				return FailTask("No items could be stored in the target world object.");
+				return FailAction("No items could be stored in the target world object.");
 			}
 
 			AdvanceProgress(Cost);
-			return CompleteTask();
+			return CompleteAction();
 		}
 
 		public override void Draw(SpriteBatch sb)

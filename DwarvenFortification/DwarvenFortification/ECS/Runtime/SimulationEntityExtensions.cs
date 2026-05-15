@@ -70,56 +70,56 @@ namespace DwarvenFortification
 			return inventory.Items.Remove(item);
 		}
 
-		public static bool HasQueuedTasks(this Entity entity)
-			=> entity.Get<TaskQueueComponent>().Tasks.Count > 0;
+		public static bool HasQueuedActions(this Entity entity)
+			=> entity.Get<ActionQueueComponent>().Actions.Count > 0;
 
-		public static void EnqueueTask(this Entity entity, IAgentTask task, int count = 1)
+		public static void EnqueueAction(this Entity entity, IAgentAction action, int count = 1)
 		{
-			ref var queue = ref entity.Get<TaskQueueComponent>();
+			ref var actionQueue = ref entity.Get<ActionQueueComponent>();
 			for (var i = 0; i < count; ++i)
 			{
-				queue.Tasks.Enqueue(task);
+				actionQueue.Actions.Enqueue(action);
 			}
 		}
 
-		public static bool TryPeekTask(this Entity entity, out IAgentTask task)
+		public static bool TryPeekAction(this Entity entity, out IAgentAction action)
 		{
-			ref var queue = ref entity.Get<TaskQueueComponent>();
-			if (queue.Tasks.Count > 0)
+			ref var actionQueue = ref entity.Get<ActionQueueComponent>();
+			if (actionQueue.Actions.Count > 0)
 			{
-				task = queue.Tasks.Peek();
+				action = actionQueue.Actions.Peek();
 				return true;
 			}
 
-			task = null;
+			action = null;
 			return false;
 		}
 
-		public static void ClearQueuedTasks(this Entity entity)
+		public static void ClearQueuedActions(this Entity entity)
 		{
-			ref var queue = ref entity.Get<TaskQueueComponent>();
-			queue.Tasks.Clear();
+			ref var actionQueue = ref entity.Get<ActionQueueComponent>();
+			actionQueue.Actions.Clear();
 		}
 
-		public static bool HasInvalidQueuedTask(this Entity entity, ISimulationWorld world)
+		public static bool HasInvalidQueuedAction(this Entity entity, ISimulationWorld world)
 		{
-			ref var queue = ref entity.Get<TaskQueueComponent>();
-			return queue.Tasks.Any(task => !task.IsStillValid(world));
+			ref var actionQueue = ref entity.Get<ActionQueueComponent>();
+			return actionQueue.Actions.Any(action => !action.IsStillValid(world));
 		}
 
-		public static void DequeueTask(this Entity entity)
+		public static void DequeueAction(this Entity entity)
 		{
-			ref var queue = ref entity.Get<TaskQueueComponent>();
-			if (queue.Tasks.Count > 0)
+			ref var actionQueue = ref entity.Get<ActionQueueComponent>();
+			if (actionQueue.Actions.Count > 0)
 			{
-				queue.Tasks.Dequeue();
+				actionQueue.Actions.Dequeue();
 			}
 		}
 
 		public static Point GetCurrentPathGoal(this Entity entity)
 		{
-			ref var queue = ref entity.Get<TaskQueueComponent>();
-			return queue.Tasks.OfType<MoveAlongPathTask>().LastOrDefault()?.Destination ?? entity.GetPosition();
+			ref var actionQueue = ref entity.Get<ActionQueueComponent>();
+			return actionQueue.Actions.OfType<MoveAlongPathAction>().LastOrDefault()?.Destination ?? entity.GetPosition();
 		}
 
 		public static GridCell GetCurrentCell(this Entity entity, ISimulationWorld world)

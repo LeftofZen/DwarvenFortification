@@ -2,7 +2,7 @@ using DwarvenFortification.Logging;
 
 namespace DwarvenFortification
 {
-	public interface ITaskRuntimeContext
+	public interface IActionRuntimeContext
 	{
 		ISimulationWorld World { get; }
 		ILogger Logger { get; }

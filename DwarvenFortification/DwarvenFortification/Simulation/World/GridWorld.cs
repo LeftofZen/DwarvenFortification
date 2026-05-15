@@ -1,6 +1,5 @@
 using Arch.Core;
 using Arch.Core.Extensions;
-using EpPathFinding.cs;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -14,36 +13,40 @@ namespace DwarvenFortification
 	public class GridWorld : ISimulationWorld
 	{
 		GridCell[,] world;
-		BaseGrid navGrid;
 
 		List<Entity> agents;
 		int cellSize = 16;
+		int agentCount = 1;
 
 		MouseState previousMouseState;
 		readonly IAgentRuntime agentRuntime;
 		readonly SimulationDefinitionRegistry definitions;
 		readonly ISimulationEntityFactory entityFactory;
+		readonly IGridPathfinder pathfinder;
 		readonly SimulationRenderAssets renderAssets;
-		readonly ITaskRuntimeContext taskRuntimeContext;
+		readonly IActionRuntimeContext taskRuntimeContext;
 		readonly ImGuiSimulationUi ui;
+		readonly GoapPlanExecutor manualActionExecutor;
 
-		public GridWorld(int width, int height, IAgentRuntime agentRuntime, SimulationDefinitionRegistry definitions, ISimulationEntityFactory entityFactory, SimulationRenderAssets renderAssets, ITaskRuntimeContext taskRuntimeContext, ImGuiSimulationUi ui)
+		public GridWorld(int width, int height, IAgentRuntime agentRuntime, SimulationDefinitionRegistry definitions, ISimulationEntityFactory entityFactory, IGridPathfinder pathfinder, SimulationRenderAssets renderAssets, IActionRuntimeContext taskRuntimeContext, ImGuiSimulationUi ui)
 		{
 			this.agentRuntime = agentRuntime;
 			this.definitions = definitions;
 			this.entityFactory = entityFactory;
+			this.pathfinder = pathfinder;
 			this.renderAssets = renderAssets;
 			this.taskRuntimeContext = taskRuntimeContext;
 			this.ui = ui;
+			manualActionExecutor = new GoapPlanExecutor(taskRuntimeContext);
+			ui.ActionRequestHandler = HandleActionRequest;
 			agents = new List<Entity>();
 
-			for (var i = 0; i < 10; ++i)
+			for (var i = 0; i < agentCount; ++i)
 			{
 				agents.Add(entityFactory.CreateAgent($"Agent{i}", new Point(100 + i, 100 + i)));
 			}
 
 			world = new GridCell[height, width];
-			navGrid = new StaticGrid(width, height);
 
 			for (var y = 0; y < Height; ++y)
 			{
@@ -54,12 +57,10 @@ namespace DwarvenFortification
 					if (x == 0 || y == 0 || x == Width - 1 || y == Height - 1)
 					{
 						world[y, x] = new GridCell(CellType.Water, definitions, entityFactory, renderAssets);
-						navGrid.SetWalkableAt(x, y, false);
 					}
 					else
 					{
 						world[y, x] = new GridCell(CellType.Dirt, definitions, entityFactory, renderAssets);
-						navGrid.SetWalkableAt(x, y, world[y, x].IsWalkable);
 					}
 				}
 			}
@@ -75,6 +76,7 @@ namespace DwarvenFortification
 			{
 				return coords;
 			}
+
 			return new Point(-1, -1);
 		}
 
@@ -85,6 +87,7 @@ namespace DwarvenFortification
 			{
 				return world[cell.Y, cell.X];
 			}
+
 			return null;
 		}
 
@@ -95,6 +98,7 @@ namespace DwarvenFortification
 			{
 				return world[cell.Y, cell.X];
 			}
+
 			return null;
 		}
 
@@ -105,6 +109,7 @@ namespace DwarvenFortification
 			{
 				return new Rectangle(x - x % cellSize, y - y % cellSize, cellSize, cellSize);
 			}
+
 			return Rectangle.Empty;
 		}
 
@@ -338,11 +343,13 @@ namespace DwarvenFortification
 								break;
 							}
 						}
+
 						if (!selectionBoundThisFrame && world[clickedCell.Y, clickedCell.X].TryGetDisplayOccupant(out var worldObject))
 						{
 							ui.BindEntity(worldObject);
 							selectionBoundThisFrame = true;
 						}
+
 						if (!selectionBoundThisFrame)
 						{
 							ui.BindObject(world[clickedCell.Y, clickedCell.X]);
@@ -380,7 +387,6 @@ namespace DwarvenFortification
 							cell.CellType = ui.SelectedCellType;
 						}
 
-						navGrid.SetWalkableAt(clickedCell.X, clickedCell.Y, cell.IsWalkable);
 					}
 				}
 			}
@@ -399,7 +405,7 @@ namespace DwarvenFortification
 						var cell = CellAtXY(currMouseState.Position.X, currMouseState.Position.Y);
 						if (cell != null && cell.ItemsInCell.Count > 0 && !cell.IsStorageCell)
 						{
-							agent.EnqueueTask(new PickUpTask(taskRuntimeContext, agent, cell.ItemsInCell.First()));
+							agent.EnqueueAction(new PickUpAction(taskRuntimeContext, agent, cell.ItemsInCell.First()));
 						}
 						else if (cell != null && cell.IsStorageCell)
 						{
@@ -409,7 +415,7 @@ namespace DwarvenFortification
 								var storableItems = inventory.Where(cell.CanStore).ToList();
 								if (storableItems.Count > 0)
 								{
-									agent.EnqueueTask(new PutDownTask(taskRuntimeContext, agent, storableItems));
+									agent.EnqueueAction(new PutDownAction(taskRuntimeContext, agent, storableItems));
 								}
 							}
 						}
@@ -440,16 +446,19 @@ namespace DwarvenFortification
 				ui.SelectedCellType = (CellType)0;
 				ui.SelectedOccupantId = string.Empty;
 			}
+
 			if (keyboard.IsKeyDown(Keys.D2))
 			{
 				ui.SelectedCellType = (CellType)1;
 				ui.SelectedOccupantId = string.Empty;
 			}
+
 			if (keyboard.IsKeyDown(Keys.D3))
 			{
 				ui.SelectedCellType = (CellType)2;
 				ui.SelectedOccupantId = string.Empty;
 			}
+
 			if (keyboard.IsKeyDown(Keys.D4))
 			{
 				ui.SelectedCellType = (CellType)3;
@@ -462,36 +471,210 @@ namespace DwarvenFortification
 			}
 		}
 
-		public void PlotPath(Entity agent, Point dstCell)
+		public void PlotPath(Entity agent, Point dstCell, AgentActionMetadata metadata = null)
 		{
+			if (TryBuildPathAction(agent, dstCell, metadata, out var movementAction, out _))
+			{
+				agent.EnqueueAction(movementAction);
+			}
+		}
+
+		string HandleActionRequest(Entity agent, AgentActionRequest request)
+		{
+			if (!agent.IsAgent())
+			{
+				return "Selected entity is not an agent.";
+			}
+
+			if (request.ReplaceQueuedActions)
+			{
+				agent.ClearQueuedActions();
+			}
+
+			return request.ActionId switch
+			{
+				AgentActionIds.MoveToCell => QueueMoveToCellAction(agent, request.TargetCell, request.Metadata),
+				AgentActionIds.Wait => QueueWaitAction(agent, request.DurationTicks, request.Metadata),
+				AgentActionIds.PickUpFirstItemAtCell => QueuePickUpAction(agent, request.TargetCell, request.Metadata),
+				AgentActionIds.PutDownInventoryAtCell => QueuePutDownAction(agent, request.TargetCell, request.Metadata),
+				AgentActionIds.DropInventoryItem => QueueDropInventoryItemAction(agent, request.SelectedItem, request.Metadata),
+				AgentActionIds.ExecuteAction => QueueWorldAction(agent, request.Candidate, request.Metadata),
+				_ => $"Unsupported action request '{request.ActionId}'.",
+			};
+		}
+
+		string QueueDropInventoryItemAction(Entity agent, Entity item, AgentActionMetadata metadata)
+		{
+			if (item.Equals(default(Entity)))
+			{
+				return "No inventory item was selected to drop.";
+			}
+
+			if (!agent.GetInventory().Contains(item))
+			{
+				return $"{agent.GetName()} no longer has the selected item in inventory.";
+			}
+
+			EnqueueIssuedAction(agent, new PutDownAction(taskRuntimeContext, agent, item), metadata);
+			return $"Queued drop item '{item.GetName()}'.";
+		}
+
+		string QueueWorldAction(Entity agent, GoapActionCandidate candidate, AgentActionMetadata metadata)
+		{
+			manualActionExecutor.Enqueue(agent, candidate, metadata);
+			return $"Queued action '{candidate.Definition.Name}' targeting {candidate.TargetCell}.";
+		}
+
+		string QueueMoveToCellAction(Entity agent, Point targetCell, AgentActionMetadata metadata)
+		{
+			if (!TryBuildPathAction(agent, targetCell, metadata, out var movementAction, out var error))
+			{
+				return error;
+			}
+
+			agent.EnqueueAction(movementAction);
+			return $"Queued move to cell {targetCell}.";
+		}
+
+		string QueueWaitAction(Entity agent, int durationTicks, AgentActionMetadata metadata)
+		{
+			durationTicks = Math.Max(1, durationTicks);
+			EnqueueIssuedAction(agent, new TimedAction(taskRuntimeContext, agent, "manual-wait", durationTicks), metadata);
+			return $"Queued wait for {durationTicks} ticks.";
+		}
+
+		string QueuePickUpAction(Entity agent, Point targetCell, AgentActionMetadata metadata)
+		{
+			var cell = CellAtCoords(targetCell);
+			if (cell == null)
+			{
+				return $"Cell {targetCell} is outside the world.";
+			}
+
+			if (cell.ItemsInCell.Count == 0)
+			{
+				return $"Cell {targetCell} has no loose items to pick up.";
+			}
+
+			if (!QueueMovementIfNeeded(agent, targetCell, metadata, out var error))
+			{
+				return error;
+			}
+
+			EnqueueIssuedAction(agent, new PickUpAction(taskRuntimeContext, agent, cell.ItemsInCell.First()), metadata);
+			return $"Queued pick-up at cell {targetCell}.";
+		}
+
+		string QueuePutDownAction(Entity agent, Point targetCell, AgentActionMetadata metadata)
+		{
+			var cell = CellAtCoords(targetCell);
+			if (cell == null)
+			{
+				return $"Cell {targetCell} is outside the world.";
+			}
+
+			var inventoryItems = agent.GetInventory().ToList();
+			if (inventoryItems.Count == 0)
+			{
+				return $"{agent.GetName()} has no inventory items to put down.";
+			}
+
+			if (!QueueMovementIfNeeded(agent, targetCell, metadata, out var error))
+			{
+				return error;
+			}
+
+			if (cell.IsStorageCell)
+			{
+				var storableItems = inventoryItems.Where(cell.CanStore).ToList();
+				if (storableItems.Count > 0)
+				{
+					EnqueueIssuedAction(agent, new PutDownAction(taskRuntimeContext, agent, storableItems), metadata);
+					return $"Queued put-down into storage at cell {targetCell}.";
+				}
+			}
+
+			EnqueueIssuedAction(agent, new PutDownAction(taskRuntimeContext, agent, inventoryItems), metadata);
+			return $"Queued put-down on cell {targetCell}.";
+		}
+
+		bool QueueMovementIfNeeded(Entity agent, Point targetCell, AgentActionMetadata metadata, out string error)
+		{
+			error = string.Empty;
+			var currentCell = CoordsAtXY(agent.GetPosition());
+			if (currentCell == targetCell)
+			{
+				return true;
+			}
+
+			if (!TryBuildPathAction(agent, targetCell, metadata, out var movementAction, out error))
+			{
+				return false;
+			}
+
+			agent.EnqueueAction(movementAction);
+			return true;
+		}
+
+		bool TryBuildPathAction(Entity agent, Point dstCell, AgentActionMetadata metadata, out MoveAlongPathAction movementAction, out string error)
+		{
+			movementAction = null;
+			error = string.Empty;
+
+			if (dstCell.X < 0 || dstCell.X >= Width || dstCell.Y < 0 || dstCell.Y >= Height)
+			{
+				error = $"Cell {dstCell} is outside the world.";
+				return false;
+			}
+
+			if (!world[dstCell.Y, dstCell.X].IsWalkable)
+			{
+				error = $"Cell {dstCell} is not walkable.";
+				return false;
+			}
+
 			var agentPosition = agent.GetPosition();
 			var agentCell = CoordsAtXY(agentPosition.X, agentPosition.Y);
-			// recreate nav grid every time (!)
-			var newg = navGrid.Clone();
-			newg.Reset();
+			if (agentCell.X == -1 || agentCell.Y == -1)
+			{
+				error = $"{agent.GetName()} is not on a valid cell.";
+				return false;
+			}
+
+			var last = agent.GetCurrentPathGoal();
+			var lastCell = CoordsAtXY(last.X, last.Y);
+			var startCell = last == Point.Zero ? agentCell : lastCell;
+			var pathRequest = new GridPathRequest(BuildWalkableCells(), startCell, dstCell);
+			if (!pathfinder.TryFindPath(pathRequest, out var pathCells))
+			{
+				error = $"Could not find a path to cell {dstCell}.";
+				return false;
+			}
+
+			var pathPoints = pathCells.Select(CentreOfCellWithCoords);
+			movementAction = new MoveAlongPathAction(taskRuntimeContext, agent, pathPoints);
+			movementAction.ApplyActionMetadata(metadata);
+			return true;
+		}
+
+		bool[,] BuildWalkableCells()
+		{
+			var walkableCells = new bool[Height, Width];
 			for (var y = 0; y < Height; ++y)
 			{
 				for (var x = 0; x < Width; ++x)
 				{
-					newg.SetWalkableAt(x, y, world[y, x].IsWalkable);
+					walkableCells[y, x] = world[y, x].IsWalkable;
 				}
 			}
-			navGrid = newg;
 
-			var last = agent.GetCurrentPathGoal();
-			var lastCell = CoordsAtXY(last.X, last.Y);
+			return walkableCells;
+		}
 
-			var jpsParam = new JumpPointParam(
-				navGrid,
-				last == Point.Zero ? new GridPos(agentCell.X, agentCell.Y) : new GridPos(lastCell.X, lastCell.Y),
-				new GridPos(dstCell.X, dstCell.Y),
-				EndNodeUnWalkableTreatment.Disallow,
-				DiagonalMovement.Always,
-				HeuristicMode.EuclideanSquared);
-
-			var path = JumpPointFinder.FindPath(jpsParam);
-			var pathPoints = path.Select(node => CentreOfCellWithCoords(node.X, node.Y));
-			agent.EnqueueTask(new MoveAlongPathTask(taskRuntimeContext, agent, pathPoints));
+		static void EnqueueIssuedAction(Entity agent, IAgentAction action, AgentActionMetadata metadata)
+		{
+			action.ApplyActionMetadata(metadata);
+			agent.EnqueueAction(action);
 		}
 
 		public int Height => world.GetLength(0);

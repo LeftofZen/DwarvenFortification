@@ -5,12 +5,12 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace DwarvenFortification
 {
-	public class ReadKnowledgeItemTask : BaseAgentTask
+	public class ReadKnowledgeItemAction : BaseAgentAction
 	{
 		readonly Entity readableItem;
 		readonly Point targetCell;
 
-		public ReadKnowledgeItemTask(ITaskRuntimeContext runtimeContext, Entity owner, Entity readableItem, Point targetCell) : base(runtimeContext, owner, "read-cookbook", 1)
+		public ReadKnowledgeItemAction(IActionRuntimeContext runtimeContext, Entity owner, Entity readableItem, Point targetCell) : base(runtimeContext, owner, "read-cookbook", 1)
 		{
 			this.readableItem = readableItem;
 			this.targetCell = targetCell;
@@ -20,14 +20,14 @@ namespace DwarvenFortification
 			=> owner.GetInventory().Contains(readableItem)
 				|| (world.CoordsAtXY(owner.GetPosition()) == targetCell && world.TryGetItemEntity(targetCell, readableItem.GetItemDefinitionId(), out var worldItem) && worldItem.Equals(readableItem));
 
-		protected override AgentTaskStatus OnTick()
+		protected override AgentActionStatus OnTick()
 		{
 			if (!owner.GetInventory().Contains(readableItem))
 			{
 				var currentCell = runtimeContext.World.CoordsAtXY(owner.GetPosition());
 				if (currentCell != targetCell || !runtimeContext.World.TryGetItemEntity(targetCell, readableItem.GetItemDefinitionId(), out var worldItem) || !worldItem.Equals(readableItem))
 				{
-					return FailTask("The readable item is no longer available at the interaction location.");
+					return FailAction("The readable item is no longer available at the interaction location.");
 				}
 			}
 
@@ -38,7 +38,7 @@ namespace DwarvenFortification
 			}
 
 			AdvanceProgress(Cost);
-			return CompleteTask();
+			return CompleteAction();
 		}
 
 		public override void Draw(SpriteBatch sb)
