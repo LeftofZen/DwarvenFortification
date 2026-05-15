@@ -10,10 +10,10 @@ using System.Text.Json;
 namespace DwarvenFortification.Tests;
 
 [TestFixture]
-public sealed class PlanMermaidDiagramBuilderTests
+public sealed class MermaidDiagramBuilderTests
 {
 	[Test]
-	public void BuildTreemapDiagram_UsesGoalNodeAsHierarchyRoot()
+	public void BuildTreemapDiagram()
 	{
 		var plan = CreatePlannedSecureFoodPlan();
 
@@ -22,16 +22,26 @@ public sealed class PlanMermaidDiagramBuilderTests
 		Assert.Multiple(() =>
 		{
 			Assert.That(diagram, Does.StartWith("treemap-beta"));
-			Assert.That(diagram, Does.Contain("\"Goal: Secure Food (cost 12)\""));
-			Assert.That(diagram, Does.Contain("    \"Requirement: Require fact 'food.available' (cost 12)\""));
-			Assert.That(diagram, Does.Contain("        \"Requirement: Require fact 'berries.found' (cost 5)\""));
-			Assert.That(diagram, Does.Contain("            \"Action: forage (cost 5)\": 5"));
-			Assert.That(diagram, Does.Contain("        \"Action: harvest-berries (cost 7)\": 7"));
+			Assert.That(diagram, Does.Contain("\"Goal: Secure Food (cost 40)\""));
+			Assert.That(diagram, Does.Contain("    \"Requirement: Require fact 'food.available' (cost 40)\""));
+			Assert.That(diagram, Does.Contain("        \"Requirement: Require fact 'seasoning.ready' (cost 6)\""));
+			Assert.That(diagram, Does.Contain("            \"Requirement: Require fact 'seasoning.salt' (cost 1)\""));
+			Assert.That(diagram, Does.Contain("                \"Action: quarry-salt (cost 1)\": 1"));
+			Assert.That(diagram, Does.Contain("            \"Requirement: Require fact 'seasoning.herbs' (cost 2)\""));
+			Assert.That(diagram, Does.Contain("                \"Action: gather-herbs (cost 2)\": 2"));
+			Assert.That(diagram, Does.Contain("            \"Action: grind-seasoning (cost 3)\": 3"));
+			Assert.That(diagram, Does.Contain("        \"Requirement: Require fact 'berries.found' (cost 24)\""));
+			Assert.That(diagram, Does.Contain("            \"Requirement: Require fact 'basket.ready' (cost 15)\""));
+			Assert.That(diagram, Does.Contain("                \"Requirement: Require fact 'fiber.collected' (cost 7)\""));
+			Assert.That(diagram, Does.Contain("                    \"Action: collect-fiber (cost 7)\": 7"));
+			Assert.That(diagram, Does.Contain("                \"Action: weave-basket (cost 8)\": 8"));
+			Assert.That(diagram, Does.Contain("            \"Action: forage-berries (cost 9)\": 9"));
+			Assert.That(diagram, Does.Contain("        \"Action: cook-feast (cost 10)\": 10"));
 		});
 	}
 
 	[Test]
-	public void BuildGanttDiagram_UsesFlattenedActionSequence()
+	public void BuildGanttDiagram()
 	{
 		var plan = CreatePlannedSecureFoodPlan();
 
@@ -43,13 +53,18 @@ public sealed class PlanMermaidDiagramBuilderTests
 			Assert.That(diagram, Does.Contain("title Plan- Secure Food"));
 			Assert.That(diagram, Does.Contain("dateFormat X"));
 			Assert.That(diagram, Does.Contain("section Actions"));
-			Assert.That(diagram, Does.Contain("1. forage :task1, 0, 4s"));
-			Assert.That(diagram, Does.Contain("2. harvest-berries :task2, after task1, 6s"));
+			Assert.That(diagram, Does.Contain("1. quarry-salt :task1, 0, 1s"));
+			Assert.That(diagram, Does.Contain("2. gather-herbs :task2, after task1, 2s"));
+			Assert.That(diagram, Does.Contain("3. grind-seasoning :task3, after task2, 3s"));
+			Assert.That(diagram, Does.Contain("4. collect-fiber :task4, after task3, 7s"));
+			Assert.That(diagram, Does.Contain("5. weave-basket :task5, after task4, 8s"));
+			Assert.That(diagram, Does.Contain("6. forage-berries :task6, after task5, 9s"));
+			Assert.That(diagram, Does.Contain("7. cook-feast :task7, after task6, 10s"));
 		});
 	}
 
 	[Test]
-	public void BuildDiagrams_ProducesBothMermaidRepresentations()
+	public void BuildBothDiagrams()
 	{
 		var plan = CreatePlannedSecureFoodPlan();
 
@@ -59,7 +74,7 @@ public sealed class PlanMermaidDiagramBuilderTests
 		{
 			Assert.That(diagrams.Treemap, Does.StartWith("treemap-beta"));
 			Assert.That(diagrams.Gantt, Does.StartWith("gantt"));
-			Assert.That(diagrams.Gantt, Does.Contain("1. forage :task1, 0, 4s"));
+			Assert.That(diagrams.Gantt, Does.Contain("7. cook-feast :task7, after task6, 10s"));
 		});
 	}
 
@@ -77,11 +92,16 @@ public sealed class PlanMermaidDiagramBuilderTests
 		};
 		var actions = new[]
 		{
-			CreateActionDefinition("forage", ["berries.found"], durationTicks: 4),
-			CreateActionDefinition("harvest-berries", ["food.available"], requiredFacts: ["berries.found"], durationTicks: 6),
+			CreateActionDefinition("quarry-salt", ["seasoning.salt"], durationTicks: 1, baseCost: 0),
+			CreateActionDefinition("gather-herbs", ["seasoning.herbs"], durationTicks: 2, baseCost: 0),
+			CreateActionDefinition("grind-seasoning", ["seasoning.ready"], requiredFacts: ["seasoning.salt", "seasoning.herbs"], durationTicks: 3, baseCost: 0),
+			CreateActionDefinition("collect-fiber", ["fiber.collected"], durationTicks: 7, baseCost: 0),
+			CreateActionDefinition("weave-basket", ["basket.ready"], requiredFacts: ["fiber.collected"], durationTicks: 8, baseCost: 0),
+			CreateActionDefinition("forage-berries", ["berries.found"], requiredFacts: ["basket.ready"], durationTicks: 9, baseCost: 0),
+			CreateActionDefinition("cook-feast", ["food.available"], requiredFacts: ["berries.found", "seasoning.ready"], durationTicks: 10, baseCost: 0),
 		};
 
-		var (planner, agent) = CreatePlanner(goals, actions, [], _ => ["forage", "harvest-berries"]);
+		var (planner, agent) = CreatePlanner(goals, actions, [], _ => ["quarry-salt", "gather-herbs", "grind-seasoning", "collect-fiber", "weave-basket", "forage-berries", "cook-feast"]);
 		return planner.BuildCandidatePlans(agent).Single();
 	}
 

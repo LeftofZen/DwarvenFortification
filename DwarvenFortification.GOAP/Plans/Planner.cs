@@ -6,7 +6,7 @@ namespace DwarvenFortification.GOAP.Plans
 {
 	public sealed class Planner
 	{
-		const int MaxSearchDepth = 4;
+		const int MaxSearchDepth = 8;
 		readonly IDefinitionSource definitions;
 		readonly IGraphPathfinder pathfinder;
 		readonly IWorldQueryService worldQueryService;
