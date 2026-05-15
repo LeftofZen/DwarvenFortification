@@ -3,6 +3,7 @@ using Arch.Core.Extensions;
 using DwarvenFortification.ECS.Authoring;
 using DwarvenFortification.ECS.Components;
 using DwarvenFortification.GOAP;
+using DwarvenFortification.GOAP.Actions;
 using DwarvenFortification.Simulation.World;
 using Microsoft.Xna.Framework;
 using System;
@@ -14,7 +15,7 @@ using System.Text.Json.Serialization;
 
 namespace DwarvenFortification.ECS
 {
-	public sealed class SimulationDefinitionRegistry
+	public sealed class SimulationDefinitionRegistry : IDefinitionSource
 	{
 		readonly Dictionary<string, Entity> itemDefinitionEntities;
 		readonly Dictionary<string, Entity> actionDefinitionEntities;
@@ -285,19 +286,40 @@ namespace DwarvenFortification.ECS
 						definition.DestinationMode,
 						definition.BaseCost,
 						definition.DurationTicks,
-						requirements.RequiredItemIds,
 						requirements.RequiredTargetTags,
-						requirements.RequiredBodyParts,
-						requirements.RequiredOrgans,
-						requirements.RequiredSystems,
-						requirements.RequiredFacts,
+						BuildPlannerFacts(identity.Id, requirements),
 						requirements.BlockedByFacts,
-						requirements.RequiresFreeInventorySlot,
 						requirements.RequiresReservation,
 						effects.AddFacts,
 						effects.RemoveFacts);
 				})
 				.ToArray();
+
+		static string[] BuildPlannerFacts(string actionId, ActionRequirementComponent requirements)
+		{
+			var facts = new List<string>();
+
+			facts.AddRange(requirements.RequiredFacts);
+			facts.AddRange(requirements.RequiredItemIds.Select(Facts.HasItem));
+			facts.AddRange(requirements.RequiredBodyParts.Select(Facts.HasBodyPart));
+			facts.AddRange(requirements.RequiredOrgans.Select(Facts.HasOrgan));
+			facts.AddRange(requirements.RequiredSystems.Select(Facts.HasSystem));
+
+			if (requirements.RequiresFreeInventorySlot)
+			{
+				facts.Add(Facts.InventoryHasSpace);
+			}
+
+			if (string.Equals(actionId, "store-items", StringComparison.OrdinalIgnoreCase))
+			{
+				facts.Add(Facts.InventoryHasResourceItems);
+			}
+
+			return facts
+				.Where(fact => !string.IsNullOrWhiteSpace(fact))
+				.Distinct(StringComparer.OrdinalIgnoreCase)
+				.ToArray();
+		}
 
 		public bool TryGetResourceNodeDefinition(string resourceNodeId, out ResourceNodeDefinitionSnapshot snapshot)
 		{
@@ -323,13 +345,13 @@ namespace DwarvenFortification.ECS
 			return true;
 		}
 
-		public IReadOnlyList<GoapGoal> GetGoalDefinitions()
+		public IReadOnlyList<Goal> GetGoalDefinitions()
 			=> goalDefinitionEntities.Values
 				.Select(entity =>
 				{
 					var identity = entity.Get<DefinitionIdentityComponent>();
 					var goal = entity.Get<GoalDefinitionComponent>();
-					return new GoapGoal(
+					return new Goal(
 						identity.Id,
 						identity.Name,
 						goal.Priority,

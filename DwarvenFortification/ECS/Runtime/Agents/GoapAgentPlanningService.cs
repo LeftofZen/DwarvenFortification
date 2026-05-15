@@ -1,23 +1,26 @@
 using Arch.Core;
-using DwarvenFortification.GOAP;
+using DwarvenFortification.GOAP.Plans;
 using DwarvenFortification.Logging;
 
 namespace DwarvenFortification.ECS.Runtime.Agents
 {
 	public sealed class GoapAgentPlanningService : IAgentPlanningService
 	{
-		readonly GoapPlanner planner;
-		readonly IGoapPlanExecutor planExecutor;
+		readonly Planner planner;
+		readonly IPlanSelector planSelector;
+		readonly IPlanExecutor planExecutor;
 
-		public GoapAgentPlanningService(GoapPlanner planner, IGoapPlanExecutor planExecutor)
+		public GoapAgentPlanningService(Planner planner, IPlanSelector planSelector, IPlanExecutor planExecutor)
 		{
 			this.planner = planner;
+			this.planSelector = planSelector;
 			this.planExecutor = planExecutor;
 		}
 
 		public bool TryEnqueuePlan(AgentRuntimeContext context, Entity agent)
 		{
-			var plan = planner.Plan(agent);
+			var planningSnapshot = planner.Inspect(agent);
+			var plan = planSelector.SelectCandidatePlan(agent, planningSnapshot);
 			if (plan == null)
 			{
 				return false;

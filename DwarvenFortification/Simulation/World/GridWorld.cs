@@ -15,6 +15,7 @@ using DwarvenFortification.ECS;
 using DwarvenFortification.Simulation.Pathfinding;
 using DwarvenFortification.ECS.Runtime;
 using DwarvenFortification.UI;
+using DwarvenFortification.GOAP.Actions;
 
 namespace DwarvenFortification.Simulation.World
 {
@@ -527,7 +528,7 @@ namespace DwarvenFortification.Simulation.World
 			return $"Queued drop item '{item.GetName()}'.";
 		}
 
-		string QueueWorldAction(Entity agent, GoapActionCandidate candidate, AgentActionMetadata metadata)
+		string QueueWorldAction(Entity agent, ActionCandidate candidate, AgentActionMetadata metadata)
 		{
 			manualActionExecutor.Enqueue(agent, candidate, metadata);
 			return $"Queued action '{candidate.Definition.Name}' targeting {candidate.TargetCell}.";

@@ -1,4 +1,5 @@
 using DwarvenFortification.GOAP;
+using DwarvenFortification.GOAP.Plans;
 using DwarvenFortification.Logging;
 using DwarvenFortification.Simulation.Composition;
 using System.Collections.Generic;
@@ -9,9 +10,10 @@ namespace DwarvenFortification.ECS.Runtime.Agents
 	{
 		public static IAgentRuntime CreateDefault(SimulationDefinitionRegistry definitions, ILogger logger, IActionRuntimeContext taskRuntimeContext)
 		{
-			var planner = new GoapPlanner(definitions, new GoapWorldQueryService(definitions, () => taskRuntimeContext.World));
+			var planner = new Planner(definitions, new GoapWorldQueryService(definitions, () => taskRuntimeContext.World));
+			var planSelector = new DefaultGoapPlanSelector();
 			var planExecutor = new GoapPlanExecutor(taskRuntimeContext);
-			var planningService = new GoapAgentPlanningService(planner, planExecutor);
+			var planningService = new GoapAgentPlanningService(planner, planSelector, planExecutor);
 			var updateStages = new List<IAgentUpdateStage>
 			{
 				new NeedStateUpdateStage(),

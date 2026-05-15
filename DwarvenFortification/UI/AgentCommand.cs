@@ -1,5 +1,5 @@
 using Arch.Core;
-using DwarvenFortification.GOAP;
+using DwarvenFortification.GOAP.Actions;
 using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
@@ -48,6 +48,6 @@ namespace DwarvenFortification.UI
 		int DurationTicks,
 		bool ReplaceQueuedActions,
 		Entity SelectedItem,
-		GoapActionCandidate Candidate,
+		ActionCandidate Candidate,
 		AgentActionMetadata Metadata);
 }

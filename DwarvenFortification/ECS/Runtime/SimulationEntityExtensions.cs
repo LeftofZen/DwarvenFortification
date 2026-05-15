@@ -234,7 +234,7 @@ namespace DwarvenFortification.ECS.Runtime
 
 			ref var memory = ref entity.Get<MemoryComponent>();
 			memory.KnownItemLocations[itemId] = cell;
-			memory.KnownFacts.Add(GoapFacts.KnowsItemLocation(itemId));
+			memory.KnownFacts.Add(Facts.KnowsItemLocation(itemId));
 		}
 
 		public static bool TryRecallItemLocation(this Entity entity, string itemId, out Point cell)
@@ -257,7 +257,7 @@ namespace DwarvenFortification.ECS.Runtime
 
 			ref var memory = ref entity.Get<MemoryComponent>();
 			memory.KnownItemLocations.Remove(itemId);
-			memory.KnownFacts.Remove(GoapFacts.KnowsItemLocation(itemId));
+			memory.KnownFacts.Remove(Facts.KnowsItemLocation(itemId));
 		}
 
 		public static void ShareKnownItemLocation(this Entity entity, Entity source, string itemId)

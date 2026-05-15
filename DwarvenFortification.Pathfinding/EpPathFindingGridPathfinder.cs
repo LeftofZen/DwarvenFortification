@@ -1,8 +1,5 @@
 using EpPathFinding.cs;
 using Microsoft.Xna.Framework;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace DwarvenFortification.Simulation.Pathfinding
 {
@@ -13,6 +10,8 @@ namespace DwarvenFortification.Simulation.Pathfinding
 			pathCells = Array.Empty<Point>();
 
 			var walkableCells = request.WalkableCells;
+			ArgumentNullException.ThrowIfNull(walkableCells);
+
 			var height = walkableCells.GetLength(0);
 			var width = walkableCells.GetLength(1);
 			if (!IsWithinBounds(request.StartCell, width, height)

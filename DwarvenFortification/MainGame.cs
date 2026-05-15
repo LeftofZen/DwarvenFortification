@@ -1,6 +1,6 @@
 ﻿using DwarvenFortification.ECS;
 using DwarvenFortification.GOAP;
-using DwarvenFortification.Logging;
+using DwarvenFortification.GOAP.Plans;
 using DwarvenFortification.Simulation.Composition;
 using DwarvenFortification.Simulation.World;
 using DwarvenFortification.UI;
@@ -8,25 +8,9 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Monogame.Imgui.Renderer;
-using System.Collections.Generic;
 
 namespace DwarvenFortification
 {
-	public static class GameServices
-	{
-		public static readonly Dictionary<string, SpriteFont> Fonts = [];
-		public static readonly Dictionary<string, Texture2D> Textures = [];
-		public static readonly GameLogger Logger = new();
-
-		public static SimulationDefinitionRegistry Definitions { get; set; }
-
-		public static Game Game;
-		public static int GameWidth => Game.GraphicsDevice.Viewport.Width;
-		public static int GameHeight => Game.GraphicsDevice.Viewport.Height;
-
-		public static GridWorld GridWorld;
-	}
-
 	public class MainGame : Game
 	{
 		private readonly GraphicsDeviceManager _graphics;
@@ -78,7 +62,7 @@ namespace DwarvenFortification
 			GameServices.Definitions = definitions;
 			simulationUi = new ImGuiSimulationUi(definitions, GameServices.Logger);
 			var inspectorWorldQueryService = new GoapWorldQueryService(definitions, () => world);
-			var inspectorPlanner = new GoapPlanner(definitions, inspectorWorldQueryService);
+			var inspectorPlanner = new Planner(definitions, inspectorWorldQueryService);
 			simulationUi.PlanningSnapshotProvider = inspectorPlanner.Inspect;
 
 			var renderAssets = new SimulationRenderAssets(

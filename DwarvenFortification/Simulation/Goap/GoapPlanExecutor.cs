@@ -3,6 +3,8 @@ using Arch.Core.Extensions;
 using DwarvenFortification.Actions;
 using DwarvenFortification.ECS.Components;
 using DwarvenFortification.ECS.Runtime;
+using DwarvenFortification.GOAP.Actions;
+using DwarvenFortification.GOAP.Plans;
 using DwarvenFortification.Simulation.Composition;
 using DwarvenFortification.Simulation.World;
 using DwarvenFortification.UI;
@@ -10,7 +12,7 @@ using System.Linq;
 
 namespace DwarvenFortification.GOAP
 {
-	public sealed class GoapPlanExecutor : IGoapPlanExecutor
+	public sealed class GoapPlanExecutor : IPlanExecutor
 	{
 		readonly IActionRuntimeContext runtimeContext;
 
@@ -19,10 +21,10 @@ namespace DwarvenFortification.GOAP
 			this.runtimeContext = runtimeContext;
 		}
 
-		public bool Enqueue(Entity agent, GoapPlan plan)
+		public bool Enqueue(Entity agent, Plan plan)
 			=> Enqueue(agent, plan, null);
 
-		public bool Enqueue(Entity agent, GoapPlan plan, AgentActionMetadata metadata)
+		public bool Enqueue(Entity agent, Plan plan, AgentActionMetadata metadata)
 		{
 			if (plan == null || plan.Steps.Count == 0)
 			{
@@ -39,16 +41,16 @@ namespace DwarvenFortification.GOAP
 			return true;
 		}
 
-		public bool Enqueue(Entity agent, GoapActionCandidate step)
+		public bool Enqueue(Entity agent, ActionCandidate step)
 			=> Enqueue(agent, step, null);
 
-		public bool Enqueue(Entity agent, GoapActionCandidate step, AgentActionMetadata metadata)
+		public bool Enqueue(Entity agent, ActionCandidate step, AgentActionMetadata metadata)
 		{
 			Enqueue(agent, step, runtimeContext.World, metadata);
 			return true;
 		}
 
-		void Enqueue(Entity agent, GoapActionCandidate step, ISimulationWorld world, AgentActionMetadata metadata)
+		void Enqueue(Entity agent, ActionCandidate step, ISimulationWorld world, AgentActionMetadata metadata)
 		{
 			{
 				world.PlotPath(agent, step.DestinationCell, metadata);
@@ -81,13 +83,25 @@ namespace DwarvenFortification.GOAP
 						break;
 
 					case "eat":
+						var eatItemId = GetRequiredItemId(step.Definition);
+						if (string.IsNullOrWhiteSpace(eatItemId))
+						{
+							break;
+						}
+
 						EnqueueAction(agent, new TimedAction(runtimeContext, agent, step.Definition.Id, step.Definition.DurationTicks), metadata);
-						EnqueueAction(agent, new ConsumeInventoryItemAction(runtimeContext, agent, step.Definition.RequiredItemIds.First(), true, false), metadata);
+						EnqueueAction(agent, new ConsumeInventoryItemAction(runtimeContext, agent, eatItemId, true, false), metadata);
 						break;
 
 					case "drink":
+						var drinkItemId = GetRequiredItemId(step.Definition);
+						if (string.IsNullOrWhiteSpace(drinkItemId))
+						{
+							break;
+						}
+
 						EnqueueAction(agent, new TimedAction(runtimeContext, agent, step.Definition.Id, step.Definition.DurationTicks), metadata);
-						EnqueueAction(agent, new ConsumeInventoryItemAction(runtimeContext, agent, step.Definition.RequiredItemIds.First(), false, true), metadata);
+						EnqueueAction(agent, new ConsumeInventoryItemAction(runtimeContext, agent, drinkItemId, false, true), metadata);
 						break;
 
 					case "scan-area":
@@ -125,8 +139,14 @@ namespace DwarvenFortification.GOAP
 					case "throw-item":
 						if (step.TargetEntity.HasValue)
 						{
+							var throwItemId = GetRequiredItemId(step.Definition);
+							if (string.IsNullOrWhiteSpace(throwItemId))
+							{
+								break;
+							}
+
 							EnqueueAction(agent, new TimedAction(runtimeContext, agent, step.Definition.Id, step.Definition.DurationTicks), metadata);
-							EnqueueAction(agent, new ThrowItemAction(runtimeContext, agent, step.TargetEntity.Value, step.Definition.RequiredItemIds.First()), metadata);
+							EnqueueAction(agent, new ThrowItemAction(runtimeContext, agent, step.TargetEntity.Value, throwItemId), metadata);
 						}
 
 						break;
@@ -178,14 +198,27 @@ namespace DwarvenFortification.GOAP
 			agent.EnqueueAction(action);
 		}
 
+		static string GetRequiredItemId(ActionDefinitionSnapshot definition)
+		{
+			foreach (var fact in definition.RequiredFacts)
+			{
+				if (Facts.TryGetHasItemId(fact, out var itemId))
+				{
+					return itemId;
+				}
+			}
+
+			return string.Empty;
+		}
+
 		static string GetItemIdFromKnowledgeFact(string fact)
-			=> !string.IsNullOrWhiteSpace(fact) && fact.StartsWith("knows.item-location.", System.StringComparison.OrdinalIgnoreCase)
-				? fact["knows.item-location.".Length..]
+			=> Facts.TryGetKnownItemLocationId(fact, out var itemId)
+				? itemId
 				: string.Empty;
 
 		static string GetItemIdFromHasItemFact(string fact)
-			=> !string.IsNullOrWhiteSpace(fact) && fact.StartsWith("has.item.", System.StringComparison.OrdinalIgnoreCase)
-				? fact["has.item.".Length..]
+			=> Facts.TryGetHasItemId(fact, out var itemId)
+				? itemId
 				: string.Empty;
 	}
 }
