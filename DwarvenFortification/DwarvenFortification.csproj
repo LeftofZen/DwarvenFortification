@@ -40,8 +40,8 @@
     <ProjectReference Include="..\DFCore\DFCore.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="EpPathFinding.cs">
-      <HintPath>..\..\..\EpPathFinding.cs\EpPathFinding.cs\EpPathFinding.cs\bin\Debug\netstandard2.1\EpPathFinding.cs.dll</HintPath>
+    <Reference Include="EpPathFinding">
+      <HintPath>..\..\EpPathFinding\EpPathFinding\bin\Debug\net10.0\EpPathFinding.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
