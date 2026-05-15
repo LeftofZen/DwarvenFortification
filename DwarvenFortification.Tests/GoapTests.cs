@@ -190,6 +190,7 @@ public sealed class GoapPlannerTests
 	public void Plan_BuildsExpectedMermaidTreemapDiagram()
 	{
 		var plan = CreatePlannedSecureFoodMermaidPlan();
+		var plan = CreatePlannedSecureFoodMermaidPlan();
 		var diagram = PlanMermaidDiagramBuilder.BuildTreemapDiagram(plan);
 		var usedActionIds = plan.Steps.Select(step => step.Definition.Id).ToArray();
 
