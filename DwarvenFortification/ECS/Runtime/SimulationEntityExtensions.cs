@@ -614,6 +614,17 @@ namespace DwarvenFortification.ECS.Runtime
 			return nutrition.HydrationMaxLiters <= 0f ? 1f : nutrition.HydrationCurrentLiters / nutrition.HydrationMaxLiters;
 		}
 
+		public static float GetRestRatio(this Entity entity)
+		{
+			if (!entity.Has<RestNeedComponent>())
+			{
+				return 1f;
+			}
+
+			var rest = entity.Get<RestNeedComponent>();
+			return rest.Max <= 0f ? 1f : rest.Current / rest.Max;
+		}
+
 		static bool IsHydrationCritical(this Entity entity)
 			=> entity.IsNutrientLow(NutrientKind.Hydration, 0.16f);
 

@@ -1,4 +1,5 @@
-﻿using DwarvenFortification.ECS;
+﻿using DwarvenFortification.Camera;
+using DwarvenFortification.ECS;
 using DwarvenFortification.GOAP;
 using DwarvenFortification.GOAP.Plans;
 using DwarvenFortification.Simulation.Composition;
@@ -18,10 +19,7 @@ namespace DwarvenFortification
 		private ImGuiRenderer _imGuiRenderer;
 		private SimulationRuntime simulationRuntime;
 		private ImGuiSimulationUi simulationUi;
-		//private TiledMap _tiledMap;
-		//private TiledMapRenderer _tiledMapRenderer;
-		//private OrthographicCamera _camera;
-		//private Vector2 _cameraPosition;
+		private Camera2D _camera;
 		private GridWorld world;
 
 		//Rectangle worldRenderRect;
@@ -67,12 +65,15 @@ namespace DwarvenFortification
 
 			var renderAssets = new SimulationRenderAssets(
 				GameServices.Fonts["Calibri"]);
+			_camera = new Camera2D(GraphicsDevice.Viewport);
 			simulationRuntime = SimulationCompositionRoot.Create(
 				definitions,
 				renderAssets,
 				GameServices.Logger,
-				simulationUi);
+				simulationUi,
+				_camera);
 			world = simulationRuntime.World;
+			_camera.Position = world.WorldCenter;
 			world.PlanningSnapshotProvider = inspectorPlanner.Inspect;
 			GameServices.GridWorld = world;
 
@@ -140,11 +141,14 @@ namespace DwarvenFortification
 		{
 			GraphicsDevice.Clear(Color.CornflowerBlue);
 
-			_spriteBatch.Begin(blendState: BlendState.AlphaBlend);
-
+			// World-space pass — camera transform applied
+			_spriteBatch.Begin(blendState: BlendState.AlphaBlend, transformMatrix: _camera.GetTransformMatrix());
 			world.Draw(_spriteBatch);
-			//_tiledMapRenderer.Draw(_camera.GetViewMatrix());
+			_spriteBatch.End();
 
+			// Screen-space pass — no transform (tooltips, HUD)
+			_spriteBatch.Begin(blendState: BlendState.AlphaBlend);
+			world.DrawScreenOverlays(_spriteBatch);
 			_spriteBatch.End();
 
 			_imGuiRenderer.BeforeLayout(this, gameTime);

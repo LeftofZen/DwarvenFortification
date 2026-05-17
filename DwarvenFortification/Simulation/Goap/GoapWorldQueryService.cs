@@ -407,20 +407,6 @@ namespace DwarvenFortification.GOAP
 				}
 				else if (string.Equals(action.TargetKind, "self", StringComparison.OrdinalIgnoreCase))
 				{
-					if (string.Equals(action.Id, "eat", StringComparison.OrdinalIgnoreCase)
-						&& !agent.TrySelectConsumableItem(SimulationEntityExtensions.ConsumableKind.Food, out _))
-					{
-						AddRejected(action, "Agent has no edible inventory item suitable for current needs.", agentCell, agentCell, agent.GetName());
-						continue;
-					}
-
-					if (string.Equals(action.Id, "drink", StringComparison.OrdinalIgnoreCase)
-						&& !agent.TrySelectConsumableItem(SimulationEntityExtensions.ConsumableKind.Drink, out _))
-					{
-						AddRejected(action, "Agent has no drinkable inventory item suitable for current needs.", agentCell, agentCell, agent.GetName());
-						continue;
-					}
-
 					var candidate = new ActionCandidate(action, agentCell, agentCell, agent, action.BaseCost + action.DurationTicks, BuildRequiredFacts(action), action.AddFacts, action.RemoveFacts);
 					AddAccepted(candidate, agent.GetName());
 				}
@@ -461,6 +447,30 @@ namespace DwarvenFortification.GOAP
 
 		public IEnumerable<ActionCandidate> BuildCandidates(Entity agent, IReadOnlyList<ActionDefinitionSnapshot> actions, HashSet<string> currentFacts)
 			=> InspectCandidates(agent, actions, currentFacts).Candidates;
+
+		public int GetEffectivePriority(Entity agent, Goal goal)
+		{
+			const float bonusRange = 100f;
+			var bonus = 0f;
+
+			foreach (var fact in goal.RequiredFacts)
+			{
+				if (string.Equals(fact, "thirst.low", StringComparison.OrdinalIgnoreCase))
+				{
+					bonus = MathF.Max(bonus, (1f - Math.Clamp(agent.GetHydrationRatio(), 0f, 1f)) * bonusRange);
+				}
+				else if (string.Equals(fact, "hunger.low", StringComparison.OrdinalIgnoreCase))
+				{
+					bonus = MathF.Max(bonus, (1f - Math.Clamp(agent.GetMetabolicEnergyRatio(), 0f, 1f)) * bonusRange);
+				}
+				else if (string.Equals(fact, "rest.low", StringComparison.OrdinalIgnoreCase))
+				{
+					bonus = MathF.Max(bonus, (1f - Math.Clamp(agent.GetRestRatio(), 0f, 1f)) * bonusRange);
+				}
+			}
+
+			return goal.Priority + (int)bonus;
+		}
 
 		IEnumerable<ActionCandidate> BuildKnowledgeBridgeCandidates(Entity agent, IReadOnlyList<ActionDefinitionSnapshot> actions, HashSet<string> currentFacts, Action<ActionDefinitionSnapshot, string, Point?, Point?, string> addRejected)
 		{

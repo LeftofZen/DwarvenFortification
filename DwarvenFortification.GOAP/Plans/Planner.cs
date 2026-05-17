@@ -46,7 +46,7 @@ namespace DwarvenFortification.GOAP.Plans
 				var isSatisfied = GoalSatisfied(goal, currentFacts);
 
 				Plan candidatePlan = null;
-				if (isEligible)
+				if (isEligible && !isSatisfied)
 				{
 					candidatePlan = Search(agent, goal, currentFacts, actions);
 					if (candidatePlan != null)
@@ -55,14 +55,15 @@ namespace DwarvenFortification.GOAP.Plans
 					}
 				}
 
-				goals.Add(new GoalDebugView(goal, isEligible, isSatisfied, missingRequiredFacts, activeBlockingFacts, candidatePlan));
+				var effectivePriority = worldQueryService.GetEffectivePriority(agent, goal);
+				goals.Add(new GoalDebugView(goal, isEligible, isSatisfied, missingRequiredFacts, activeBlockingFacts, candidatePlan, effectivePriority));
 			}
 
 			return new PlanningSnapshot(
 				currentFacts.OrderBy(fact => fact, StringComparer.OrdinalIgnoreCase).ToArray(),
 				actionManifestationQuery.Candidates,
 				actionManifestationQuery.Diagnostics,
-				goals,
+				goals.OrderByDescending(g => g.EffectivePriority).ToList(),
 				candidatePlans);
 		}
 

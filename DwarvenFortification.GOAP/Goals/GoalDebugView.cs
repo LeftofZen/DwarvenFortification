@@ -10,7 +10,8 @@ namespace DwarvenFortification.GOAP
 			bool isSatisfied,
 			IReadOnlyList<string> missingRequiredFacts,
 			IReadOnlyList<string> activeBlockingFacts,
-			Plan candidatePlan)
+			Plan candidatePlan,
+			int effectivePriority)
 		{
 			Goal = goal;
 			IsEligible = isEligible;
@@ -18,6 +19,7 @@ namespace DwarvenFortification.GOAP
 			MissingRequiredFacts = missingRequiredFacts;
 			ActiveBlockingFacts = activeBlockingFacts;
 			CandidatePlan = candidatePlan;
+			EffectivePriority = effectivePriority;
 		}
 
 		public Goal Goal { get; }
@@ -26,5 +28,11 @@ namespace DwarvenFortification.GOAP
 		public IReadOnlyList<string> MissingRequiredFacts { get; }
 		public IReadOnlyList<string> ActiveBlockingFacts { get; }
 		public Plan CandidatePlan { get; }
+
+		/// <summary>
+		/// The runtime-computed priority, which may differ from Goal.Priority when dynamic
+		/// scaling is applied (e.g. priority rises as hunger/thirst/rest deficits deepen).
+		/// </summary>
+		public int EffectivePriority { get; }
 	}
 }

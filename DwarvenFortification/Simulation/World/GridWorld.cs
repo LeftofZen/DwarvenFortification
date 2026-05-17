@@ -17,7 +17,9 @@ using DwarvenFortification.Simulation.Pathfinding;
 using DwarvenFortification.ECS.Runtime;
 using DwarvenFortification.UI;
 using DwarvenFortification.GOAP.Actions;
+using DwarvenFortification.Camera;
 using DwarvenFortification.GOAP.Plans;
+using DwarvenFortification.Input;
 
 namespace DwarvenFortification.Simulation.World
 {
@@ -30,6 +32,9 @@ namespace DwarvenFortification.Simulation.World
 		int agentCount = 1;
 
 		MouseState previousMouseState;
+		Point hoverCell = new(-1, -1);
+		readonly InputManager inputManager = new();
+		Point selectedCell = new(-1, -1);
 		readonly IAgentRuntime agentRuntime;
 		readonly SimulationDefinitionRegistry definitions;
 		readonly ISimulationEntityFactory entityFactory;
@@ -38,10 +43,14 @@ namespace DwarvenFortification.Simulation.World
 		readonly IActionRuntimeContext taskRuntimeContext;
 		readonly ImGuiSimulationUi ui;
 		readonly GoapPlanExecutor manualActionExecutor;
+		readonly Camera2D camera;
 
 		public Func<Entity, PlanningSnapshot> PlanningSnapshotProvider { get; set; }
 
-		public GridWorld(int width, int height, IAgentRuntime agentRuntime, SimulationDefinitionRegistry definitions, ISimulationEntityFactory entityFactory, IGridPathfinder pathfinder, SimulationRenderAssets renderAssets, IActionRuntimeContext taskRuntimeContext, ImGuiSimulationUi ui)
+		/// <summary>World-space centre of the grid. Useful for initially focusing the camera.</summary>
+		public Vector2 WorldCenter => new(Width * cellSize * 0.5f, Height * cellSize * 0.5f);
+
+		public GridWorld(int width, int height, IAgentRuntime agentRuntime, SimulationDefinitionRegistry definitions, ISimulationEntityFactory entityFactory, IGridPathfinder pathfinder, SimulationRenderAssets renderAssets, IActionRuntimeContext taskRuntimeContext, ImGuiSimulationUi ui, Camera2D camera)
 		{
 			this.agentRuntime = agentRuntime;
 			this.definitions = definitions;
@@ -50,6 +59,7 @@ namespace DwarvenFortification.Simulation.World
 			this.renderAssets = renderAssets;
 			this.taskRuntimeContext = taskRuntimeContext;
 			this.ui = ui;
+			this.camera = camera;
 			manualActionExecutor = new GoapPlanExecutor(taskRuntimeContext);
 			ui.ActionRequestHandler = HandleActionRequest;
 			agents = [];
@@ -373,16 +383,23 @@ namespace DwarvenFortification.Simulation.World
 
 		public void Update(GameTime gameTime)
 		{
+			inputManager.Update();
 			var currMouseState = Mouse.GetState();
 			var selectionBoundThisFrame = false;
 
+			// Transform screen-space mouse position into world space for all cell interactions.
+			var mouseWorldPos = camera.ScreenToWorld(currMouseState.Position.ToVector2());
+
+			hoverCell = ui.WantsMouseCapture ? new Point(-1, -1) : CoordsAtXY(mouseWorldPos.ToPoint());
+
 			if (!ui.WantsMouseCapture && currMouseState.LeftButton == ButtonState.Pressed)
 			{
-				var clickedCell = new Point(currMouseState.X / cellSize, currMouseState.Y / cellSize);
+				var clickedCell = new Point((int)mouseWorldPos.X / cellSize, (int)mouseWorldPos.Y / cellSize);
 				if (clickedCell.X >= 0 && clickedCell.X < Width && clickedCell.Y >= 0 && clickedCell.Y < Height)
 				{
 					if (ui.SelectedMouseClickMode == MouseClickMode.Select)
 					{
+						selectedCell = clickedCell;
 						// check if we clicked on agent
 						foreach (var a in agents)
 						{
@@ -408,7 +425,11 @@ namespace DwarvenFortification.Simulation.World
 					else if (ui.SelectedMouseClickMode == MouseClickMode.Paint)
 					{
 						var cell = world[clickedCell.Y, clickedCell.X];
-						if (!string.IsNullOrWhiteSpace(ui.SelectedOccupantId))
+						if (!string.IsNullOrWhiteSpace(ui.SelectedItemId) && inputManager.IsMouseButtonPressed(MouseButton.Left))
+						{
+							cell.ItemsInCell.Add(entityFactory.CreateItem(ui.SelectedItemId));
+						}
+						else if (!string.IsNullOrWhiteSpace(ui.SelectedOccupantId))
 						{
 							if (cell.TryGetDisplayOccupant(out var existingWorldObject))
 							{
@@ -445,14 +466,14 @@ namespace DwarvenFortification.Simulation.World
 			{
 				if (ui.TryGetBoundEntity(out var agent) && agent.IsAgent())
 				{
-					var clickedCell = CoordsAtXY(currMouseState.Position.X, currMouseState.Position.Y);
+					var clickedCell = CoordsAtXY(mouseWorldPos.ToPoint());
 					var agentPosition = agent.GetPosition();
 					var agentCell = CoordsAtXY(agentPosition.X, agentPosition.Y);
 					if (clickedCell.X != -1 && clickedCell.Y != -1 && agentCell.X != -1 && agentCell.Y != -1)
 					{
 						PlotPath(agent, clickedCell);
 
-						var cell = CellAtXY(currMouseState.Position.X, currMouseState.Position.Y);
+						var cell = CellAtXY((int)mouseWorldPos.X, (int)mouseWorldPos.Y);
 						if (cell != null && cell.ItemsInCell.Count > 0 && !cell.IsStorageCell)
 						{
 							agent.EnqueueAction(new PickUpAction(taskRuntimeContext, agent, cell.ItemsInCell.First()));
@@ -484,6 +505,26 @@ namespace DwarvenFortification.Simulation.World
 					//{
 					//	agent.AddTask(new MoveToTask(agent, currMouseState.Position));
 					//}
+				}
+			}
+
+			// ── Camera pan (middle mouse drag) ─────────────────────────────────────
+			if (!ui.WantsMouseCapture
+				&& currMouseState.MiddleButton == ButtonState.Pressed
+				&& previousMouseState.MiddleButton == ButtonState.Pressed)
+			{
+				var screenDelta = (currMouseState.Position - previousMouseState.Position).ToVector2();
+				camera.Pan(screenDelta);
+			}
+
+			// ── Camera zoom (scroll wheel at cursor) ───────────────────────────────
+			if (!ui.WantsMouseCapture)
+			{
+				var scrollDelta = currMouseState.ScrollWheelValue - previousMouseState.ScrollWheelValue;
+				if (scrollDelta != 0)
+				{
+					var factor = scrollDelta > 0 ? 1.1f : 1f / 1.1f;
+					camera.ZoomAtScreenPoint(factor, currMouseState.Position.ToVector2());
 				}
 			}
 
@@ -731,6 +772,24 @@ namespace DwarvenFortification.Simulation.World
 
 		public int Width => world.GetLength(1);
 
+		void DrawGridOverlays(SpriteBatch sb)
+		{
+			// Grid lines
+			var gridColor = new Color(0, 0, 0, 35);
+			for (var x = 0; x <= Width; x++)
+				sb.DrawLine(x * cellSize, 0, x * cellSize, Height * cellSize, gridColor, 1f);
+			for (var y = 0; y <= Height; y++)
+				sb.DrawLine(0, y * cellSize, Width * cellSize, y * cellSize, gridColor, 1f);
+
+			// Hover tile shading
+			if (!ui.WantsMouseCapture && hoverCell.X >= 0 && hoverCell.Y >= 0)
+				sb.FillRectangle(hoverCell.X * cellSize, hoverCell.Y * cellSize, cellSize, cellSize, new Color(255, 255, 255, 45));
+
+			// Selected tile border
+			if (selectedCell.X >= 0 && selectedCell.Y >= 0)
+				sb.DrawRectangle(selectedCell.X * cellSize, selectedCell.Y * cellSize, cellSize, cellSize, new Color(0, 220, 220, 200), 2f);
+		}
+
 		public void Draw(SpriteBatch sb)
 		{
 			for (var y = 0; y < Height; ++y)
@@ -741,13 +800,21 @@ namespace DwarvenFortification.Simulation.World
 				}
 			}
 
+			DrawGridOverlays(sb);
+
 			foreach (var agent in agents)
 			{
 				agentRuntime.Draw(sb, this, agent);
 			}
+		}
 
+		/// <summary>
+		/// Draws screen-space overlays (e.g. tooltips) that must be rendered without the
+		/// camera transform applied — call this in a separate <c>SpriteBatch.Begin/End</c> block.
+		/// </summary>
+		public void DrawScreenOverlays(SpriteBatch sb)
+		{
 			DrawHoveredAgentTooltip(sb);
-
 		}
 
 		void DrawHoveredAgentTooltip(SpriteBatch sb)
@@ -757,8 +824,10 @@ namespace DwarvenFortification.Simulation.World
 				return;
 			}
 
-			var mousePosition = Mouse.GetState().Position;
-			var hoveredAgent = agents.FirstOrDefault(agent => GetAgentBounds(agent).Contains(mousePosition));
+			// Agent bounds are in world space — transform screen mouse to world for hit-testing.
+			var screenMousePos = Mouse.GetState().Position;
+			var worldMousePos = camera.ScreenToWorld(screenMousePos.ToVector2());
+			var hoveredAgent = agents.FirstOrDefault(agent => GetAgentBounds(agent).Contains(worldMousePos.ToPoint()));
 			if (hoveredAgent.Equals(default(Entity)))
 			{
 				return;
@@ -786,7 +855,7 @@ namespace DwarvenFortification.Simulation.World
 			var tooltipSize = new Vector2(
 				maxLineWidth + (padding.X * 2),
 				(lines.Count * lineHeight) + ((lines.Count - 1) * lineSpacing) + (padding.Y * 2));
-			var tooltipPosition = new Vector2(mousePosition.X + 14, mousePosition.Y + 14);
+			var tooltipPosition = new Vector2(screenMousePos.X + 14, screenMousePos.Y + 14);
 			tooltipPosition.X = Math.Min(tooltipPosition.X, sb.GraphicsDevice.Viewport.Width - tooltipSize.X - 4);
 			tooltipPosition.Y = Math.Min(tooltipPosition.Y, sb.GraphicsDevice.Viewport.Height - tooltipSize.Y - 4);
 			tooltipPosition.X = Math.Max(4, tooltipPosition.X);

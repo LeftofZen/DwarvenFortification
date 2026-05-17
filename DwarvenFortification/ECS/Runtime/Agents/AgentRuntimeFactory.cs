@@ -13,7 +13,7 @@ namespace DwarvenFortification.ECS.Runtime.Agents
 			var planner = new Planner(definitions, new GoapWorldQueryService(definitions, () => taskRuntimeContext.World));
 			var planSelector = new DefaultGoapPlanSelector();
 			var planExecutor = new GoapPlanExecutor(taskRuntimeContext);
-			var planningService = new GoapAgentPlanningService(planner, planSelector, planExecutor);
+			var planningService = new GoapAgentPlanningService(planner, planSelector, planExecutor, taskRuntimeContext);
 			var updateStages = new List<IAgentUpdateStage>
 			{
 				new NeedStateUpdateStage(),

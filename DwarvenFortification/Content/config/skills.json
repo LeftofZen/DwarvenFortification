@@ -1,42 +1,180 @@
 {
   "skills": [
     // Physical > Strength
-    { "id": "might",         "name": "Might",          "category": "Physical",      "group": "Strength",         "description": "Raw lifting, pushing, and pulling power." },
-    { "id": "brawn",         "name": "Brawn",          "category": "Physical",      "group": "Strength",         "description": "Physical mass, striking force, and heavy weaponry handling." },
-    { "id": "athletics",     "name": "Athletics",      "category": "Physical",      "group": "Strength",         "description": "Running, jumping, climbing, and swimming." },
+    {
+      "id": "might",
+      "name": "Might",
+      "category": "Physical",
+      "group": "Strength",
+      "description": "Raw lifting, pushing, and pulling power."
+    },
+    {
+      "id": "brawn",
+      "name": "Brawn",
+      "category": "Physical",
+      "group": "Strength",
+      "description": "Physical mass, striking force, and heavy weaponry handling."
+    },
+    {
+      "id": "athletics",
+      "name": "Athletics",
+      "category": "Physical",
+      "group": "Strength",
+      "description": "Running, jumping, climbing, and swimming."
+    },
 
     // Physical > Dexterity
-    { "id": "agility",       "name": "Agility",        "category": "Physical",      "group": "Dexterity",        "description": "Acrobatics, dodging, balance, and overall movement speed." },
-    { "id": "finesse",       "name": "Finesse",        "category": "Physical",      "group": "Dexterity",        "description": "Fine motor skills, sleight of hand, picking locks, and light weaponry." },
-    { "id": "precision",     "name": "Precision",      "category": "Physical",      "group": "Dexterity",        "description": "Hand-eye coordination, aiming ranged weapons, and throwing accuracy." },
+    {
+      "id": "agility",
+      "name": "Agility",
+      "category": "Physical",
+      "group": "Dexterity",
+      "description": "Acrobatics, dodging, balance, and overall movement speed."
+    },
+    {
+      "id": "finesse",
+      "name": "Finesse",
+      "category": "Physical",
+      "group": "Dexterity",
+      "description": "Fine motor skills, sleight of hand, picking locks, and light weaponry."
+    },
+    {
+      "id": "precision",
+      "name": "Precision",
+      "category": "Physical",
+      "group": "Dexterity",
+      "description": "Hand-eye coordination, aiming ranged weapons, and throwing accuracy."
+    },
 
     // Physical > Constitution
-    { "id": "vitality",      "name": "Vitality",       "category": "Physical",      "group": "Constitution",     "description": "Total health pool and physical stamina." },
-    { "id": "fortitude",     "name": "Fortitude",      "category": "Physical",      "group": "Constitution",     "description": "Resistance to toxins, disease, and environmental extremes." },
-    { "id": "hardiness",     "name": "Hardiness",      "category": "Physical",      "group": "Constitution",     "description": "Pain tolerance and the ability to shrug off physical trauma." },
+    {
+      "id": "vitality",
+      "name": "Vitality",
+      "category": "Physical",
+      "group": "Constitution",
+      "description": "Total health pool and physical stamina."
+    },
+    {
+      "id": "fortitude",
+      "name": "Fortitude",
+      "category": "Physical",
+      "group": "Constitution",
+      "description": "Resistance to toxins, disease, and environmental extremes."
+    },
+    {
+      "id": "hardiness",
+      "name": "Hardiness",
+      "category": "Physical",
+      "group": "Constitution",
+      "description": "Pain tolerance and the ability to shrug off physical trauma."
+    },
 
     // Mental > Intelligence
-    { "id": "erudition",     "name": "Erudition",      "category": "Mental",        "group": "Intelligence",     "description": "Academic knowledge, history, lore, and formal education." },
-    { "id": "analysis",      "name": "Analysis",       "category": "Mental",        "group": "Intelligence",     "description": "Deductive reasoning, puzzle-solving, and investigating clues." },
-    { "id": "engineering",   "name": "Engineering",    "category": "Mental",        "group": "Intelligence",     "description": "Understanding mechanics, architecture, crafting, and technology." },
+    {
+      "id": "erudition",
+      "name": "Erudition",
+      "category": "Mental",
+      "group": "Intelligence",
+      "description": "Academic knowledge, history, lore, and formal education."
+    },
+    {
+      "id": "analysis",
+      "name": "Analysis",
+      "category": "Mental",
+      "group": "Intelligence",
+      "description": "Deductive reasoning, puzzle-solving, and investigating clues."
+    },
+    {
+      "id": "engineering",
+      "name": "Engineering",
+      "category": "Mental",
+      "group": "Intelligence",
+      "description": "Understanding mechanics, architecture, crafting, and technology."
+    },
 
     // Mental > Wisdom
-    { "id": "perception",    "name": "Perception",     "category": "Mental",        "group": "Wisdom",           "description": "Sensory awareness, spotting hidden things, and hearing faint noises." },
-    { "id": "insight",       "name": "Insight",        "category": "Mental",        "group": "Wisdom",           "description": "Reading people, detecting lies, and understanding psychological motivations." },
-    { "id": "survival",      "name": "Survival",       "category": "Mental",        "group": "Wisdom",           "description": "Tracking, navigating the wilderness, foraging, and animal handling." },
+    {
+      "id": "perception",
+      "name": "Perception",
+      "category": "Mental",
+      "group": "Wisdom",
+      "description": "Sensory awareness, spotting hidden things, and hearing faint noises."
+    },
+    {
+      "id": "insight",
+      "name": "Insight",
+      "category": "Mental",
+      "group": "Wisdom",
+      "description": "Reading people, detecting lies, and understanding psychological motivations."
+    },
+    {
+      "id": "survival",
+      "name": "Survival",
+      "category": "Mental",
+      "group": "Wisdom",
+      "description": "Tracking, navigating the wilderness, foraging, and animal handling."
+    },
 
     // Mental > Cunning
-    { "id": "tactics",       "name": "Tactics",        "category": "Mental",        "group": "Cunning",          "description": "Battlefield positioning, exploiting enemy weaknesses, and quick thinking under pressure." },
-    { "id": "resourcefulness","name": "Resourcefulness","category": "Mental",       "group": "Cunning",          "description": "Scavenging, improvising tools, and thinking outside the box." },
+    {
+      "id": "tactics",
+      "name": "Tactics",
+      "category": "Mental",
+      "group": "Cunning",
+      "description": "Battlefield positioning, exploiting enemy weaknesses, and quick thinking under pressure."
+    },
+    {
+      "id": "resourcefulness",
+      "name": "Resourcefulness",
+      "category": "Mental",
+      "group": "Cunning",
+      "description": "Scavenging, improvising tools, and thinking outside the box."
+    },
 
     // Social > Charisma
-    { "id": "persuasion",    "name": "Persuasion",     "category": "Social",        "group": "Charisma",         "description": "Diplomatic reasoning, honest negotiation, and inspiring others." },
-    { "id": "deception",     "name": "Deception",      "category": "Social",        "group": "Charisma",         "description": "Lying, bluffing, acting, and maintaining disguises." },
-    { "id": "intimidation",  "name": "Intimidation",   "category": "Social",        "group": "Charisma",         "description": "Projecting a menacing presence, interrogating, and forcing compliance." },
-    { "id": "empathy",       "name": "Empathy",        "category": "Social",        "group": "Charisma",         "description": "Connecting emotionally with others, defusing tension, and building trust." },
+    {
+      "id": "persuasion",
+      "name": "Persuasion",
+      "category": "Social",
+      "group": "Charisma",
+      "description": "Diplomatic reasoning, honest negotiation, and inspiring others."
+    },
+    {
+      "id": "deception",
+      "name": "Deception",
+      "category": "Social",
+      "group": "Charisma",
+      "description": "Lying, bluffing, acting, and maintaining disguises."
+    },
+    {
+      "id": "intimidation",
+      "name": "Intimidation",
+      "category": "Social",
+      "group": "Charisma",
+      "description": "Projecting a menacing presence, interrogating, and forcing compliance."
+    },
+    {
+      "id": "empathy",
+      "name": "Empathy",
+      "category": "Social",
+      "group": "Charisma",
+      "description": "Connecting emotionally with others, defusing tension, and building trust."
+    },
 
     // Supernatural > The Arcane & Cosmic
-    { "id": "willpower",     "name": "Willpower",      "category": "Supernatural",  "group": "Arcane & Cosmic",  "description": "Mental focus, resisting psychic attacks, and channeling raw magic." },
-    { "id": "attunement",    "name": "Attunement",     "category": "Supernatural",  "group": "Arcane & Cosmic",  "description": "The ability to commune with the fundamental forces and manifolds of spacetime — perceiving, shaping, and harmonising with the underlying physical reality that underpins all phenomena." }
+    {
+      "id": "willpower",
+      "name": "Willpower",
+      "category": "Supernatural",
+      "group": "Arcane & Cosmic",
+      "description": "Mental focus, resisting psychic attacks, and channeling raw magic."
+    },
+    {
+      "id": "attunement",
+      "name": "Attunement",
+      "category": "Supernatural",
+      "group": "Arcane & Cosmic",
+      "description": "The ability to commune with the fundamental forces and manifolds of spacetime — perceiving, shaping, and harmonising with the underlying physical reality that underpins all phenomena."
+    }
   ]
 }

@@ -53,6 +53,7 @@ namespace DwarvenFortification.UI
 		public MouseClickMode SelectedMouseClickMode { get; set; } = MouseClickMode.None;
 		public CellType SelectedCellType { get; set; } = CellType.Dirt;
 		public string SelectedOccupantId { get; set; } = string.Empty;
+		public string SelectedItemId { get; set; } = string.Empty;
 		public bool WantsMouseCapture { get; private set; }
 		public Func<Entity, AgentActionRequest, string> ActionRequestHandler { get; set; }
 		public Func<Entity, PlanningSnapshot> PlanningSnapshotProvider { get; set; }
@@ -131,29 +132,120 @@ namespace DwarvenFortification.UI
 					$"surface-{cellType}",
 					cellType.ToString(),
 					GridCell.CellLookup[cellType],
-					SelectedCellType == cellType && string.IsNullOrWhiteSpace(SelectedOccupantId),
+					SelectedCellType == cellType && string.IsNullOrWhiteSpace(SelectedOccupantId) && string.IsNullOrWhiteSpace(SelectedItemId),
 					() =>
 					{
 						SelectedCellType = cellType;
 						SelectedOccupantId = string.Empty;
+						SelectedItemId = string.Empty;
 						SelectedMouseClickMode = MouseClickMode.Paint;
 					});
 			}
 
 			ImGui.Separator();
 			ImGui.Text("Occupant Palette");
-			foreach (var occupant in definitions.GetPaintableOccupants())
+
+			var paletteGroupOrder = new[] { "Ore Veins", "Minerals", "Trees", "Storage", "Workstations", "Furniture", "Structures", "Misc" };
+			var paletteByGroup = definitions.GetPaintableOccupants()
+				.GroupBy(o => o.Group)
+				.ToDictionary(g => g.Key, g => g.ToList());
+
+			foreach (var groupName in paletteGroupOrder)
 			{
-				DrawPaletteEntry(
-					$"occupant-{occupant.Id}",
-					occupant.Name,
-					occupant.Color,
-					string.Equals(SelectedOccupantId, occupant.Id, StringComparison.OrdinalIgnoreCase),
-					() =>
+				if (!paletteByGroup.TryGetValue(groupName, out var groupEntries))
+					continue;
+
+				if (ImGui.CollapsingHeader(groupName, ImGuiTreeNodeFlags.DefaultOpen))
+				{
+					foreach (var occupant in groupEntries)
 					{
-						SelectedOccupantId = occupant.Id;
-						SelectedMouseClickMode = MouseClickMode.Paint;
-					});
+						DrawPaletteEntry(
+							$"occupant-{occupant.Id}",
+							occupant.Name,
+							occupant.Color,
+							string.Equals(SelectedOccupantId, occupant.Id, StringComparison.OrdinalIgnoreCase),
+							() =>
+							{
+								SelectedOccupantId = occupant.Id;
+								SelectedItemId = string.Empty;
+								SelectedMouseClickMode = MouseClickMode.Paint;
+							});
+					}
+				}
+			}
+
+			foreach (var kvp in paletteByGroup.Where(kvp => !paletteGroupOrder.Contains(kvp.Key)))
+			{
+				if (ImGui.CollapsingHeader(kvp.Key, ImGuiTreeNodeFlags.DefaultOpen))
+				{
+					foreach (var occupant in kvp.Value)
+					{
+						DrawPaletteEntry(
+							$"occupant-{occupant.Id}",
+							occupant.Name,
+							occupant.Color,
+							string.Equals(SelectedOccupantId, occupant.Id, StringComparison.OrdinalIgnoreCase),
+							() =>
+							{
+								SelectedOccupantId = occupant.Id;
+								SelectedItemId = string.Empty;
+								SelectedMouseClickMode = MouseClickMode.Paint;
+							});
+					}
+				}
+			}
+
+			ImGui.Separator();
+			ImGui.Text("Item Palette");
+
+			var itemGroupOrder = new[] { "Tools", "Ores", "Fuel", "Ingots", "Logs", "Planks", "Parts & Components", "Food & Drink", "Weapons", "Knowledge", "Resources", "Misc" };
+			var itemsByGroup = definitions.GetPaletteItems()
+				.GroupBy(i => i.Group)
+				.ToDictionary(g => g.Key, g => g.ToList());
+
+			foreach (var groupName in itemGroupOrder)
+			{
+				if (!itemsByGroup.TryGetValue(groupName, out var itemEntries))
+					continue;
+
+				if (ImGui.CollapsingHeader($"{groupName}##item", ImGuiTreeNodeFlags.DefaultOpen))
+				{
+					foreach (var item in itemEntries)
+					{
+						DrawPaletteEntry(
+							$"item-{item.Id}",
+							item.Name,
+							item.Color,
+							string.Equals(SelectedItemId, item.Id, StringComparison.OrdinalIgnoreCase),
+							() =>
+							{
+								SelectedItemId = item.Id;
+								SelectedOccupantId = string.Empty;
+								SelectedMouseClickMode = MouseClickMode.Paint;
+							});
+					}
+				}
+			}
+
+			foreach (var kvp in itemsByGroup.Where(kvp => !itemGroupOrder.Contains(kvp.Key)))
+			{
+				if (ImGui.CollapsingHeader($"{kvp.Key}##item", ImGuiTreeNodeFlags.DefaultOpen))
+				{
+					foreach (var item in kvp.Value)
+					{
+						DrawPaletteEntry(
+							$"item-{item.Id}",
+							item.Name,
+							item.Color,
+							string.Equals(SelectedItemId, item.Id, StringComparison.OrdinalIgnoreCase),
+							() =>
+							{
+								SelectedItemId = item.Id;
+								SelectedOccupantId = string.Empty;
+								SelectedMouseClickMode = MouseClickMode.Paint;
+							});
+					}
+				}
 			}
 
 			ImGui.End();
@@ -173,6 +265,10 @@ namespace DwarvenFortification.UI
 			{
 				DrawEntityInspector(boundEntity.Value);
 			}
+			else if (boundObject is GridCell gridCell)
+			{
+				DrawCellInspector(gridCell);
+			}
 			else if (boundObject != null)
 			{
 				foreach (var line in ReflectObject(boundObject))
@@ -186,6 +282,54 @@ namespace DwarvenFortification.UI
 			}
 
 			ImGui.End();
+		}
+
+		void DrawCellInspector(GridCell cell)
+		{
+			ImGui.TextUnformatted($"Cell Type: {cell.CellType}");
+			ImGui.Separator();
+
+			if (ImGui.CollapsingHeader("Occupants", ImGuiTreeNodeFlags.DefaultOpen))
+			{
+				if (cell.Occupants.Count == 0)
+				{
+					ImGui.TextUnformatted("  (none)");
+				}
+				else
+				{
+					foreach (var occupant in cell.Occupants)
+					{
+						var label = occupant.Has<DefinitionIdentityComponent>()
+							? $"{occupant.Get<DefinitionIdentityComponent>().Name} [{occupant.Get<DefinitionIdentityComponent>().Id}]"
+							: occupant.ToString();
+						ImGui.TextUnformatted($"  {label}");
+					}
+				}
+			}
+
+			var floorItemCount = cell.ItemsInCell.Count;
+			if (ImGui.CollapsingHeader($"Floor Items ({floorItemCount})##cell", ImGuiTreeNodeFlags.DefaultOpen))
+			{
+				if (floorItemCount == 0)
+				{
+					ImGui.TextUnformatted("  (none)");
+				}
+				else
+				{
+					foreach (var item in cell.ItemsInCell)
+					{
+						var itemId = item.GetItemDefinitionId();
+						definitions.TryGetItemDisplayName(itemId, out var displayName);
+						ImGui.PushID($"floor-item-{itemId}-{item.Id}");
+						if (ImGui.TreeNode($"{displayName} [{itemId}]"))
+						{
+							DrawItemEffects(item);
+							ImGui.TreePop();
+						}
+						ImGui.PopID();
+					}
+				}
+			}
 		}
 
 		void DrawEntityInspector(Entity entity)
@@ -237,6 +381,7 @@ namespace DwarvenFortification.UI
 				return;
 			}
 
+			// planningSnapshot.Goals is already sorted descending by effective priority by the Planner
 			foreach (var goal in planningSnapshot.Goals)
 			{
 				var status = goal.IsSatisfied
@@ -250,11 +395,14 @@ namespace DwarvenFortification.UI
 				var hasCandidatePlan = goal.CandidatePlan != null;
 				ImGui.PushID($"goal-{goal.Goal.Id}");
 				ImGui.PushStyleColor(ImGuiCol.Text, statusColor);
-				if (ImGui.TreeNodeEx($"{goal.Goal.Name} [{status}]##goal", hasCandidatePlan ? ImGuiTreeNodeFlags.DefaultOpen : ImGuiTreeNodeFlags.None))
+				if (ImGui.TreeNodeEx($"[{goal.EffectivePriority}] {goal.Goal.Name} [{status}]##goal", hasCandidatePlan ? ImGuiTreeNodeFlags.DefaultOpen : ImGuiTreeNodeFlags.None))
 				{
 					ImGui.PopStyleColor();
 					ImGui.TextUnformatted($"Id: {goal.Goal.Id}");
-					ImGui.TextUnformatted($"Priority: {goal.Goal.Priority}");
+					if (goal.EffectivePriority != goal.Goal.Priority)
+						ImGui.TextUnformatted($"Priority: {goal.EffectivePriority} (base: {goal.Goal.Priority})");
+					else
+						ImGui.TextUnformatted($"Priority: {goal.Goal.Priority}");
 					ImGui.TextWrapped($"Desired facts: {FormatList(goal.Goal.DesiredFacts)}");
 					if (goal.Goal.ForbiddenFacts.Length > 0)
 					{
@@ -325,7 +473,13 @@ namespace DwarvenFortification.UI
 				var item = inventory.Items[i];
 				var itemDefinition = item.Get<ItemDefinitionComponent>();
 				var itemKind = itemDefinition.IsTool ? "Tool" : "Item";
-				ImGui.BulletText($"{item.GetName()} [{item.GetItemDefinitionId()}] {itemKind} weight={itemDefinition.WeightKg:0.##}kg");
+				ImGui.PushID($"inv-item-{i}");
+				if (ImGui.TreeNode($"{item.GetName()} [{item.GetItemDefinitionId()}] {itemKind} {itemDefinition.WeightKg:0.##}kg"))
+				{
+					DrawItemEffects(item);
+					ImGui.TreePop();
+				}
+				ImGui.PopID();
 			}
 		}
 
@@ -394,8 +548,10 @@ namespace DwarvenFortification.UI
 			DrawNutrientLine("Hydration (L)", nutrition.HydrationCurrentLiters, nutrition.HydrationMaxLiters, entity.IsNutrientLow(SimulationEntityExtensions.NutrientKind.Hydration));
 
 			ImGui.Separator();
-			ImGui.TextUnformatted($"Metabolic energy: {entity.GetMetabolicEnergyRatio() * 100f:0.#}%");
-			ImGui.TextUnformatted($"Hydration: {entity.GetHydrationRatio() * 100f:0.#}%");
+			var energyRatio = Math.Clamp(entity.GetMetabolicEnergyRatio(), 0f, 1f);
+			ImGui.PushStyleColor(ImGuiCol.PlotHistogram, energyRatio < 0.3f ? ColorBlocked : ColorOk);
+			ImGui.ProgressBar(energyRatio, new NumericsVector2(-1, 0), $"Metabolic energy: {energyRatio * 100f:0.#}%");
+			ImGui.PopStyleColor();
 
 			var impairedSystems = entity.GetImpairedSystems().ToArray();
 			if (impairedSystems.Length == 0)
@@ -412,10 +568,73 @@ namespace DwarvenFortification.UI
 			}
 		}
 
+		void DrawItemEffects(Entity item)
+		{
+			if (!item.Has<ItemDefinitionComponent>())
+			{
+				return;
+			}
+
+			var def = item.Get<ItemDefinitionComponent>();
+			var tags = item.Has<TagCollectionComponent>() ? item.Get<TagCollectionComponent>().Values : Array.Empty<string>();
+
+			ImGui.TextDisabled($"Weight: {def.WeightKg:0.##} kg  |  {(def.Stackable ? "Stackable" : "Non-stackable")}");
+
+			if (tags.Length > 0)
+			{
+				ImGui.TextDisabled($"Tags: {string.Join(", ", tags)}");
+			}
+
+			var n = def.Nutrition;
+			var hasNutrition = n.CarbohydratesGrams > 0f || n.ProteinGrams > 0f || n.FatGrams > 0f
+				|| n.SugarGrams > 0f || n.FiberGrams > 0f || n.FluidLiters > 0f;
+			if (hasNutrition)
+			{
+				ImGui.TextUnformatted("Nutrition on consume:");
+				if (n.CarbohydratesGrams > 0f) ImGui.BulletText($"Carbohydrates: +{n.CarbohydratesGrams:0.##}g");
+				if (n.ProteinGrams > 0f) ImGui.BulletText($"Protein: +{n.ProteinGrams:0.##}g");
+				if (n.FatGrams > 0f) ImGui.BulletText($"Fat: +{n.FatGrams:0.##}g");
+				if (n.SugarGrams > 0f) ImGui.BulletText($"Sugar: +{n.SugarGrams:0.##}g");
+				if (n.FiberGrams > 0f) ImGui.BulletText($"Fibre: +{n.FiberGrams:0.##}g");
+				if (n.FluidLiters > 0f) ImGui.BulletText($"Hydration: +{n.FluidLiters:0.##}L");
+			}
+
+			var enabledActions = definitions.GetActionDefinitions()
+				.Where(action => action.RequiredFacts.Any(fact =>
+					Facts.TryGetHasItemTag(fact, out var tag)
+					&& tags.Contains(tag, StringComparer.OrdinalIgnoreCase)))
+				.Select(a => a.Name)
+				.ToArray();
+			if (enabledActions.Length > 0)
+			{
+				ImGui.TextUnformatted("Enables actions:");
+				foreach (var actionName in enabledActions)
+				{
+					ImGui.BulletText(actionName);
+				}
+			}
+
+			if (def.ThrowRange > 0f)
+			{
+				ImGui.BulletText($"Throw range: {def.ThrowRange:0.#} m");
+			}
+
+			if (def.LearnedFacts.Length > 0)
+			{
+				ImGui.TextUnformatted("Teaches:");
+				foreach (var fact in def.LearnedFacts)
+				{
+					ImGui.BulletText(fact);
+				}
+			}
+		}
+
 		void DrawNutrientLine(string label, float current, float max, bool isLow)
 		{
-			var ratio = max <= 0f ? 0f : current / max;
-			ImGui.TextColored(isLow ? ColorBlocked : ColorOk, $"{label}: {current:0.##}/{max:0.##} ({ratio * 100f:0.#}%)");
+			var ratio = max <= 0f ? 0f : Math.Clamp(current / max, 0f, 1f);
+			ImGui.PushStyleColor(ImGuiCol.PlotHistogram, isLow ? ColorBlocked : ColorOk);
+			ImGui.ProgressBar(ratio, new NumericsVector2(-1, 0), $"{label}: {current:0.##}/{max:0.##} ({ratio * 100f:0.#}%)");
+			ImGui.PopStyleColor();
 		}
 
 		void DrawSkillCatalogSection(Entity entity, PlanningSnapshot planningSnapshot)

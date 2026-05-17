@@ -23,6 +23,7 @@ namespace DwarvenFortification.ECS
 		readonly Dictionary<string, Entity> worldObjectDefinitionEntitiesById;
 		readonly Dictionary<string, Entity> resourceNodeDefinitionEntitiesById;
 		readonly List<OccupantPaletteEntry> paintableOccupants;
+		readonly List<ItemPaletteEntry> paletteItems;
 		readonly Dictionary<string, Entity> agentArchetypeEntities;
 		readonly Dictionary<string, Entity> goalDefinitionEntities;
 		readonly Entity? defaultAgentArchetypeEntity;
@@ -47,6 +48,7 @@ namespace DwarvenFortification.ECS
 			worldObjectDefinitionEntities = new Dictionary<string, Entity>(StringComparer.OrdinalIgnoreCase);
 			worldObjectDefinitionEntitiesById = new Dictionary<string, Entity>(StringComparer.OrdinalIgnoreCase);
 			paintableOccupants = [];
+			paletteItems = [];
 			resourceNodeDefinitionEntitiesById = new Dictionary<string, Entity>(StringComparer.OrdinalIgnoreCase);
 			agentArchetypeEntities = new Dictionary<string, Entity>(StringComparer.OrdinalIgnoreCase);
 			goalDefinitionEntities = new Dictionary<string, Entity>(StringComparer.OrdinalIgnoreCase);
@@ -76,6 +78,8 @@ namespace DwarvenFortification.ECS
 							item.Nutrition?.FiberGrams ?? 0f,
 							item.Nutrition?.FluidLiters ?? 0f),
 						item.ThrowRange));
+				var itemGroup = DetermineItemGroup(item.Tags);
+				paletteItems.Add(new ItemPaletteEntry(item.Id, item.Name, DetermineItemGroupColor(itemGroup), itemGroup));
 			}
 
 			foreach (var action in actions.Where(def => !string.IsNullOrWhiteSpace(def.Id)))
@@ -146,7 +150,7 @@ namespace DwarvenFortification.ECS
 
 				worldObjectDefinitionEntities[worldObject.Id] = entity;
 				worldObjectDefinitionEntitiesById[worldObject.Id] = entity;
-				paintableOccupants.Add(new OccupantPaletteEntry(worldObject.Id, worldObject.Name, color, OccupantPaletteKind.WorldObject));
+				paintableOccupants.Add(new OccupantPaletteEntry(worldObject.Id, worldObject.Name, color, OccupantPaletteKind.WorldObject, DetermineOccupantGroup(worldObject.Tags, OccupantPaletteKind.WorldObject)));
 			}
 
 			foreach (var resourceNode in resourceNodes)
@@ -164,7 +168,7 @@ namespace DwarvenFortification.ECS
 						resourceNode.BlocksMovement),
 					new OccupantVisualComponent(color));
 
-				paintableOccupants.Add(new OccupantPaletteEntry(resourceNode.Id, resourceNode.Name, color, OccupantPaletteKind.ResourceNode));
+				paintableOccupants.Add(new OccupantPaletteEntry(resourceNode.Id, resourceNode.Name, color, OccupantPaletteKind.ResourceNode, DetermineOccupantGroup(resourceNode.Tags, OccupantPaletteKind.ResourceNode)));
 			}
 
 			foreach (var agent in agents.Where(def => !string.IsNullOrWhiteSpace(def.Id)))
@@ -291,6 +295,9 @@ namespace DwarvenFortification.ECS
 
 		public IReadOnlyList<OccupantPaletteEntry> GetPaintableOccupants()
 			=> paintableOccupants;
+
+		public IReadOnlyList<ItemPaletteEntry> GetPaletteItems()
+			=> paletteItems;
 
 		public bool TryCreateWorldObjectEntity(string worldObjectId, Point position, Point cell, out Entity entity)
 		{
@@ -508,6 +515,62 @@ namespace DwarvenFortification.ECS
 		{
 			return cellType != CellType.Water;
 		}
+
+		static string DetermineOccupantGroup(string[] tags, OccupantPaletteKind kind)
+		{
+			if (tags == null || tags.Length == 0)
+				return "Misc";
+
+			if (kind == OccupantPaletteKind.ResourceNode)
+			{
+				if (Array.Exists(tags, t => string.Equals(t, "tree", StringComparison.OrdinalIgnoreCase))) return "Trees";
+				if (Array.Exists(tags, t => string.Equals(t, "ore", StringComparison.OrdinalIgnoreCase))) return "Ore Veins";
+				if (Array.Exists(tags, t => string.Equals(t, "mineable", StringComparison.OrdinalIgnoreCase))) return "Minerals";
+			}
+			else
+			{
+				if (Array.Exists(tags, t => string.Equals(t, "workstation", StringComparison.OrdinalIgnoreCase))) return "Workstations";
+				if (Array.Exists(tags, t => string.Equals(t, "structure", StringComparison.OrdinalIgnoreCase))) return "Structures";
+				if (Array.Exists(tags, t => string.Equals(t, "bed", StringComparison.OrdinalIgnoreCase) || string.Equals(t, "furniture", StringComparison.OrdinalIgnoreCase))) return "Furniture";
+				if (Array.Exists(tags, t => string.Equals(t, "storage", StringComparison.OrdinalIgnoreCase))) return "Storage";
+			}
+
+			return "Misc";
+		}
+
+		static string DetermineItemGroup(string[] tags)
+		{
+			if (tags == null || tags.Length == 0)
+				return "Misc";
+			if (Array.Exists(tags, t => string.Equals(t, "tool", StringComparison.OrdinalIgnoreCase))) return "Tools";
+			if (Array.Exists(tags, t => string.Equals(t, "food", StringComparison.OrdinalIgnoreCase) || string.Equals(t, "drink", StringComparison.OrdinalIgnoreCase))) return "Food & Drink";
+			if (Array.Exists(tags, t => string.Equals(t, "ore", StringComparison.OrdinalIgnoreCase))) return "Ores";
+			if (Array.Exists(tags, t => string.Equals(t, "fuel", StringComparison.OrdinalIgnoreCase))) return "Fuel";
+			if (Array.Exists(tags, t => string.Equals(t, "ingot", StringComparison.OrdinalIgnoreCase))) return "Ingots";
+			if (Array.Exists(tags, t => string.Equals(t, "plank", StringComparison.OrdinalIgnoreCase))) return "Planks";
+			if (Array.Exists(tags, t => string.Equals(t, "weapon", StringComparison.OrdinalIgnoreCase))) return "Weapons";
+			if (Array.Exists(tags, t => string.Equals(t, "book", StringComparison.OrdinalIgnoreCase) || string.Equals(t, "knowledge", StringComparison.OrdinalIgnoreCase))) return "Knowledge";
+			if (Array.Exists(tags, t => string.Equals(t, "crafted", StringComparison.OrdinalIgnoreCase))) return "Parts & Components";
+			if (Array.Exists(tags, t => string.Equals(t, "wood", StringComparison.OrdinalIgnoreCase))) return "Logs";
+			if (Array.Exists(tags, t => string.Equals(t, "resource", StringComparison.OrdinalIgnoreCase))) return "Resources";
+			return "Misc";
+		}
+
+		static Color DetermineItemGroupColor(string group) => group switch
+		{
+			"Tools"               => new Color(0xC8, 0x80, 0x40),
+			"Food & Drink"        => new Color(0x78, 0xA8, 0x52),
+			"Ores"                => new Color(0x88, 0x88, 0x8A),
+			"Fuel"                => new Color(0x50, 0x40, 0x30),
+			"Ingots"              => new Color(0xB8, 0xB0, 0xA0),
+			"Logs"                => new Color(0x8B, 0x5E, 0x38),
+			"Planks"              => new Color(0xC4, 0x9A, 0x6C),
+			"Parts & Components"  => new Color(0x90, 0x90, 0x90),
+			"Weapons"             => new Color(0xA0, 0x30, 0x30),
+			"Knowledge"           => new Color(0x50, 0x70, 0xC0),
+			"Resources"           => new Color(0x88, 0x88, 0x80),
+			_                     => new Color(0xC0, 0xC0, 0xC0),
+		};
 
 		static Color ParseColor(string hex)
 		{
