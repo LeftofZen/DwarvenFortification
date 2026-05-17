@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace DwarvenFortification.ECS.Authoring
 {
@@ -7,13 +8,23 @@ namespace DwarvenFortification.ECS.Authoring
 		public string Id { get; init; } = string.Empty;
 		public string Name { get; init; } = string.Empty;
 		public string[] Tags { get; init; } = Array.Empty<string>();
+		public Dictionary<string, string> Properties { get; init; } = new();
 		public string[] LearnedFacts { get; init; } = Array.Empty<string>();
 		public bool IsTool { get; init; }
 		public bool Stackable { get; init; } = true;
 		public float WeightKg { get; init; } = 1f;
-		public float NutritionValue { get; init; }
-		public float HydrationValue { get; init; }
+		public ItemNutritionDefinition Nutrition { get; init; } = new();
 		public float ThrowRange { get; init; } = 5f;
+	}
+
+	public sealed class ItemNutritionDefinition
+	{
+		public float CarbohydratesGrams { get; init; }
+		public float ProteinGrams { get; init; }
+		public float FatGrams { get; init; }
+		public float SugarGrams { get; init; }
+		public float FiberGrams { get; init; }
+		public float FluidLiters { get; init; }
 	}
 
 	public sealed class ItemDefinitionDocument
@@ -23,7 +34,7 @@ namespace DwarvenFortification.ECS.Authoring
 
 	public sealed class ActionRequirementDefinition
 	{
-		public string[] RequiredItemIds { get; init; } = Array.Empty<string>();
+		public string[] RequiredItemTags { get; init; } = Array.Empty<string>();
 		public string[] RequiredTargetTags { get; init; } = Array.Empty<string>();
 		public string[] RequiredBodyParts { get; init; } = Array.Empty<string>();
 		public string[] RequiredOrgans { get; init; } = Array.Empty<string>();
@@ -40,6 +51,23 @@ namespace DwarvenFortification.ECS.Authoring
 		public int Quantity { get; init; } = 1;
 	}
 
+	public sealed class MaterialCostDefinition
+	{
+		public string ItemId { get; init; } = string.Empty;
+		public string[] ItemFilter { get; init; } = Array.Empty<string>();
+		public int Quantity { get; init; } = 1;
+	}
+
+	public sealed class CraftRecipeDefinition
+	{
+		public string Id { get; init; } = string.Empty;
+		public string Name { get; init; } = string.Empty;
+		public string[] RequiredFacts { get; init; } = Array.Empty<string>();
+		public MaterialCostDefinition[] Inputs { get; init; } = Array.Empty<MaterialCostDefinition>();
+		public string OutputItemId { get; init; } = string.Empty;
+		public int OutputQuantity { get; init; } = 1;
+	}
+
 	public sealed class ActionEffectDefinition
 	{
 		public string[] AddFacts { get; init; } = Array.Empty<string>();
@@ -54,6 +82,7 @@ namespace DwarvenFortification.ECS.Authoring
 		public int DurationTicks { get; init; } = 1;
 		public string TargetKind { get; init; } = string.Empty;
 		public string DestinationMode { get; init; } = string.Empty;
+		public string[] Skills { get; init; } = Array.Empty<string>();
 		public ActionRequirementDefinition Requires { get; init; } = new();
 		public ActionOutputDefinition[] Outputs { get; init; } = Array.Empty<ActionOutputDefinition>();
 		public ActionEffectDefinition Effects { get; init; } = new();
@@ -74,6 +103,8 @@ namespace DwarvenFortification.ECS.Authoring
 		public bool BlocksMovement { get; init; }
 		public bool IsReservable { get; init; }
 		public int Capacity { get; init; }
+		public MaterialCostDefinition[] BuildCosts { get; init; } = Array.Empty<MaterialCostDefinition>();
+		public CraftRecipeDefinition[] Recipes { get; init; } = Array.Empty<CraftRecipeDefinition>();
 	}
 
 	public sealed class WorldObjectDefinitionDocument
@@ -88,7 +119,7 @@ namespace DwarvenFortification.ECS.Authoring
 		public string DisplayColor { get; init; } = "#FFFFFF";
 		public string[] Tags { get; init; } = Array.Empty<string>();
 		public string[] SupportedActionIds { get; init; } = Array.Empty<string>();
-		public string[] RequiredToolItemIds { get; init; } = Array.Empty<string>();
+		public string[] RequiredToolItemTags { get; init; } = Array.Empty<string>();
 		public string YieldItemId { get; init; } = string.Empty;
 		public int YieldCount { get; init; }
 		public bool BlocksMovement { get; init; }
@@ -118,16 +149,24 @@ namespace DwarvenFortification.ECS.Authoring
 		public float MaxRest { get; init; } = 100f;
 		public float RestDecayPerTick { get; init; } = 0.02f;
 		public float RestRecoveryPerTick { get; init; } = 1f;
-		public float StartingHunger { get; init; } = 100f;
-		public float MaxHunger { get; init; } = 100f;
-		public float HungerDecayPerTick { get; init; } = 0.03f;
-		public float HungerRecoveryPerTick { get; init; } = 25f;
-		public float StartingThirst { get; init; } = 100f;
-		public float MaxThirst { get; init; } = 100f;
-		public float ThirstDecayPerTick { get; init; } = 0.05f;
-		public float ThirstRecoveryPerTick { get; init; } = 35f;
+		public float StartingCarbohydratesGrams { get; init; } = 280f;
+		public float MaxCarbohydratesGrams { get; init; } = 320f;
+		public float StartingProteinGrams { get; init; } = 90f;
+		public float MaxProteinGrams { get; init; } = 120f;
+		public float StartingFatGrams { get; init; } = 70f;
+		public float MaxFatGrams { get; init; } = 100f;
+		public float StartingSugarGrams { get; init; } = 24f;
+		public float MaxSugarGrams { get; init; } = 40f;
+		public float StartingHydrationLiters { get; init; } = 3.2f;
+		public float MaxHydrationLiters { get; init; } = 4.2f;
+		public float SugarUsePerTick { get; init; } = 0.03f;
+		public float HydrationUsePerTick { get; init; } = 0.0025f;
+		public float SugarFromCarbohydratesPerTick { get; init; } = 0.05f;
+		public float SugarFromFatPerTick { get; init; } = 0.02f;
+		public float ProteinCatabolismPerTick { get; init; } = 0.004f;
 		public int BodyWidth { get; init; } = 32;
 		public int BodyHeight { get; init; } = 32;
+		public Dictionary<string, int> Skills { get; init; } = new();
 	}
 
 	public sealed class AgentDefinitionDocument
@@ -149,5 +188,32 @@ namespace DwarvenFortification.ECS.Authoring
 	public sealed class GoalDefinitionDocument
 	{
 		public GoalDefinition[] Goals { get; init; } = Array.Empty<GoalDefinition>();
+	}
+
+	public sealed class FactDefinition
+	{
+		public string Id { get; init; } = string.Empty;
+		public string Description { get; init; } = string.Empty;
+		public string Category { get; init; } = string.Empty;
+		public bool IsDynamic { get; init; }
+	}
+
+	public sealed class FactDefinitionDocument
+	{
+		public FactDefinition[] Facts { get; init; } = Array.Empty<FactDefinition>();
+	}
+
+	public sealed class SkillDefinition
+	{
+		public string Id { get; init; } = string.Empty;
+		public string Name { get; init; } = string.Empty;
+		public string Description { get; init; } = string.Empty;
+		public string Category { get; init; } = string.Empty;
+		public string Group { get; init; } = string.Empty;
+	}
+
+	public sealed class SkillDefinitionDocument
+	{
+		public SkillDefinition[] Skills { get; init; } = Array.Empty<SkillDefinition>();
 	}
 }

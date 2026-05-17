@@ -5,6 +5,7 @@ using DwarvenFortification.ECS.Components;
 using DwarvenFortification.GOAP;
 using DwarvenFortification.Simulation.World;
 using Microsoft.Xna.Framework;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -35,6 +36,33 @@ namespace DwarvenFortification.ECS.Runtime
 
 		public static float GetStrength(this Entity entity)
 			=> entity.Get<AgentStatsComponent>().Strength;
+
+		public static int GetSkillLevel(this Entity entity, string skillId)
+			=> entity.Has<AgentSkillsComponent>() ? entity.Get<AgentSkillsComponent>().GetSkill(skillId) : 10;
+
+		public static float ComputeSkillAverageLevel(this Entity entity, string[] actionSkills)
+		{
+			if (actionSkills == null || actionSkills.Length == 0) return 10f;
+			if (!entity.Has<AgentSkillsComponent>()) return 10f;
+			var total = 0;
+			foreach (var skill in actionSkills) total += entity.GetSkillLevel(skill);
+			return (float)total / actionSkills.Length;
+		}
+
+		public static int ComputeEffectiveDuration(this Entity entity, string[] actionSkills, int baseDuration)
+		{
+			// Skill 1 (novice) = full base duration. Skill 100 (master) = ~50% of base duration.
+			var avgSkill = entity.ComputeSkillAverageLevel(actionSkills);
+			var multiplier = 1.0f - (avgSkill - 1f) * 0.5f / 99f;
+			return Math.Max(1, (int)Math.Round(baseDuration * multiplier));
+		}
+
+		public static float ComputeSkillYieldMultiplier(this Entity entity, string[] actionSkills)
+		{
+			// Skill 1 = 1.0x yield. Skill 100 = 2.0x yield.
+			var avgSkill = entity.ComputeSkillAverageLevel(actionSkills);
+			return 1.0f + (avgSkill - 1f) / 99f;
+		}
 
 		public static float GetSpeed(this Entity entity)
 		{
@@ -153,11 +181,114 @@ namespace DwarvenFortification.ECS.Runtime
 			return inventory.Items.Remove(item);
 		}
 
+		public static int CountStoredItems(this Entity entity, string itemDefinitionId)
+			=> !entity.Has<InventoryComponent>()
+				? 0
+				: entity.Get<InventoryComponent>().Items.Count(item => string.Equals(item.GetItemDefinitionId(), itemDefinitionId, System.StringComparison.OrdinalIgnoreCase));
+
+		public static bool ItemMatchesFilter(this Entity item, string[] itemFilter)
+			=> itemFilter.All(tag => item.Has<TagCollectionComponent>() && item.Get<TagCollectionComponent>().Contains(tag));
+
+		public static int CountStoredItemsByFilter(this Entity entity, string[] itemFilter)
+			=> !entity.Has<InventoryComponent>()
+				? 0
+				: entity.Get<InventoryComponent>().Items.Count(item => item.ItemMatchesFilter(itemFilter));
+
+		public static int CountStoredItemsForCost(this Entity entity, MaterialCostComponent cost)
+			=> cost.UsesFilter
+				? entity.CountStoredItemsByFilter(cost.ItemFilter)
+				: entity.CountStoredItems(cost.ItemId);
+
 		public static bool IsStorageObject(this Entity entity)
 			=> entity.Has<WorldObjectDefinitionComponent>() && entity.Has<TagCollectionComponent>() && entity.Get<TagCollectionComponent>().Contains("storage");
 
+		public static bool IsConstructionSite(this Entity entity)
+			=> entity.Has<ConstructionSiteComponent>();
+
+		public static MaterialCostComponent[] GetBuildCosts(this Entity entity)
+			=> entity.IsConstructionSite()
+				? entity.Get<ConstructionSiteComponent>().BuildCosts ?? Array.Empty<MaterialCostComponent>()
+				: entity.Has<WorldObjectDefinitionComponent>()
+					? entity.Get<WorldObjectDefinitionComponent>().BuildCosts ?? Array.Empty<MaterialCostComponent>()
+					: Array.Empty<MaterialCostComponent>();
+
+		public static MaterialCostComponent[] GetMissingBuildCosts(this Entity entity)
+			=> entity.GetBuildCosts()
+				.Select(cost => cost.WithQuantity(System.Math.Max(0, cost.Quantity - entity.CountStoredItemsForCost(cost))))
+				.Where(cost => cost.Quantity > 0)
+				.ToArray();
+
+		public static bool HasAllBuildMaterials(this Entity entity)
+			=> entity.GetMissingBuildCosts().Length == 0;
+
+		public static CraftRecipeComponent[] GetRecipes(this Entity entity)
+			=> entity.Has<WorldObjectDefinitionComponent>()
+				? entity.Get<WorldObjectDefinitionComponent>().Recipes ?? Array.Empty<CraftRecipeComponent>()
+				: Array.Empty<CraftRecipeComponent>();
+
+		public static bool TryGetRecipeForOutput(this Entity entity, string outputItemId, out CraftRecipeComponent recipe)
+		{
+			recipe = entity.GetRecipes().FirstOrDefault(candidate => string.Equals(candidate.OutputItemId, outputItemId, System.StringComparison.OrdinalIgnoreCase));
+			return !string.IsNullOrWhiteSpace(recipe.Id);
+		}
+
+		public static bool HasStoredMaterials(this Entity entity, MaterialCostComponent[] materials)
+			=> materials.All(cost => entity.CountStoredItemsForCost(cost) >= cost.Quantity);
+
+		public static Entity[] ConsumeStoredMaterials(this Entity entity, MaterialCostComponent[] materials)
+		{
+			var consumed = new List<Entity>();
+			if (!entity.Has<InventoryComponent>())
+			{
+				return consumed.ToArray();
+			}
+
+			ref var inventory = ref entity.Get<InventoryComponent>();
+			foreach (var material in materials)
+			{
+				for (var i = 0; i < material.Quantity; ++i)
+				{
+					Entity stored;
+					if (material.UsesFilter)
+					{
+						stored = inventory.Items.FirstOrDefault(item => item.ItemMatchesFilter(material.ItemFilter));
+					}
+					else
+					{
+						stored = inventory.Items.FirstOrDefault(item => string.Equals(item.GetItemDefinitionId(), material.ItemId, System.StringComparison.OrdinalIgnoreCase));
+					}
+
+					if (stored.Equals(default(Entity)))
+					{
+						return consumed.ToArray();
+					}
+
+					inventory.Items.Remove(stored);
+					consumed.Add(stored);
+				}
+			}
+
+			return consumed.ToArray();
+		}
+
 		public static bool CanStore(this Entity entity, Entity item)
 		{
+			if (!entity.Has<WorldObjectDefinitionComponent>() || !item.Has<ItemInstanceComponent>())
+			{
+				return false;
+			}
+
+			if (entity.IsConstructionSite())
+			{
+				return entity.GetMissingBuildCosts().Any(cost => string.Equals(cost.ItemId, item.GetItemDefinitionId(), System.StringComparison.OrdinalIgnoreCase));
+			}
+
+			var recipes = entity.GetRecipes();
+			if (recipes.Length > 0 && recipes.SelectMany(recipe => recipe.Inputs).Any(cost => string.Equals(cost.ItemId, item.GetItemDefinitionId(), System.StringComparison.OrdinalIgnoreCase)))
+			{
+				return true;
+			}
+
 			if (!entity.IsStorageObject() || !item.Has<TagCollectionComponent>())
 			{
 				return false;
@@ -187,6 +318,28 @@ namespace DwarvenFortification.ECS.Runtime
 		public static bool HasItemDefinition(this Entity entity, string itemDefinitionId)
 			=> entity.GetInventory().Any(item => string.Equals(item.GetItemDefinitionId(), itemDefinitionId, System.StringComparison.OrdinalIgnoreCase));
 
+		public static bool TrySelectConsumableItem(this Entity entity, ConsumableKind kind, out Entity item)
+		{
+			item = default;
+			if (!entity.Has<InventoryComponent>())
+			{
+				return false;
+			}
+
+			var bestMatch = entity.GetInventory()
+				.Where(candidate => IsConsumableMatch(candidate, kind))
+				.OrderByDescending(candidate => ScoreConsumable(entity, candidate, kind))
+				.FirstOrDefault();
+
+			if (bestMatch.Equals(default(Entity)))
+			{
+				return false;
+			}
+
+			item = bestMatch;
+			return true;
+		}
+
 		public static bool HasBodyPart(this Entity entity, string bodyPart)
 			=> entity.Has<LifeBodyComponent>() && entity.Get<LifeBodyComponent>().BodyParts.Any(part => string.Equals(part, bodyPart, System.StringComparison.OrdinalIgnoreCase));
 
@@ -195,6 +348,12 @@ namespace DwarvenFortification.ECS.Runtime
 
 		public static bool HasSystem(this Entity entity, string system)
 			=> entity.Has<LifeBodyComponent>() && entity.Get<LifeBodyComponent>().Systems.Any(part => string.Equals(part, system, System.StringComparison.OrdinalIgnoreCase));
+
+		public static IEnumerable<string> GetSystems(this Entity entity)
+			=> entity.Has<LifeBodyComponent>() ? entity.Get<LifeBodyComponent>().Systems : Enumerable.Empty<string>();
+
+		public static IEnumerable<string> GetImpairedSystems(this Entity entity)
+			=> entity.GetSystems().Where(system => !entity.IsSystemOperational(system));
 
 		public static string GetFactionId(this Entity entity)
 			=> entity.Has<FactionComponent>() ? entity.Get<FactionComponent>().FactionId : "neutral";
@@ -289,24 +448,22 @@ namespace DwarvenFortification.ECS.Runtime
 
 		public static bool IsHungry(this Entity entity)
 		{
-			if (!entity.Has<HungerNeedComponent>())
+			if (!entity.Has<BodyNutritionComponent>())
 			{
 				return false;
 			}
 
-			var hunger = entity.Get<HungerNeedComponent>();
-			return hunger.Current <= hunger.Max * 0.35f;
+			return GetMetabolicEnergyRatio(entity) <= 0.35f;
 		}
 
 		public static bool IsThirsty(this Entity entity)
 		{
-			if (!entity.Has<ThirstNeedComponent>())
+			if (!entity.Has<BodyNutritionComponent>())
 			{
 				return false;
 			}
 
-			var thirst = entity.Get<ThirstNeedComponent>();
-			return thirst.Current <= thirst.Max * 0.35f;
+			return GetHydrationRatio(entity) <= 0.35f;
 		}
 
 		public static void DecayRest(this Entity entity)
@@ -331,48 +488,188 @@ namespace DwarvenFortification.ECS.Runtime
 			rest.Current = System.Math.Clamp(rest.Current + rest.RecoveryPerTick, 0f, rest.Max);
 		}
 
-		public static void DecayHunger(this Entity entity)
+		public static void TickBodyNutrition(this Entity entity)
 		{
-			if (!entity.Has<HungerNeedComponent>())
+			if (!entity.Has<BodyNutritionComponent>())
 			{
 				return;
 			}
 
-			ref var hunger = ref entity.Get<HungerNeedComponent>();
-			hunger.Current = System.Math.Clamp(hunger.Current - hunger.DecayPerTick, 0f, hunger.Max);
+			ref var nutrition = ref entity.Get<BodyNutritionComponent>();
+			nutrition.HydrationCurrentLiters = System.Math.Clamp(
+				nutrition.HydrationCurrentLiters - nutrition.HydrationUsePerTick,
+				0f,
+				nutrition.HydrationMaxLiters);
+			nutrition.SugarCurrent = System.Math.Clamp(
+				nutrition.SugarCurrent - nutrition.SugarUsePerTick,
+				0f,
+				nutrition.SugarMax);
+
+			var preferredSugarFloor = nutrition.SugarMax * 0.45f;
+			var sugarGap = System.Math.Max(0f, preferredSugarFloor - nutrition.SugarCurrent);
+			if (sugarGap > 0f && nutrition.CarbohydratesCurrent > 0f)
+			{
+				var carbTransfer = System.Math.Min(sugarGap, System.Math.Min(nutrition.SugarFromCarbohydratesPerTick, nutrition.CarbohydratesCurrent));
+				nutrition.CarbohydratesCurrent -= carbTransfer;
+				nutrition.SugarCurrent = System.Math.Clamp(nutrition.SugarCurrent + carbTransfer, 0f, nutrition.SugarMax);
+			}
+
+			sugarGap = System.Math.Max(0f, preferredSugarFloor - nutrition.SugarCurrent);
+			if (sugarGap > 0f && nutrition.FatCurrent > 0f)
+			{
+				var fatTransfer = System.Math.Min(nutrition.SugarFromFatPerTick, nutrition.FatCurrent);
+				nutrition.FatCurrent -= fatTransfer;
+				nutrition.SugarCurrent = System.Math.Clamp(nutrition.SugarCurrent + (fatTransfer * 0.5f), 0f, nutrition.SugarMax);
+			}
+
+			if (nutrition.SugarCurrent <= nutrition.SugarMax * 0.15f && nutrition.ProteinCurrent > 0f)
+			{
+				var proteinTransfer = System.Math.Min(nutrition.ProteinCatabolismPerTick, nutrition.ProteinCurrent);
+				nutrition.ProteinCurrent -= proteinTransfer;
+				nutrition.SugarCurrent = System.Math.Clamp(nutrition.SugarCurrent + (proteinTransfer * 0.5f), 0f, nutrition.SugarMax);
+			}
 		}
 
-		public static void RestoreHunger(this Entity entity, float amount)
+		public static void AbsorbNutrition(this Entity entity, ItemNutritionComponent intake, bool includeMacronutrients = true, bool includeFluids = true)
 		{
-			if (!entity.Has<HungerNeedComponent>())
+			if (!entity.Has<BodyNutritionComponent>())
 			{
 				return;
 			}
 
-			ref var hunger = ref entity.Get<HungerNeedComponent>();
-			hunger.Current = System.Math.Clamp(hunger.Current + amount, 0f, hunger.Max);
+			ref var nutrition = ref entity.Get<BodyNutritionComponent>();
+			if (includeMacronutrients)
+			{
+				nutrition.CarbohydratesCurrent = System.Math.Clamp(nutrition.CarbohydratesCurrent + intake.CarbohydratesGrams, 0f, nutrition.CarbohydratesMax);
+				nutrition.ProteinCurrent = System.Math.Clamp(nutrition.ProteinCurrent + intake.ProteinGrams, 0f, nutrition.ProteinMax);
+				nutrition.FatCurrent = System.Math.Clamp(nutrition.FatCurrent + intake.FatGrams, 0f, nutrition.FatMax);
+				nutrition.SugarCurrent = System.Math.Clamp(nutrition.SugarCurrent + intake.SugarGrams, 0f, nutrition.SugarMax);
+			}
+
+			if (includeFluids)
+			{
+				nutrition.HydrationCurrentLiters = System.Math.Clamp(nutrition.HydrationCurrentLiters + intake.FluidLiters, 0f, nutrition.HydrationMaxLiters);
+			}
 		}
 
-		public static void DecayThirst(this Entity entity)
+		public static bool IsSystemOperational(this Entity entity, string system)
 		{
-			if (!entity.Has<ThirstNeedComponent>())
+			if (!entity.Has<BodyNutritionComponent>())
 			{
-				return;
+				return true;
 			}
 
-			ref var thirst = ref entity.Get<ThirstNeedComponent>();
-			thirst.Current = System.Math.Clamp(thirst.Current - thirst.DecayPerTick, 0f, thirst.Max);
+			return system?.ToLowerInvariant() switch
+			{
+				"digestion" => !IsHydrationCritical(entity) && !IsNutrientLow(entity, NutrientKind.Protein, 0.08f),
+				"respiratory" => !IsHydrationCritical(entity) && !IsNutrientLow(entity, NutrientKind.Sugar, 0.1f),
+				"nervous" => !IsHydrationCritical(entity) && !IsNutrientLow(entity, NutrientKind.Sugar, 0.18f) && !IsNutrientLow(entity, NutrientKind.Fat, 0.12f),
+				"musculoskeletal" => !IsHydrationCritical(entity) && !IsNutrientLow(entity, NutrientKind.Carbohydrates, 0.18f) && !IsNutrientLow(entity, NutrientKind.Protein, 0.14f),
+				_ => true,
+			};
 		}
 
-		public static void RestoreThirst(this Entity entity, float amount)
+		public static bool IsNutrientLow(this Entity entity, NutrientKind nutrient, float thresholdRatio = 0.18f)
 		{
-			if (!entity.Has<ThirstNeedComponent>())
+			if (!entity.Has<BodyNutritionComponent>())
 			{
-				return;
+				return false;
 			}
 
-			ref var thirst = ref entity.Get<ThirstNeedComponent>();
-			thirst.Current = System.Math.Clamp(thirst.Current + amount, 0f, thirst.Max);
+			var nutrition = entity.Get<BodyNutritionComponent>();
+			var (current, max) = nutrient switch
+			{
+				NutrientKind.Carbohydrates => (nutrition.CarbohydratesCurrent, nutrition.CarbohydratesMax),
+				NutrientKind.Protein => (nutrition.ProteinCurrent, nutrition.ProteinMax),
+				NutrientKind.Fat => (nutrition.FatCurrent, nutrition.FatMax),
+				NutrientKind.Sugar => (nutrition.SugarCurrent, nutrition.SugarMax),
+				NutrientKind.Hydration => (nutrition.HydrationCurrentLiters, nutrition.HydrationMaxLiters),
+				_ => (0f, 1f),
+			};
+
+			return max <= 0f ? false : current <= max * thresholdRatio;
+		}
+
+		public static float GetMetabolicEnergyRatio(this Entity entity)
+		{
+			if (!entity.Has<BodyNutritionComponent>())
+			{
+				return 1f;
+			}
+
+			var nutrition = entity.Get<BodyNutritionComponent>();
+			var currentEnergy = ((nutrition.CarbohydratesCurrent + nutrition.SugarCurrent + nutrition.ProteinCurrent) * 4f) + (nutrition.FatCurrent * 9f);
+			var maxEnergy = ((nutrition.CarbohydratesMax + nutrition.SugarMax + nutrition.ProteinMax) * 4f) + (nutrition.FatMax * 9f);
+			return maxEnergy <= 0f ? 1f : currentEnergy / maxEnergy;
+		}
+
+		public static float GetHydrationRatio(this Entity entity)
+		{
+			if (!entity.Has<BodyNutritionComponent>())
+			{
+				return 1f;
+			}
+
+			var nutrition = entity.Get<BodyNutritionComponent>();
+			return nutrition.HydrationMaxLiters <= 0f ? 1f : nutrition.HydrationCurrentLiters / nutrition.HydrationMaxLiters;
+		}
+
+		static bool IsHydrationCritical(this Entity entity)
+			=> entity.IsNutrientLow(NutrientKind.Hydration, 0.16f);
+
+		static bool IsConsumableMatch(Entity item, ConsumableKind kind)
+		{
+			if (!item.Has<ItemDefinitionComponent>() || !item.Has<TagCollectionComponent>())
+			{
+				return false;
+			}
+
+			var definition = item.Get<ItemDefinitionComponent>();
+			var tags = item.Get<TagCollectionComponent>();
+			return kind switch
+			{
+				ConsumableKind.Food => tags.Contains("food") || definition.Nutrition.CarbohydratesGrams > 0f || definition.Nutrition.ProteinGrams > 0f || definition.Nutrition.FatGrams > 0f || definition.Nutrition.SugarGrams > 0f,
+				ConsumableKind.Drink => tags.Contains("drink") || definition.Nutrition.FluidLiters > 0f,
+				_ => false,
+			};
+		}
+
+		static float ScoreConsumable(Entity entity, Entity item, ConsumableKind kind)
+		{
+			var definition = item.Get<ItemDefinitionComponent>();
+			var nutrition = definition.Nutrition;
+			var body = entity.Has<BodyNutritionComponent>() ? entity.Get<BodyNutritionComponent>() : default;
+			return kind switch
+			{
+				ConsumableKind.Food =>
+					(NeedGap(body.CarbohydratesCurrent, body.CarbohydratesMax) * nutrition.CarbohydratesGrams) +
+					(NeedGap(body.ProteinCurrent, body.ProteinMax) * nutrition.ProteinGrams * 1.2f) +
+					(NeedGap(body.FatCurrent, body.FatMax) * nutrition.FatGrams * 0.9f) +
+					(NeedGap(body.SugarCurrent, body.SugarMax) * nutrition.SugarGrams * 1.4f) +
+					(nutrition.FiberGrams * 0.05f),
+				ConsumableKind.Drink =>
+					(NeedGap(body.HydrationCurrentLiters, body.HydrationMaxLiters) * nutrition.FluidLiters * 10f) +
+					(NeedGap(body.SugarCurrent, body.SugarMax) * nutrition.SugarGrams * 0.5f),
+				_ => 0f,
+			};
+		}
+
+		static float NeedGap(float current, float max)
+			=> max <= 0f ? 0f : System.Math.Max(0f, max - current);
+
+		public enum NutrientKind
+		{
+			Carbohydrates,
+			Protein,
+			Fat,
+			Sugar,
+			Hydration,
+		}
+
+		public enum ConsumableKind
+		{
+			Food,
+			Drink,
 		}
 
 		public static void SetEnemyVisible(this Entity entity, bool visible, Point enemyCell, int durationTicks)
@@ -453,5 +750,79 @@ namespace DwarvenFortification.ECS.Runtime
 
 		public static bool IsRecentlyPatrolling(this Entity entity)
 			=> entity.Has<PatrolStateComponent>() && entity.Get<PatrolStateComponent>().PatrolledTicksRemaining > 0;
+
+		public static bool HasActiveProductionOrder(this Entity entity)
+			=> entity.Has<ProductionOrderComponent>()
+				&& !string.IsNullOrWhiteSpace(entity.Get<ProductionOrderComponent>().ActiveRecipeId)
+				&& entity.Get<ProductionOrderComponent>().BatchesCompleted < entity.Get<ProductionOrderComponent>().BatchesRequested;
+
+		public static ProductionOrderComponent GetProductionOrder(this Entity entity)
+			=> entity.Has<ProductionOrderComponent>() ? entity.Get<ProductionOrderComponent>() : default;
+
+		public static bool TryGetRecipeById(this Entity entity, string recipeId, out CraftRecipeComponent recipe)
+		{
+			recipe = entity.GetRecipes().FirstOrDefault(r => string.Equals(r.Id, recipeId, System.StringComparison.OrdinalIgnoreCase));
+			return !string.IsNullOrWhiteSpace(recipe.Id);
+		}
+
+		public static MaterialCostComponent[] GetMissingOrderInputs(this Entity entity)
+		{
+			if (!entity.HasActiveProductionOrder())
+			{
+				return Array.Empty<MaterialCostComponent>();
+			}
+
+			var order = entity.Get<ProductionOrderComponent>();
+			if (!entity.TryGetRecipeById(order.ActiveRecipeId, out var recipe))
+			{
+				return Array.Empty<MaterialCostComponent>();
+			}
+
+			return recipe.Inputs
+				.Select(cost => cost.WithQuantity(System.Math.Max(0, cost.Quantity - entity.CountStoredItemsForCost(cost))))
+				.Where(cost => cost.Quantity > 0)
+				.ToArray();
+		}
+
+		public static void SetProductionOrder(this Entity entity, string recipeId, int batches)
+		{
+			if (!entity.Has<ProductionOrderComponent>())
+			{
+				return;
+			}
+
+			ref var order = ref entity.Get<ProductionOrderComponent>();
+			order.ActiveRecipeId = recipeId;
+			order.BatchesRequested = batches;
+			order.BatchesCompleted = 0;
+		}
+
+		public static void ClearProductionOrder(this Entity entity)
+		{
+			if (!entity.Has<ProductionOrderComponent>())
+			{
+				return;
+			}
+
+			ref var order = ref entity.Get<ProductionOrderComponent>();
+			order.ActiveRecipeId = string.Empty;
+			order.BatchesRequested = 0;
+			order.BatchesCompleted = 0;
+		}
+
+		public static void IncrementProductionBatch(this Entity entity)
+		{
+			if (!entity.Has<ProductionOrderComponent>())
+			{
+				return;
+			}
+
+			ref var order = ref entity.Get<ProductionOrderComponent>();
+			order.BatchesCompleted++;
+			if (order.BatchesCompleted >= order.BatchesRequested)
+			{
+				order.ActiveRecipeId = string.Empty;
+			}
+		}
 	}
 }

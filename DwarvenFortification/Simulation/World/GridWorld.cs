@@ -3,6 +3,7 @@ using Arch.Core.Extensions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using MonoGame.Extended;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,6 +17,7 @@ using DwarvenFortification.Simulation.Pathfinding;
 using DwarvenFortification.ECS.Runtime;
 using DwarvenFortification.UI;
 using DwarvenFortification.GOAP.Actions;
+using DwarvenFortification.GOAP.Plans;
 
 namespace DwarvenFortification.Simulation.World
 {
@@ -36,6 +38,8 @@ namespace DwarvenFortification.Simulation.World
 		readonly IActionRuntimeContext taskRuntimeContext;
 		readonly ImGuiSimulationUi ui;
 		readonly GoapPlanExecutor manualActionExecutor;
+
+		public Func<Entity, PlanningSnapshot> PlanningSnapshotProvider { get; set; }
 
 		public GridWorld(int width, int height, IAgentRuntime agentRuntime, SimulationDefinitionRegistry definitions, ISimulationEntityFactory entityFactory, IGridPathfinder pathfinder, SimulationRenderAssets renderAssets, IActionRuntimeContext taskRuntimeContext, ImGuiSimulationUi ui)
 		{
@@ -165,6 +169,12 @@ namespace DwarvenFortification.Simulation.World
 		internal Entity CreateItem(string itemId)
 			=> entityFactory.CreateItem(itemId);
 
+		internal Entity CreateCompletedWorldObject(string definitionId, Point cell)
+			=> entityFactory.CreateCompletedWorldObject(definitionId, CentreOfCellWithCoords(cell), cell);
+
+		internal void DestroyEntity(Entity entity)
+			=> definitions.RuntimeWorld.Destroy(entity);
+
 		public GridCell CellAtCoords(Point coords)
 		{
 			if (coords.X >= 0 && coords.X < Width && coords.Y >= 0 && coords.Y < Height)
@@ -246,6 +256,37 @@ namespace DwarvenFortification.Simulation.World
 
 			itemCell = match.coords;
 			return true;
+		}
+
+		public bool TryFindNearestItemLocationByTag(string[] tags, Point origin, out Point itemCell, out string matchedItemId)
+		{
+			foreach (var (cell, _, coords) in EnumerateCells().OrderBy(entry => Vector2.DistanceSquared(entry.coords.ToVector2(), origin.ToVector2())))
+			{
+				var candidate = cell.ItemsInCell.FirstOrDefault(item =>
+					tags.All(tag => item.Has<TagCollectionComponent>() && item.Get<TagCollectionComponent>().Contains(tag)));
+				if (!candidate.Equals(default(Entity)))
+				{
+					itemCell = coords;
+					matchedItemId = candidate.GetItemDefinitionId();
+					return true;
+				}
+
+				if (cell.TryGetStorageOccupant(out var worldObject) && worldObject.Has<InventoryComponent>())
+				{
+					var stored = worldObject.Get<InventoryComponent>().Items.FirstOrDefault(item =>
+						tags.All(tag => item.Has<TagCollectionComponent>() && item.Get<TagCollectionComponent>().Contains(tag)));
+					if (!stored.Equals(default(Entity)))
+					{
+						itemCell = coords;
+						matchedItemId = stored.GetItemDefinitionId();
+						return true;
+					}
+				}
+			}
+
+			itemCell = Point.Zero;
+			matchedItemId = string.Empty;
+			return false;
 		}
 
 		public IReadOnlyList<Entity> GetAgents()
@@ -704,6 +745,76 @@ namespace DwarvenFortification.Simulation.World
 			{
 				agentRuntime.Draw(sb, this, agent);
 			}
+
+			DrawHoveredAgentTooltip(sb);
+
+		}
+
+		void DrawHoveredAgentTooltip(SpriteBatch sb)
+		{
+			if (ui.WantsMouseCapture)
+			{
+				return;
+			}
+
+			var mousePosition = Mouse.GetState().Position;
+			var hoveredAgent = agents.FirstOrDefault(agent => GetAgentBounds(agent).Contains(mousePosition));
+			if (hoveredAgent.Equals(default(Entity)))
+			{
+				return;
+			}
+
+			var lines = new List<string> { hoveredAgent.GetName() };
+			var currentGoal = GetHoveredAgentGoal(hoveredAgent);
+			lines.Add(string.IsNullOrWhiteSpace(currentGoal) ? "Goal: none" : $"Goal: {currentGoal}");
+
+			if (hoveredAgent.TryPeekAction(out var currentAction))
+			{
+				lines.Add($"Action: {currentAction.Name}");
+			}
+
+			var font = renderAssets.UiFont;
+			var padding = new Vector2(8, 6);
+			var lineSpacing = 2f;
+			var maxLineWidth = 0f;
+			foreach (var line in lines)
+			{
+				maxLineWidth = Math.Max(maxLineWidth, font.MeasureString(line).X);
+			}
+
+			var lineHeight = font.LineSpacing;
+			var tooltipSize = new Vector2(
+				maxLineWidth + (padding.X * 2),
+				(lines.Count * lineHeight) + ((lines.Count - 1) * lineSpacing) + (padding.Y * 2));
+			var tooltipPosition = new Vector2(mousePosition.X + 14, mousePosition.Y + 14);
+			tooltipPosition.X = Math.Min(tooltipPosition.X, sb.GraphicsDevice.Viewport.Width - tooltipSize.X - 4);
+			tooltipPosition.Y = Math.Min(tooltipPosition.Y, sb.GraphicsDevice.Viewport.Height - tooltipSize.Y - 4);
+			tooltipPosition.X = Math.Max(4, tooltipPosition.X);
+			tooltipPosition.Y = Math.Max(4, tooltipPosition.Y);
+
+			sb.FillRectangle(new Rectangle(tooltipPosition.ToPoint(), tooltipSize.ToPoint()), new Color(12, 12, 18, 220));
+			sb.DrawRectangle(new Rectangle(tooltipPosition.ToPoint(), tooltipSize.ToPoint()), new Color(220, 220, 220, 240), 1);
+
+			var textPosition = tooltipPosition + padding;
+			foreach (var line in lines)
+			{
+				sb.DrawString(font, line, textPosition, Color.White);
+				textPosition.Y += lineHeight + lineSpacing;
+			}
+		}
+
+		Rectangle GetAgentBounds(Entity agent)
+			=> new(agent.GetLeft(), agent.GetTop(), agent.GetWidth(), agent.GetHeight());
+
+		string GetHoveredAgentGoal(Entity agent)
+		{
+			if (PlanningSnapshotProvider == null)
+			{
+				return string.Empty;
+			}
+
+			var planningSnapshot = PlanningSnapshotProvider(agent);
+			return planningSnapshot?.Goals.FirstOrDefault(goal => goal.CandidatePlan != null)?.Goal.Name ?? string.Empty;
 
 		}
 	}

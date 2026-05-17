@@ -1,6 +1,67 @@
 # DwarvenFortification
 
-A little simulation inspired by Dwarf Fortress
+A Dwarf Fortress–inspired colony simulation built in C# with MonoGame. Agents plan and execute multi-step tasks autonomously using a Goal-Oriented Action Planning (GOAP) system backed by a modular, data-driven item and building model.
+
+## The core insight: this game is a graph search problem
+
+Every mechanic in this game reduces to a single idea: **agents search for paths through a graph of world states**.
+
+- **Nodes** are world states — each node is a set of active fact strings (`rest.ok`, `has.item-tag.mining`, `workstation.needs-inputs`, etc.).
+- **Edges** are actions — each action transitions the world from one state to another by adding and removing facts. Actions have costs, preconditions, and body-part/organ/system requirements.
+- **Goals** are target nodes — desired (or forbidden) fact sets that an agent is trying to reach.
+- **The GOAP planner** is a backward-chaining search (analogous to A\*) that finds the minimum-cost path from the agent's current fact set to a goal's desired fact set.
+- **Agents** are independent pathfinders traversing this graph simultaneously, competing for shared world resources.
+
+This framing means the entire design space — adding items, buildings, actions, recipes, goals — is the same problem at every level: adding nodes and edges to the graph.
+
+## Config as graph definition
+
+The `Content/config/` directory is the **complete specification of the state-space graph**. No gameplay logic lives in the config; it only describes the graph topology.
+
+| File             | Graph role              | What it defines                                                                                    |
+| ---------------- | ----------------------- | -------------------------------------------------------------------------------------------------- |
+| `facts.json`     | **Node vocabulary**     | All named fact strings (predicates) that can appear in a world state                               |
+| `actions.json`   | **Edges**               | Transitions: preconditions, costs, effects (fact additions/removals), body requirements            |
+| `goals.json`     | **Target nodes**        | Priority-ordered goals with desired/forbidden/required/blocked fact sets                           |
+| `items.json`     | **World entities**      | Items defined by modular `tags` + `properties`; each item emits facts when in an agent's inventory |
+| `objects.json`   | **World entities**      | Buildings and structures with build costs, storage rules, workstation recipes                      |
+| `resources.json` | **World entities**      | Resource nodes (veins, trees) with required tool tags and yield items                              |
+| `agents.json`    | **Starting conditions** | Agent archetypes with biological stats, inventory capacity, and starting items                     |
+
+### Modular items
+
+Items are not referenced by exact ID in action requirements or recipes. Instead they are matched by **tag and property filters**:
+
+- An item definition has `tags` (e.g. `["tool", "mining"]`) and `properties` (e.g. `{"type": "pickaxe", "material": "iron"}`). Properties are automatically merged into tags as `key:value` strings at load time.
+- Actions require `requiredItemTags` (e.g. `["mining"]`) rather than a specific item ID. Any item carrying that tag satisfies the requirement.
+- Recipe inputs can use `itemFilter` (e.g. `["fuel"]`) to accept any matching item — a smelter recipe that needs fuel will accept both coal and charcoal interchangeably.
+- GOAP facts follow the same principle: `has.item-tag.mining` is true whenever the agent holds any mining tool, regardless of its specific ID.
+
+This means adding a new `bronze-pickaxe` with the `mining` tag automatically makes it valid for mining actions and all related GOAP planning without any code changes.
+
+### Production graph (key chains)
+
+```
+iron-ore + fuel(any) ──[smelter]──► iron-ingot
+tin-ore  + fuel(any) ──[smelter]──► tin-ingot
+copper-ore + fuel      ──[smelter]──► copper-ingot
+copper-ingot + tin-ingot ──[smelter]──► bronze-ingot
+
+oak-log ──[sawmill]──► oak-planks (×4)
+oak-planks ──[sawmill]──► wooden-handle
+
+iron-ingot ──[forge]──► iron-pickaxe-head | iron-axe-head
+iron-pickaxe-head + wooden-handle ──[crafting-workshop]──► iron-pickaxe
+iron-axe-head    + wooden-handle ──[crafting-workshop]──► iron-axe
+
+oak-log (×3) ──[kiln]──► charcoal (×2)
+grain (×3) + fuel(any) ──[cooking-hearth]*──► ration (×4)
+grain (×4) + fuel(any) ──[brewery]──► ale (×4)
+```
+
+\*requires `recipe.ration-broth` learned fact (from `cookbook` item)
+
+---
 
 ## GOAP glossary
 

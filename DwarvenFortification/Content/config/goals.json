@@ -51,7 +51,7 @@
       "priority": 84,
       "desiredFacts": ["enemy.suppressed"],
       "forbiddenFacts": [],
-      "requiredFacts": ["enemy.visible", "has.item.throwing-stone"],
+      "requiredFacts": ["enemy.visible", "has.item-tag.throwable"],
       "blockedByFacts": ["self.hidden"]
     },
     {
@@ -62,6 +62,62 @@
       "forbiddenFacts": ["inventory.has-resource-items"],
       "requiredFacts": ["inventory.has-resource-items"],
       "blockedByFacts": []
+    },
+    {
+      "id": "finish-construction",
+      "name": "Finish Construction",
+      "priority": 70,
+      "desiredFacts": [],
+      "forbiddenFacts": ["construction.pending"],
+      "requiredFacts": ["construction.pending"],
+      "blockedByFacts": [
+        "enemy.visible",
+        "rest.low",
+        "hunger.low",
+        "thirst.low"
+      ]
+    },
+    {
+      "id": "supply-construction",
+      "name": "Supply Construction",
+      "priority": 72,
+      "desiredFacts": [],
+      "forbiddenFacts": ["site.needs-materials"],
+      "requiredFacts": ["site.needs-materials"],
+      "blockedByFacts": [
+        "enemy.visible",
+        "rest.low",
+        "hunger.low",
+        "thirst.low"
+      ]
+    },
+    {
+      "id": "supply-workstation",
+      "name": "Supply Workstation",
+      "priority": 42,
+      "desiredFacts": [],
+      "forbiddenFacts": ["workstation.needs-inputs"],
+      "requiredFacts": ["workstation.needs-inputs"],
+      "blockedByFacts": [
+        "enemy.visible",
+        "rest.low",
+        "hunger.low",
+        "thirst.low"
+      ]
+    },
+    {
+      "id": "run-production-order",
+      "name": "Run Production Order",
+      "priority": 40,
+      "desiredFacts": [],
+      "forbiddenFacts": ["production.order.active"],
+      "requiredFacts": ["production.order.active"],
+      "blockedByFacts": [
+        "enemy.visible",
+        "rest.low",
+        "hunger.low",
+        "thirst.low"
+      ]
     },
     {
       "id": "patrol-area",

@@ -5,10 +5,23 @@
       "name": "Storage",
       "displayColor": "#800080",
       "tags": ["storage", "container"],
-      "acceptedItemTags": ["resource", "ore", "wood", "tool"],
+      "acceptedItemTags": [
+        "resource",
+        "ore",
+        "wood",
+        "tool",
+        "crafted",
+        "metal",
+        "ingot",
+        "plank"
+      ],
       "blocksMovement": false,
       "isReservable": false,
-      "capacity": 999
+      "capacity": 999,
+      "buildCosts": [
+        { "itemId": "stone", "quantity": 10 },
+        { "itemId": "oak-log", "quantity": 6 }
+      ]
     },
     {
       "id": "bed",
@@ -18,7 +31,11 @@
       "acceptedItemTags": [],
       "blocksMovement": true,
       "isReservable": true,
-      "capacity": 1
+      "capacity": 1,
+      "buildCosts": [
+        { "itemId": "bed-frame", "quantity": 1 },
+        { "itemId": "birch-log", "quantity": 2 }
+      ]
     },
     {
       "id": "tool-rack",
@@ -28,17 +45,35 @@
       "acceptedItemTags": ["tool"],
       "blocksMovement": false,
       "isReservable": false,
-      "capacity": 24
+      "capacity": 24,
+      "buildCosts": [
+        { "itemId": "oak-planks", "quantity": 8 },
+        { "itemId": "tool-parts", "quantity": 1 }
+      ]
     },
     {
       "id": "shelf",
       "name": "Shelf",
       "displayColor": "#A67B5B",
       "tags": ["storage", "container", "shelving"],
-      "acceptedItemTags": ["resource", "wood", "ore", "masonry", "fuel"],
+      "acceptedItemTags": [
+        "resource",
+        "wood",
+        "ore",
+        "masonry",
+        "fuel",
+        "crafted",
+        "metal",
+        "ingot",
+        "plank"
+      ],
       "blocksMovement": false,
       "isReservable": false,
-      "capacity": 48
+      "capacity": 48,
+      "buildCosts": [
+        { "itemId": "oak-planks", "quantity": 8 },
+        { "itemId": "stone", "quantity": 4 }
+      ]
     },
     {
       "id": "ore-bin",
@@ -48,7 +83,11 @@
       "acceptedItemTags": ["ore", "metal", "coal", "fuel"],
       "blocksMovement": false,
       "isReservable": false,
-      "capacity": 80
+      "capacity": 80,
+      "buildCosts": [
+        { "itemId": "oak-planks", "quantity": 6 },
+        { "itemId": "stone", "quantity": 4 }
+      ]
     },
     {
       "id": "wood-rack",
@@ -58,7 +97,354 @@
       "acceptedItemTags": ["wood"],
       "blocksMovement": false,
       "isReservable": false,
-      "capacity": 64
+      "capacity": 64,
+      "buildCosts": [{ "itemId": "oak-planks", "quantity": 10 }]
+    },
+    {
+      "id": "smelter",
+      "name": "Smelter",
+      "displayColor": "#7B5D47",
+      "tags": ["storage", "container", "workstation", "smelter"],
+      "acceptedItemTags": ["ore", "fuel", "coal", "metal", "ingot"],
+      "blocksMovement": true,
+      "isReservable": true,
+      "capacity": 24,
+      "buildCosts": [
+        { "itemId": "stone", "quantity": 24 },
+        { "itemId": "iron-ore", "quantity": 8 }
+      ],
+      "recipes": [
+        {
+          "id": "smelt-iron-ingot",
+          "name": "Smelt Iron Ingot",
+          "inputs": [
+            { "itemId": "iron-ore", "quantity": 2 },
+            { "itemFilter": ["fuel"], "quantity": 1 }
+          ],
+          "outputItemId": "iron-ingot",
+          "outputQuantity": 1
+        },
+        {
+          "id": "smelt-copper-ingot",
+          "name": "Smelt Copper Ingot",
+          "inputs": [
+            { "itemId": "copper-ore", "quantity": 2 },
+            { "itemFilter": ["fuel"], "quantity": 1 }
+          ],
+          "outputItemId": "copper-ingot",
+          "outputQuantity": 1
+        },
+        {
+          "id": "smelt-tin-ingot",
+          "name": "Smelt Tin Ingot",
+          "inputs": [
+            { "itemId": "tin-ore", "quantity": 2 },
+            { "itemFilter": ["fuel"], "quantity": 1 }
+          ],
+          "outputItemId": "tin-ingot",
+          "outputQuantity": 1
+        },
+        {
+          "id": "smelt-bronze-ingot",
+          "name": "Smelt Bronze Ingot",
+          "inputs": [
+            { "itemId": "copper-ingot", "quantity": 1 },
+            { "itemId": "tin-ingot", "quantity": 1 }
+          ],
+          "outputItemId": "bronze-ingot",
+          "outputQuantity": 1
+        }
+      ]
+    },
+    {
+      "id": "sawmill",
+      "name": "Sawmill",
+      "displayColor": "#8A6A4A",
+      "tags": ["storage", "container", "workstation", "sawmill"],
+      "acceptedItemTags": ["wood", "plank"],
+      "blocksMovement": true,
+      "isReservable": true,
+      "capacity": 24,
+      "buildCosts": [
+        { "itemId": "oak-log", "quantity": 14 },
+        { "itemId": "stone", "quantity": 6 }
+      ],
+      "recipes": [
+        {
+          "id": "saw-oak-planks",
+          "name": "Saw Oak Planks",
+          "inputs": [{ "itemId": "oak-log", "quantity": 1 }],
+          "outputItemId": "oak-planks",
+          "outputQuantity": 4
+        },
+        {
+          "id": "saw-birch-planks",
+          "name": "Saw Birch Planks",
+          "inputs": [{ "itemId": "birch-log", "quantity": 1 }],
+          "outputItemId": "birch-planks",
+          "outputQuantity": 4
+        },
+        {
+          "id": "saw-wooden-handle",
+          "name": "Saw Wooden Handle",
+          "inputs": [{ "itemId": "oak-planks", "quantity": 2 }],
+          "outputItemId": "wooden-handle",
+          "outputQuantity": 1
+        }
+      ]
+    },
+    {
+      "id": "crafting-workshop",
+      "name": "Crafting Workshop",
+      "displayColor": "#6A5240",
+      "tags": ["storage", "container", "workstation", "crafting"],
+      "acceptedItemTags": [
+        "wood",
+        "plank",
+        "metal",
+        "ingot",
+        "crafted",
+        "parts"
+      ],
+      "blocksMovement": true,
+      "isReservable": true,
+      "capacity": 24,
+      "buildCosts": [
+        { "itemId": "oak-log", "quantity": 10 },
+        { "itemId": "stone", "quantity": 8 }
+      ],
+      "recipes": [
+        {
+          "id": "craft-tool-parts",
+          "name": "Craft Tool Parts",
+          "inputs": [
+            { "itemId": "iron-ingot", "quantity": 2 },
+            { "itemId": "oak-planks", "quantity": 2 }
+          ],
+          "outputItemId": "tool-parts",
+          "outputQuantity": 1
+        },
+        {
+          "id": "craft-bed-frame",
+          "name": "Craft Bed Frame",
+          "inputs": [
+            { "itemId": "birch-planks", "quantity": 4 },
+            { "itemId": "oak-planks", "quantity": 2 }
+          ],
+          "outputItemId": "bed-frame",
+          "outputQuantity": 1
+        },
+        {
+          "id": "craft-iron-pickaxe",
+          "name": "Craft Iron Pickaxe",
+          "inputs": [
+            { "itemId": "iron-pickaxe-head", "quantity": 1 },
+            { "itemId": "wooden-handle", "quantity": 1 }
+          ],
+          "outputItemId": "iron-pickaxe",
+          "outputQuantity": 1
+        },
+        {
+          "id": "craft-iron-axe",
+          "name": "Craft Iron Axe",
+          "inputs": [
+            { "itemId": "iron-axe-head", "quantity": 1 },
+            { "itemId": "wooden-handle", "quantity": 1 }
+          ],
+          "outputItemId": "iron-axe",
+          "outputQuantity": 1
+        },
+        {
+          "id": "craft-table",
+          "name": "Craft Table",
+          "inputs": [
+            { "itemId": "oak-planks", "quantity": 4 },
+            { "itemId": "iron-ingot", "quantity": 1 }
+          ],
+          "outputItemId": "table",
+          "outputQuantity": 1
+        },
+        {
+          "id": "craft-storage-chest",
+          "name": "Craft Storage Chest",
+          "inputs": [
+            { "itemId": "oak-planks", "quantity": 6 },
+            { "itemId": "iron-ingot", "quantity": 2 }
+          ],
+          "outputItemId": "storage-chest",
+          "outputQuantity": 1
+        }
+      ]
+    },
+    {
+      "id": "forge",
+      "name": "Forge",
+      "displayColor": "#5C4030",
+      "tags": ["storage", "container", "workstation", "forge"],
+      "acceptedItemTags": ["metal", "ingot", "ore", "fuel", "parts"],
+      "blocksMovement": true,
+      "isReservable": true,
+      "capacity": 24,
+      "buildCosts": [
+        { "itemId": "stone", "quantity": 20 },
+        { "itemId": "iron-ore", "quantity": 16 }
+      ],
+      "recipes": [
+        {
+          "id": "forge-pickaxe-head",
+          "name": "Forge Pickaxe Head",
+          "inputs": [{ "itemId": "iron-ingot", "quantity": 2 }],
+          "outputItemId": "iron-pickaxe-head",
+          "outputQuantity": 1
+        },
+        {
+          "id": "forge-axe-head",
+          "name": "Forge Axe Head",
+          "inputs": [{ "itemId": "iron-ingot", "quantity": 2 }],
+          "outputItemId": "iron-axe-head",
+          "outputQuantity": 1
+        }
+      ]
+    },
+    {
+      "id": "kiln",
+      "name": "Kiln",
+      "displayColor": "#8A7055",
+      "tags": ["storage", "container", "workstation", "kiln"],
+      "acceptedItemTags": ["wood", "fuel"],
+      "blocksMovement": true,
+      "isReservable": true,
+      "capacity": 24,
+      "buildCosts": [{ "itemId": "stone", "quantity": 20 }],
+      "recipes": [
+        {
+          "id": "burn-charcoal",
+          "name": "Burn Charcoal",
+          "inputs": [{ "itemId": "oak-log", "quantity": 3 }],
+          "outputItemId": "charcoal",
+          "outputQuantity": 2
+        }
+      ]
+    },
+    {
+      "id": "cooking-hearth",
+      "name": "Cooking Hearth",
+      "displayColor": "#C4602A",
+      "tags": ["storage", "container", "workstation", "cooking"],
+      "acceptedItemTags": ["food", "consumable", "drink", "fuel", "grain"],
+      "blocksMovement": true,
+      "isReservable": true,
+      "capacity": 16,
+      "buildCosts": [
+        { "itemId": "stone", "quantity": 12 },
+        { "itemId": "iron-ingot", "quantity": 2 }
+      ],
+      "recipes": [
+        {
+          "id": "cook-ration-broth",
+          "name": "Cook Ration Broth",
+          "requiredFacts": ["recipe.ration-broth"],
+          "inputs": [
+            { "itemId": "grain", "quantity": 3 },
+            { "itemFilter": ["fuel"], "quantity": 1 }
+          ],
+          "outputItemId": "ration",
+          "outputQuantity": 4
+        }
+      ]
+    },
+    {
+      "id": "brewery",
+      "name": "Brewery",
+      "displayColor": "#7A5A38",
+      "tags": ["storage", "container", "workstation", "brewing"],
+      "acceptedItemTags": ["grain", "fuel"],
+      "blocksMovement": true,
+      "isReservable": true,
+      "capacity": 24,
+      "buildCosts": [
+        { "itemId": "stone", "quantity": 16 },
+        { "itemId": "oak-planks", "quantity": 8 }
+      ],
+      "recipes": [
+        {
+          "id": "brew-ale",
+          "name": "Brew Ale",
+          "inputs": [
+            { "itemId": "grain", "quantity": 4 },
+            { "itemFilter": ["fuel"], "quantity": 1 }
+          ],
+          "outputItemId": "ale",
+          "outputQuantity": 4
+        }
+      ]
+    },
+    {
+      "id": "pantry",
+      "name": "Pantry",
+      "displayColor": "#9E7B5E",
+      "tags": ["storage", "container", "pantry"],
+      "acceptedItemTags": ["food", "consumable", "drink", "grain"],
+      "blocksMovement": false,
+      "isReservable": false,
+      "capacity": 64,
+      "buildCosts": [
+        { "itemId": "oak-planks", "quantity": 10 },
+        { "itemId": "stone", "quantity": 6 }
+      ]
+    },
+    {
+      "id": "armory",
+      "name": "Armory",
+      "displayColor": "#5A7A6E",
+      "tags": ["storage", "container", "armory"],
+      "acceptedItemTags": ["tool", "weapon", "crafted"],
+      "blocksMovement": false,
+      "isReservable": false,
+      "capacity": 32,
+      "buildCosts": [
+        { "itemId": "oak-planks", "quantity": 8 },
+        { "itemId": "iron-ingot", "quantity": 4 }
+      ]
+    },
+    {
+      "id": "stone-wall",
+      "name": "Stone Wall",
+      "displayColor": "#7A7A7A",
+      "tags": ["structure", "wall"],
+      "acceptedItemTags": [],
+      "blocksMovement": true,
+      "isReservable": false,
+      "capacity": 0,
+      "buildCosts": [{ "itemId": "stone", "quantity": 8 }]
+    },
+    {
+      "id": "wooden-door",
+      "name": "Wooden Door",
+      "displayColor": "#7B5228",
+      "tags": ["structure", "door"],
+      "acceptedItemTags": [],
+      "blocksMovement": true,
+      "isReservable": false,
+      "capacity": 0,
+      "buildCosts": [
+        { "itemId": "oak-planks", "quantity": 4 },
+        { "itemId": "iron-ingot", "quantity": 1 }
+      ]
+    },
+    {
+      "id": "watchtower",
+      "name": "Watchtower",
+      "displayColor": "#8B7355",
+      "tags": ["structure", "watchtower", "observation"],
+      "acceptedItemTags": [],
+      "blocksMovement": true,
+      "isReservable": true,
+      "capacity": 2,
+      "buildCosts": [
+        { "itemId": "stone", "quantity": 16 },
+        { "itemId": "oak-planks", "quantity": 8 }
+      ]
     }
   ]
 }

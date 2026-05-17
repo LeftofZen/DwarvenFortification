@@ -5,10 +5,11 @@
       "name": "Mine Resource",
       "baseCost": 4,
       "durationTicks": 100,
+      "skills": ["might", "vitality"],
       "targetKind": "resourceNode",
       "destinationMode": "adjacent",
       "requires": {
-        "requiredItemIds": ["pickaxe"],
+        "requiredItemTags": ["mining"],
         "requiredTargetTags": ["mineable"],
         "requiredBodyParts": ["hands"],
         "requiredSystems": ["musculoskeletal", "respiratory"],
@@ -26,10 +27,11 @@
       "name": "Cut Tree",
       "baseCost": 5,
       "durationTicks": 120,
+      "skills": ["might", "vitality"],
       "targetKind": "resourceNode",
       "destinationMode": "adjacent",
       "requires": {
-        "requiredItemIds": ["axe"],
+        "requiredItemTags": ["woodcutting"],
         "requiredTargetTags": ["tree"],
         "requiredBodyParts": ["hands"],
         "requiredSystems": ["musculoskeletal", "respiratory"],
@@ -47,6 +49,7 @@
       "name": "Store Items",
       "baseCost": 2,
       "durationTicks": 60,
+      "skills": ["finesse"],
       "targetKind": "worldObject",
       "destinationMode": "adjacent",
       "requires": {
@@ -65,6 +68,7 @@
       "name": "Sleep",
       "baseCost": 3,
       "durationTicks": 300,
+      "skills": ["vitality"],
       "targetKind": "worldObject",
       "destinationMode": "adjacent",
       "requires": {
@@ -80,14 +84,57 @@
       }
     },
     {
+      "id": "complete-construction",
+      "name": "Complete Construction",
+      "baseCost": 4,
+      "durationTicks": 120,
+      "skills": ["might", "engineering"],
+      "targetKind": "worldObject",
+      "destinationMode": "adjacent",
+      "requires": {
+        "requiredTargetTags": ["construction-site"],
+        "requiredBodyParts": ["hands"],
+        "requiredOrgans": ["brain"],
+        "requiredSystems": ["musculoskeletal"],
+        "requiredFacts": ["construction.pending"],
+        "requiresReservation": true
+      },
+      "outputs": [],
+      "effects": {
+        "addFacts": [],
+        "removeFacts": ["construction.pending"]
+      }
+    },
+    {
+      "id": "process-recipe",
+      "name": "Process Recipe",
+      "baseCost": 3,
+      "durationTicks": 100,
+      "skills": ["finesse", "engineering"],
+      "targetKind": "worldObject",
+      "destinationMode": "adjacent",
+      "requires": {
+        "requiredTargetTags": ["workstation"],
+        "requiredBodyParts": ["hands"],
+        "requiredOrgans": ["brain"],
+        "requiredSystems": ["musculoskeletal", "nervous"],
+        "requiresReservation": true
+      },
+      "outputs": [],
+      "effects": {
+        "addFacts": [],
+        "removeFacts": []
+      }
+    },
+    {
       "id": "eat",
       "name": "Eat",
       "baseCost": 3,
       "durationTicks": 80,
+      "skills": [],
       "targetKind": "self",
       "destinationMode": "current",
       "requires": {
-        "requiredItemIds": ["ration"],
         "requiredBodyParts": ["hands"],
         "requiredOrgans": ["mouth", "stomach"],
         "requiredSystems": ["digestion"],
@@ -104,10 +151,10 @@
       "name": "Drink",
       "baseCost": 2,
       "durationTicks": 60,
+      "skills": [],
       "targetKind": "self",
       "destinationMode": "current",
       "requires": {
-        "requiredItemIds": ["water-skin"],
         "requiredBodyParts": ["hands"],
         "requiredOrgans": ["mouth", "stomach"],
         "requiredSystems": ["digestion"],
@@ -124,6 +171,7 @@
       "name": "Scan Area For Enemies",
       "baseCost": 2,
       "durationTicks": 40,
+      "skills": ["perception"],
       "targetKind": "self",
       "destinationMode": "current",
       "requires": {
@@ -142,6 +190,7 @@
       "name": "Hide",
       "baseCost": 4,
       "durationTicks": 70,
+      "skills": ["agility", "finesse"],
       "targetKind": "self",
       "destinationMode": "current",
       "requires": {
@@ -162,6 +211,7 @@
       "name": "Patrol Area",
       "baseCost": 6,
       "durationTicks": 180,
+      "skills": ["vitality", "perception"],
       "targetKind": "self",
       "destinationMode": "current",
       "requires": {
@@ -181,10 +231,11 @@
       "name": "Throw Item",
       "baseCost": 5,
       "durationTicks": 45,
+      "skills": ["precision", "might"],
       "targetKind": "enemy",
       "destinationMode": "current",
       "requires": {
-        "requiredItemIds": ["throwing-stone"],
+        "requiredItemTags": ["throwable"],
         "requiredBodyParts": ["hands", "arms"],
         "requiredOrgans": ["brain"],
         "requiredSystems": ["musculoskeletal"],
@@ -202,6 +253,7 @@
       "name": "Search For Item",
       "baseCost": 6,
       "durationTicks": 90,
+      "skills": ["perception", "analysis"],
       "targetKind": "self",
       "destinationMode": "current",
       "requires": {
@@ -218,6 +270,7 @@
       "name": "Retrieve Known Item",
       "baseCost": 3,
       "durationTicks": 40,
+      "skills": ["agility"],
       "targetKind": "self",
       "destinationMode": "current",
       "requires": {
@@ -234,6 +287,7 @@
       "name": "Communicate",
       "baseCost": 2,
       "durationTicks": 30,
+      "skills": ["persuasion", "empathy"],
       "targetKind": "ally",
       "destinationMode": "adjacent",
       "requires": {
@@ -250,10 +304,30 @@
       "name": "Read Cookbook",
       "baseCost": 2,
       "durationTicks": 70,
+      "skills": ["erudition"],
       "targetKind": "self",
       "destinationMode": "current",
       "requires": {
         "requiredFacts": ["memory.capable"]
+      },
+      "outputs": [],
+      "effects": {
+        "addFacts": [],
+        "removeFacts": []
+      }
+    },
+    {
+      "id": "haul-material",
+      "name": "Haul Material",
+      "baseCost": 2,
+      "durationTicks": 80,
+      "skills": ["might", "vitality"],
+      "targetKind": "worldObject",
+      "destinationMode": "adjacent",
+      "requires": {
+        "requiredBodyParts": ["hands"],
+        "requiredSystems": ["musculoskeletal"],
+        "requiresReservation": false
       },
       "outputs": [],
       "effects": {

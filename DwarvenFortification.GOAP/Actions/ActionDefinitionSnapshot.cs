@@ -12,5 +12,6 @@ namespace DwarvenFortification.GOAP.Actions
 		string[] BlockedByFacts,
 		bool RequiresReservation,
 		string[] AddFacts,
-		string[] RemoveFacts);
+		string[] RemoveFacts,
+		string[] Skills);
 }

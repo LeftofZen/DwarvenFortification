@@ -4,6 +4,7 @@
       "id": "pickaxe",
       "name": "Pickaxe",
       "tags": ["tool", "mining"],
+      "properties": { "type": "pickaxe" },
       "isTool": true,
       "stackable": false,
       "weightKg": 3.2
@@ -12,6 +13,7 @@
       "id": "axe",
       "name": "Axe",
       "tags": ["tool", "woodcutting"],
+      "properties": { "type": "axe" },
       "isTool": true,
       "stackable": false,
       "weightKg": 2.8
@@ -23,8 +25,14 @@
       "isTool": false,
       "stackable": true,
       "weightKg": 0.4,
-      "nutritionValue": 40.0,
-      "hydrationValue": 0.0,
+      "nutrition": {
+        "carbohydratesGrams": 38.0,
+        "proteinGrams": 11.0,
+        "fatGrams": 9.0,
+        "sugarGrams": 4.0,
+        "fiberGrams": 3.0,
+        "fluidLiters": 0.0
+      },
       "throwRange": 4.0
     },
     {
@@ -34,19 +42,109 @@
       "isTool": false,
       "stackable": false,
       "weightKg": 0.8,
-      "nutritionValue": 0.0,
-      "hydrationValue": 55.0,
+      "nutrition": {
+        "carbohydratesGrams": 0.0,
+        "proteinGrams": 0.0,
+        "fatGrams": 0.0,
+        "sugarGrams": 0.0,
+        "fiberGrams": 0.0,
+        "fluidLiters": 1.2
+      },
+      "throwRange": 4.5
+    },
+    {
+      "id": "dried-fruit",
+      "name": "Dried Fruit",
+      "tags": ["food", "consumable", "sweet"],
+      "isTool": false,
+      "stackable": true,
+      "weightKg": 0.2,
+      "nutrition": {
+        "carbohydratesGrams": 26.0,
+        "proteinGrams": 1.0,
+        "fatGrams": 0.4,
+        "sugarGrams": 18.0,
+        "fiberGrams": 3.5,
+        "fluidLiters": 0.02
+      },
+      "throwRange": 4.0
+    },
+    {
+      "id": "smoked-fish",
+      "name": "Smoked Fish",
+      "tags": ["food", "consumable", "protein"],
+      "isTool": false,
+      "stackable": true,
+      "weightKg": 0.35,
+      "nutrition": {
+        "carbohydratesGrams": 0.0,
+        "proteinGrams": 24.0,
+        "fatGrams": 8.0,
+        "sugarGrams": 0.0,
+        "fiberGrams": 0.0,
+        "fluidLiters": 0.0
+      },
+      "throwRange": 4.0
+    },
+    {
+      "id": "cheese-wheel",
+      "name": "Cheese Wheel",
+      "tags": ["food", "consumable", "fat"],
+      "isTool": false,
+      "stackable": false,
+      "weightKg": 0.7,
+      "nutrition": {
+        "carbohydratesGrams": 3.0,
+        "proteinGrams": 18.0,
+        "fatGrams": 27.0,
+        "sugarGrams": 1.0,
+        "fiberGrams": 0.0,
+        "fluidLiters": 0.0
+      },
+      "throwRange": 3.5
+    },
+    {
+      "id": "berry-juice",
+      "name": "Berry Juice",
+      "tags": ["drink", "consumable", "sweet"],
+      "isTool": false,
+      "stackable": true,
+      "weightKg": 0.5,
+      "nutrition": {
+        "carbohydratesGrams": 14.0,
+        "proteinGrams": 0.0,
+        "fatGrams": 0.0,
+        "sugarGrams": 12.0,
+        "fiberGrams": 0.5,
+        "fluidLiters": 0.45
+      },
+      "throwRange": 4.5
+    },
+    {
+      "id": "ale",
+      "name": "Ale",
+      "tags": ["drink", "consumable", "grain"],
+      "isTool": false,
+      "stackable": true,
+      "weightKg": 0.6,
+      "nutrition": {
+        "carbohydratesGrams": 11.0,
+        "proteinGrams": 1.0,
+        "fatGrams": 0.0,
+        "sugarGrams": 1.0,
+        "fiberGrams": 0.0,
+        "fluidLiters": 0.5
+      },
       "throwRange": 4.5
     },
     {
       "id": "throwing-stone",
       "name": "Throwing Stone",
       "tags": ["weapon", "throwable", "stone"],
+      "properties": { "type": "projectile", "material": "stone" },
       "isTool": false,
       "stackable": true,
       "weightKg": 0.3,
-      "nutritionValue": 0.0,
-      "hydrationValue": 0.0,
       "throwRange": 8.0
     },
     {
@@ -57,14 +155,13 @@
       "isTool": false,
       "stackable": false,
       "weightKg": 1.1,
-      "nutritionValue": 0.0,
-      "hydrationValue": 0.0,
       "throwRange": 3.0
     },
     {
       "id": "tin-ore",
       "name": "Tin Ore",
       "tags": ["resource", "ore", "metal", "tin"],
+      "properties": { "type": "ore", "material": "tin" },
       "stackable": true,
       "weightKg": 1.1
     },
@@ -72,6 +169,7 @@
       "id": "copper-ore",
       "name": "Copper Ore",
       "tags": ["resource", "ore", "metal", "copper"],
+      "properties": { "type": "ore", "material": "copper" },
       "stackable": true,
       "weightKg": 1.2
     },
@@ -79,6 +177,7 @@
       "id": "gold-ore",
       "name": "Gold Ore",
       "tags": ["resource", "ore", "metal", "gold"],
+      "properties": { "type": "ore", "material": "gold" },
       "stackable": true,
       "weightKg": 1.5
     },
@@ -86,6 +185,7 @@
       "id": "silver-ore",
       "name": "Silver Ore",
       "tags": ["resource", "ore", "metal", "silver"],
+      "properties": { "type": "ore", "material": "silver" },
       "stackable": true,
       "weightKg": 1.3
     },
@@ -93,6 +193,7 @@
       "id": "iron-ore",
       "name": "Iron Ore",
       "tags": ["resource", "ore", "metal", "iron"],
+      "properties": { "type": "ore", "material": "iron" },
       "stackable": true,
       "weightKg": 1.4
     },
@@ -100,6 +201,7 @@
       "id": "coal",
       "name": "Coal",
       "tags": ["resource", "fuel", "coal"],
+      "properties": { "type": "fuel", "material": "coal" },
       "stackable": true,
       "weightKg": 0.9
     },
@@ -114,6 +216,7 @@
       "id": "oak-log",
       "name": "Oak Log",
       "tags": ["resource", "wood", "oak"],
+      "properties": { "type": "log", "material": "oak" },
       "stackable": true,
       "weightKg": 2.6
     },
@@ -121,6 +224,7 @@
       "id": "birch-log",
       "name": "Birch Log",
       "tags": ["resource", "wood", "birch"],
+      "properties": { "type": "log", "material": "birch" },
       "stackable": true,
       "weightKg": 2.2
     },
@@ -128,6 +232,7 @@
       "id": "teak-log",
       "name": "Teak Log",
       "tags": ["resource", "wood", "teak"],
+      "properties": { "type": "log", "material": "teak" },
       "stackable": true,
       "weightKg": 2.9
     },
@@ -135,6 +240,7 @@
       "id": "elm-log",
       "name": "Elm Log",
       "tags": ["resource", "wood", "elm"],
+      "properties": { "type": "log", "material": "elm" },
       "stackable": true,
       "weightKg": 2.5
     },
@@ -142,6 +248,7 @@
       "id": "willow-log",
       "name": "Willow Log",
       "tags": ["resource", "wood", "willow"],
+      "properties": { "type": "log", "material": "willow" },
       "stackable": true,
       "weightKg": 2.0
     },
@@ -149,8 +256,140 @@
       "id": "maple-log",
       "name": "Maple Log",
       "tags": ["resource", "wood", "maple"],
+      "properties": { "type": "log", "material": "maple" },
       "stackable": true,
       "weightKg": 2.7
+    },
+    {
+      "id": "iron-ingot",
+      "name": "Iron Ingot",
+      "tags": ["resource", "metal", "ingot", "iron", "crafted"],
+      "properties": { "type": "ingot", "material": "iron" },
+      "stackable": true,
+      "weightKg": 1.0
+    },
+    {
+      "id": "copper-ingot",
+      "name": "Copper Ingot",
+      "tags": ["resource", "metal", "ingot", "copper", "crafted"],
+      "properties": { "type": "ingot", "material": "copper" },
+      "stackable": true,
+      "weightKg": 0.9
+    },
+    {
+      "id": "tin-ingot",
+      "name": "Tin Ingot",
+      "tags": ["resource", "metal", "ingot", "tin", "crafted"],
+      "properties": { "type": "ingot", "material": "tin" },
+      "stackable": true,
+      "weightKg": 0.8
+    },
+    {
+      "id": "oak-planks",
+      "name": "Oak Planks",
+      "tags": ["resource", "wood", "plank", "oak", "crafted"],
+      "properties": { "type": "plank", "material": "oak" },
+      "stackable": true,
+      "weightKg": 1.1
+    },
+    {
+      "id": "birch-planks",
+      "name": "Birch Planks",
+      "tags": ["resource", "wood", "plank", "birch", "crafted"],
+      "properties": { "type": "plank", "material": "birch" },
+      "stackable": true,
+      "weightKg": 1.0
+    },
+    {
+      "id": "tool-parts",
+      "name": "Tool Parts",
+      "tags": ["resource", "crafted", "parts", "metal"],
+      "stackable": true,
+      "weightKg": 1.4
+    },
+    {
+      "id": "bed-frame",
+      "name": "Bed Frame",
+      "tags": ["resource", "crafted", "furniture", "wood"],
+      "stackable": false,
+      "weightKg": 8.5
+    },
+    {
+      "id": "bronze-ingot",
+      "name": "Bronze Ingot",
+      "tags": ["resource", "metal", "ingot", "bronze", "crafted"],
+      "properties": { "type": "ingot", "material": "bronze" },
+      "stackable": true,
+      "weightKg": 1.0
+    },
+    {
+      "id": "iron-pickaxe-head",
+      "name": "Iron Pickaxe Head",
+      "tags": ["resource", "crafted", "parts", "metal"],
+      "stackable": true,
+      "weightKg": 1.2
+    },
+    {
+      "id": "iron-axe-head",
+      "name": "Iron Axe Head",
+      "tags": ["resource", "crafted", "parts", "metal"],
+      "stackable": true,
+      "weightKg": 1.1
+    },
+    {
+      "id": "wooden-handle",
+      "name": "Wooden Handle",
+      "tags": ["resource", "crafted", "wood"],
+      "stackable": true,
+      "weightKg": 0.6
+    },
+    {
+      "id": "iron-pickaxe",
+      "name": "Iron Pickaxe",
+      "tags": ["tool", "mining", "crafted"],
+      "properties": { "type": "pickaxe", "material": "iron" },
+      "isTool": true,
+      "stackable": false,
+      "weightKg": 2.8
+    },
+    {
+      "id": "iron-axe",
+      "name": "Iron Axe",
+      "tags": ["tool", "woodcutting", "crafted"],
+      "properties": { "type": "axe", "material": "iron" },
+      "isTool": true,
+      "stackable": false,
+      "weightKg": 2.4
+    },
+    {
+      "id": "table",
+      "name": "Table",
+      "tags": ["resource", "crafted", "furniture", "wood"],
+      "stackable": false,
+      "weightKg": 12.0
+    },
+    {
+      "id": "storage-chest",
+      "name": "Storage Chest",
+      "tags": ["resource", "crafted", "furniture", "wood", "container"],
+      "stackable": false,
+      "weightKg": 9.0
+    },
+    {
+      "id": "charcoal",
+      "name": "Charcoal",
+      "tags": ["resource", "fuel", "charcoal"],
+      "properties": { "type": "fuel", "material": "charcoal" },
+      "stackable": true,
+      "weightKg": 0.7
+    },
+    {
+      "id": "grain",
+      "name": "Grain",
+      "tags": ["resource", "grain", "food-raw"],
+      "properties": { "type": "grain" },
+      "stackable": true,
+      "weightKg": 0.5
     }
   ]
 }

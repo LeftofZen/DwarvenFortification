@@ -6,7 +6,7 @@ namespace DwarvenFortification.GOAP
 		string DisplayColorHex,
 		string[] Tags,
 		string[] SupportedActionIds,
-		string[] RequiredToolItemIds,
+		string[] RequiredToolItemTags,
 		string YieldItemId,
 		int YieldCount,
 		bool BlocksMovement);

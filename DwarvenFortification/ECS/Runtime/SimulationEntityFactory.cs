@@ -22,6 +22,13 @@ namespace DwarvenFortification.ECS.Runtime
 				? loadedDefinition
 				: definitions.GetDefaultAgentArchetype();
 
+			var startingSkills = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+			if (definitions.TryGetAgentSkills(archetypeId, out var archetypeSkills) && archetypeSkills != null)
+			{
+				foreach (var kvp in archetypeSkills)
+					startingSkills[kvp.Key] = kvp.Value;
+			}
+
 			var world = definitions.RuntimeWorld;
 
 			var agent = world.Create(
@@ -29,6 +36,7 @@ namespace DwarvenFortification.ECS.Runtime
 				new DefinitionIdentityComponent(name, name),
 				new AgentArchetypeReferenceComponent { ArchetypeId = archetypeId },
 				new FactionComponent { FactionId = definition.FactionId },
+				new AgentSkillsComponent(startingSkills),
 				new RuntimeTransformComponent { Position = position },
 				new BodyComponent { Width = definition.BodyWidth, Height = definition.BodyHeight },
 				new LifeBodyComponent
@@ -49,19 +57,23 @@ namespace DwarvenFortification.ECS.Runtime
 					DecayPerTick = definition.RestDecayPerTick,
 					RecoveryPerTick = definition.RestRecoveryPerTick,
 				},
-				new HungerNeedComponent
+				new BodyNutritionComponent
 				{
-					Current = definition.StartingHunger,
-					Max = definition.MaxHunger,
-					DecayPerTick = definition.HungerDecayPerTick,
-					RecoveryPerTick = definition.HungerRecoveryPerTick,
-				},
-				new ThirstNeedComponent
-				{
-					Current = definition.StartingThirst,
-					Max = definition.MaxThirst,
-					DecayPerTick = definition.ThirstDecayPerTick,
-					RecoveryPerTick = definition.ThirstRecoveryPerTick,
+					CarbohydratesCurrent = definition.StartingCarbohydratesGrams,
+					CarbohydratesMax = definition.MaxCarbohydratesGrams,
+					ProteinCurrent = definition.StartingProteinGrams,
+					ProteinMax = definition.MaxProteinGrams,
+					FatCurrent = definition.StartingFatGrams,
+					FatMax = definition.MaxFatGrams,
+					SugarCurrent = definition.StartingSugarGrams,
+					SugarMax = definition.MaxSugarGrams,
+					HydrationCurrentLiters = definition.StartingHydrationLiters,
+					HydrationMaxLiters = definition.MaxHydrationLiters,
+					SugarUsePerTick = definition.SugarUsePerTick,
+					HydrationUsePerTick = definition.HydrationUsePerTick,
+					SugarFromCarbohydratesPerTick = definition.SugarFromCarbohydratesPerTick,
+					SugarFromFatPerTick = definition.SugarFromFatPerTick,
+					ProteinCatabolismPerTick = definition.ProteinCatabolismPerTick,
 				},
 				new PerceptionComponent { LastKnownEnemyCell = new Point(-1, -1) },
 				new StealthComponent(),
@@ -98,6 +110,16 @@ namespace DwarvenFortification.ECS.Runtime
 			if (!definitions.TryCreateWorldObjectEntity(definitionId, position, cell, out var entity))
 			{
 				throw new InvalidOperationException($"Unable to create world object entity for '{definitionId}'.");
+			}
+
+			return entity;
+		}
+
+		public Entity CreateCompletedWorldObject(string definitionId, Point position, Point cell)
+		{
+			if (!definitions.TryCreateCompletedWorldObjectEntity(definitionId, position, cell, out var entity))
+			{
+				throw new InvalidOperationException($"Unable to create completed world object entity for '{definitionId}'.");
 			}
 
 			return entity;

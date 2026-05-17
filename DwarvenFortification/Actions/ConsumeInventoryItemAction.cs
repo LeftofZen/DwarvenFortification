@@ -13,14 +13,14 @@ namespace DwarvenFortification.Actions
 	public class ConsumeInventoryItemAction : BaseAgentAction
 	{
 		readonly string itemDefinitionId;
-		readonly bool restoreHunger;
-		readonly bool restoreThirst;
+		readonly bool applyMacronutrients;
+		readonly bool applyFluids;
 
-		public ConsumeInventoryItemAction(IActionRuntimeContext runtimeContext, Entity owner, string itemDefinitionId, bool restoreHunger, bool restoreThirst) : base(runtimeContext, owner, "consume-item", 1)
+		public ConsumeInventoryItemAction(IActionRuntimeContext runtimeContext, Entity owner, string itemDefinitionId, bool applyMacronutrients, bool applyFluids) : base(runtimeContext, owner, "consume-item", 1)
 		{
 			this.itemDefinitionId = itemDefinitionId;
-			this.restoreHunger = restoreHunger;
-			this.restoreThirst = restoreThirst;
+			this.applyMacronutrients = applyMacronutrients;
+			this.applyFluids = applyFluids;
 		}
 
 		public override bool IsStillValid(ISimulationWorld world)
@@ -35,15 +35,7 @@ namespace DwarvenFortification.Actions
 			}
 
 			var definition = item.Get<ItemDefinitionComponent>();
-			if (restoreHunger)
-			{
-				owner.RestoreHunger(definition.NutritionValue > 0f ? definition.NutritionValue : 25f);
-			}
-
-			if (restoreThirst)
-			{
-				owner.RestoreThirst(definition.HydrationValue > 0f ? definition.HydrationValue : 35f);
-			}
+			owner.AbsorbNutrition(definition.Nutrition, includeMacronutrients: applyMacronutrients, includeFluids: applyFluids);
 
 			owner.RemoveInventoryItem(item);
 			AdvanceProgress(Cost);

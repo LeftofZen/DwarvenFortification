@@ -43,20 +43,23 @@ namespace DwarvenFortification.ECS.Components
 		public float RecoveryPerTick;
 	}
 
-	public struct HungerNeedComponent
+	public struct BodyNutritionComponent
 	{
-		public float Current;
-		public float Max;
-		public float DecayPerTick;
-		public float RecoveryPerTick;
-	}
-
-	public struct ThirstNeedComponent
-	{
-		public float Current;
-		public float Max;
-		public float DecayPerTick;
-		public float RecoveryPerTick;
+		public float CarbohydratesCurrent;
+		public float CarbohydratesMax;
+		public float ProteinCurrent;
+		public float ProteinMax;
+		public float FatCurrent;
+		public float FatMax;
+		public float SugarCurrent;
+		public float SugarMax;
+		public float HydrationCurrentLiters;
+		public float HydrationMaxLiters;
+		public float SugarUsePerTick;
+		public float HydrationUsePerTick;
+		public float SugarFromCarbohydratesPerTick;
+		public float SugarFromFatPerTick;
+		public float ProteinCatabolismPerTick;
 	}
 
 	public struct LifeBodyComponent
@@ -114,5 +117,18 @@ namespace DwarvenFortification.ECS.Components
 	public struct WorldObjectReferenceComponent
 	{
 		public string DefinitionId;
+	}
+
+	public struct ConstructionSiteComponent
+	{
+		public string TargetDefinitionId;
+		public MaterialCostComponent[] BuildCosts;
+	}
+
+	public struct ProductionOrderComponent
+	{
+		public string ActiveRecipeId;
+		public int BatchesRequested;
+		public int BatchesCompleted;
 	}
 }

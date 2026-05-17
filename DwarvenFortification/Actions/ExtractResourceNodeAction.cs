@@ -3,16 +3,19 @@ using DwarvenFortification.Simulation.Composition;
 using DwarvenFortification.Simulation.World;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System;
 
 namespace DwarvenFortification.Actions
 {
 	public sealed class ExtractResourceNodeAction : BaseAgentAction
 	{
 		readonly Point targetCell;
+		readonly float yieldMultiplier;
 
-		public ExtractResourceNodeAction(IActionRuntimeContext runtimeContext, Entity owner, Point targetCell) : base(runtimeContext, owner, "extract-resource-node", 1)
+		public ExtractResourceNodeAction(IActionRuntimeContext runtimeContext, Entity owner, Point targetCell, float yieldMultiplier = 1f) : base(runtimeContext, owner, "extract-resource-node", 1)
 		{
 			this.targetCell = targetCell;
+			this.yieldMultiplier = yieldMultiplier;
 		}
 
 		public override bool IsStillValid(ISimulationWorld world)
@@ -35,7 +38,8 @@ namespace DwarvenFortification.Actions
 			}
 
 			cell.RemoveOccupant(resourceNode);
-			for (var i = 0; i < yieldCount; ++i)
+			var effectiveYieldCount = Math.Max(1, (int)Math.Round(yieldCount * yieldMultiplier));
+			for (var i = 0; i < effectiveYieldCount; ++i)
 			{
 				cell.ItemsInCell.Add(runtimeContext.World is GridWorld gridWorld
 					? gridWorld.CreateItem(yieldItemId)

@@ -1,6 +1,7 @@
 using Arch.Core;
 using Arch.Core.Extensions;
 using DwarvenFortification.ECS;
+using DwarvenFortification.ECS.Authoring;
 using DwarvenFortification.ECS.Components;
 using DwarvenFortification.ECS.Runtime;
 using DwarvenFortification.GOAP;
@@ -34,6 +35,14 @@ namespace DwarvenFortification.UI
 		string lastPlanDiagramExportMessage = string.Empty;
 		readonly Dictionary<string, int> selectedActionManifestationIndices = new(StringComparer.OrdinalIgnoreCase);
 		int selectedDropInventoryItemIndex;
+		NumericsVector2 goapGraphPan = new(24f, 24f);
+		float goapGraphZoom = 1f;
+		string selectedGoapActionId = string.Empty;
+		NumericsVector2 skillsGraphPan = new(24f, 24f);
+		float skillsGraphZoom = 1f;
+		string selectedSkillId = string.Empty;
+		int productionOrderBatchCount = 1;
+		int selectedProductionRecipeIndex;
 
 		public ImGuiSimulationUi(SimulationDefinitionRegistry definitions, ILogger logger)
 		{
@@ -190,12 +199,16 @@ namespace DwarvenFortification.UI
 
 			if (!entity.IsAgent())
 			{
+				DrawSiteAndMachinePanel(entity);
 				DrawEntityReflectionSection(entity);
 				return;
 			}
 
 			DrawGoalSection(entity, planningSnapshot);
+			DrawBodyNutritionSection(entity);
 			DrawInventorySection(entity);
+			DrawAgentSkillsSection(entity);
+			DrawSkillCatalogSection(entity, planningSnapshot);
 			DrawActionSection(entity, planningSnapshot);
 			DrawPlanningSection(planningSnapshot);
 			DrawEntityReflectionSection(entity);
@@ -313,6 +326,555 @@ namespace DwarvenFortification.UI
 				var itemDefinition = item.Get<ItemDefinitionComponent>();
 				var itemKind = itemDefinition.IsTool ? "Tool" : "Item";
 				ImGui.BulletText($"{item.GetName()} [{item.GetItemDefinitionId()}] {itemKind} weight={itemDefinition.WeightKg:0.##}kg");
+			}
+		}
+
+		void DrawAgentSkillsSection(Entity entity)
+		{
+			if (!ImGui.CollapsingHeader("Skills", ImGuiTreeNodeFlags.DefaultOpen))
+			{
+				return;
+			}
+
+			if (!entity.Has<AgentSkillsComponent>())
+			{
+				ImGui.TextUnformatted("No skills component.");
+				return;
+			}
+
+			var agentSkills = entity.Get<AgentSkillsComponent>().Skills ?? new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+			var skillDefs = definitions.GetSkillDefinitions();
+			if (skillDefs.Count == 0)
+			{
+				ImGui.TextUnformatted("No skill definitions loaded.");
+				return;
+			}
+
+			var layout = BuildSkillGraphLayout(skillDefs, agentSkills);
+			DrawNodeGraphCanvas("AgentSkillsGraph", layout, ref skillsGraphPan, ref skillsGraphZoom, ref selectedSkillId, 380f);
+			ImGui.TextDisabled("Drag to pan, scroll to zoom, click a node for details.");
+
+			if (!string.IsNullOrWhiteSpace(selectedSkillId) && !selectedSkillId.StartsWith("group:", StringComparison.OrdinalIgnoreCase))
+			{
+				var selectedDef = skillDefs.FirstOrDefault(s => string.Equals(s.Id, selectedSkillId, StringComparison.OrdinalIgnoreCase));
+				if (selectedDef != null && !string.IsNullOrEmpty(selectedDef.Id))
+				{
+					var level = agentSkills.TryGetValue(selectedDef.Id, out var l) ? l : 1;
+					var tierColor = GetSkillTierColor(level);
+					var durationPct = (1.0f - (level - 1f) * 0.5f / 99f) * 100f;
+					var yieldMult = 1.0f + (level - 1f) / 99f;
+					ImGui.Separator();
+					ImGui.TextUnformatted($"{selectedDef.Name}  [{selectedDef.Id}]");
+					ImGui.TextUnformatted($"{selectedDef.Category} \u203a {selectedDef.Group}");
+					ImGui.TextWrapped(selectedDef.Description);
+					ImGui.TextColored(tierColor, $"Level {level}  \u2014  {GetSkillTierName(level)}");
+					ImGui.TextUnformatted($"Action duration: {durationPct:0.#}% of base  |  Yield: {yieldMult:0.##}x");
+				}
+			}
+		}
+
+		void DrawBodyNutritionSection(Entity entity)
+		{
+			if (!ImGui.CollapsingHeader("Body / Nutrition", ImGuiTreeNodeFlags.DefaultOpen))
+			{
+				return;
+			}
+
+			if (!entity.Has<BodyNutritionComponent>())
+			{
+				ImGui.TextUnformatted("No body nutrition component.");
+				return;
+			}
+
+			var nutrition = entity.Get<BodyNutritionComponent>();
+			DrawNutrientLine("Carbohydrates", nutrition.CarbohydratesCurrent, nutrition.CarbohydratesMax, entity.IsNutrientLow(SimulationEntityExtensions.NutrientKind.Carbohydrates));
+			DrawNutrientLine("Protein", nutrition.ProteinCurrent, nutrition.ProteinMax, entity.IsNutrientLow(SimulationEntityExtensions.NutrientKind.Protein));
+			DrawNutrientLine("Fat", nutrition.FatCurrent, nutrition.FatMax, entity.IsNutrientLow(SimulationEntityExtensions.NutrientKind.Fat));
+			DrawNutrientLine("Sugar", nutrition.SugarCurrent, nutrition.SugarMax, entity.IsNutrientLow(SimulationEntityExtensions.NutrientKind.Sugar));
+			DrawNutrientLine("Hydration (L)", nutrition.HydrationCurrentLiters, nutrition.HydrationMaxLiters, entity.IsNutrientLow(SimulationEntityExtensions.NutrientKind.Hydration));
+
+			ImGui.Separator();
+			ImGui.TextUnformatted($"Metabolic energy: {entity.GetMetabolicEnergyRatio() * 100f:0.#}%");
+			ImGui.TextUnformatted($"Hydration: {entity.GetHydrationRatio() * 100f:0.#}%");
+
+			var impairedSystems = entity.GetImpairedSystems().ToArray();
+			if (impairedSystems.Length == 0)
+			{
+				ImGui.TextColored(ColorOk, "All body systems operational.");
+			}
+			else
+			{
+				ImGui.TextColored(ColorBlocked, $"Impaired systems: {impairedSystems.Length}");
+				foreach (var system in impairedSystems)
+				{
+					ImGui.BulletText(system);
+				}
+			}
+		}
+
+		void DrawNutrientLine(string label, float current, float max, bool isLow)
+		{
+			var ratio = max <= 0f ? 0f : current / max;
+			ImGui.TextColored(isLow ? ColorBlocked : ColorOk, $"{label}: {current:0.##}/{max:0.##} ({ratio * 100f:0.#}%)");
+		}
+
+		void DrawSkillCatalogSection(Entity entity, PlanningSnapshot planningSnapshot)
+		{
+			if (!ImGui.CollapsingHeader("Skills / Action Catalog", ImGuiTreeNodeFlags.DefaultOpen))
+			{
+				return;
+			}
+
+			var plannerFacts = planningSnapshot?.CurrentFacts != null
+				? new HashSet<string>(planningSnapshot.CurrentFacts, StringComparer.OrdinalIgnoreCase)
+				: new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			var candidatesByAction = planningSnapshot?.ActionManifestations
+				.GroupBy(candidate => candidate.Definition.Id, StringComparer.OrdinalIgnoreCase)
+				.ToDictionary(group => group.Key, group => group.Count(), StringComparer.OrdinalIgnoreCase)
+				?? new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+			ImGui.TextUnformatted("Direct actions");
+			ImGui.BulletText("Move To Cell");
+			ImGui.BulletText("Wait");
+			ImGui.BulletText("Pick Up First Item");
+			ImGui.BulletText("Put Down Inventory");
+			ImGui.BulletText("Drop Inventory Item");
+
+			ImGui.Separator();
+			ImGui.TextUnformatted("GOAP actions");
+			DrawGoapActionGraph(definitions.GetActionDefinitions(), plannerFacts, candidatesByAction);
+		}
+
+		void DrawGoapActionGraph(
+			IReadOnlyList<ActionDefinitionSnapshot> definitions,
+			HashSet<string> plannerFacts,
+			Dictionary<string, int> candidatesByAction)
+		{
+			if (definitions.Count == 0)
+			{
+				ImGui.TextUnformatted("No GOAP actions defined.");
+				return;
+			}
+
+			var graph = BuildActionGraphLayout(definitions, plannerFacts, candidatesByAction);
+			DrawNodeGraphCanvas("GoapActionGraph", graph, ref goapGraphPan, ref goapGraphZoom, ref selectedGoapActionId, 420f);
+			ImGui.TextColored(ColorOk, "Available");
+			ImGui.SameLine();
+			ImGui.TextColored(ColorDeferred, "Deferred");
+			ImGui.SameLine();
+			ImGui.TextColored(ColorBlocked, "Blocked");
+			ImGui.SameLine();
+			ImGui.TextDisabled("Drag empty space to pan, wheel to zoom, click a node for full details.");
+
+			if (!string.IsNullOrWhiteSpace(selectedGoapActionId))
+			{
+				var selectedDefinition = definitions.FirstOrDefault(definition => string.Equals(definition.Id, selectedGoapActionId, StringComparison.OrdinalIgnoreCase));
+				if (!string.IsNullOrWhiteSpace(selectedDefinition.Id))
+				{
+					DrawSelectedGoapActionDetails(selectedDefinition, plannerFacts, candidatesByAction);
+				}
+			}
+		}
+
+		void DrawNodeGraphCanvas(
+			string childId,
+			ActionGraphLayout layout,
+			ref NumericsVector2 pan,
+			ref float zoom,
+			ref string selectedId,
+			float childHeight = 420f)
+		{
+			ImGui.BeginChild(childId, new NumericsVector2(0, childHeight), true);
+			var origin = ImGui.GetCursorScreenPos();
+			var availableSize = ImGui.GetContentRegionAvail();
+			var canvasSize = new NumericsVector2(Math.Max(availableSize.X, 240f), Math.Max(availableSize.Y, childHeight - 8f));
+			ImGui.InvisibleButton($"{childId}Canvas", canvasSize, ImGuiButtonFlags.MouseButtonLeft | ImGuiButtonFlags.MouseButtonRight | ImGuiButtonFlags.MouseButtonMiddle);
+			var drawList = ImGui.GetWindowDrawList();
+			var canvasMin = origin;
+			var canvasMax = origin + canvasSize;
+			var hoveredCanvas = ImGui.IsItemHovered();
+			var io = ImGui.GetIO();
+
+			if (hoveredCanvas && Math.Abs(io.MouseWheel) > float.Epsilon)
+			{
+				var mouseCanvas = io.MousePos - origin;
+				var worldBeforeZoom = (mouseCanvas - pan) / zoom;
+				zoom = Math.Clamp(zoom + (io.MouseWheel * 0.1f), 0.5f, 2.25f);
+				pan = mouseCanvas - (worldBeforeZoom * zoom);
+			}
+
+			ActionGraphNode? hoveredNode = null;
+			if (hoveredCanvas)
+			{
+				var mouseWorld = (io.MousePos - origin - pan) / zoom;
+				var hitNodes = layout.Nodes.Where(node => Contains(node.Bounds, mouseWorld)).ToList();
+				hoveredNode = hitNodes.Count == 0 ? null : hitNodes[^1];
+
+				if (ImGui.IsMouseDragging(ImGuiMouseButton.Left) && hoveredNode == null)
+				{
+					pan += io.MouseDelta;
+				}
+
+				if (ImGui.IsMouseClicked(ImGuiMouseButton.Left) && hoveredNode.HasValue)
+				{
+					selectedId = hoveredNode.Value.Id;
+				}
+			}
+
+			drawList.AddRectFilled(canvasMin, canvasMax, ImGui.ColorConvertFloat4ToU32(new NumericsVector4(0.08f, 0.09f, 0.12f, 1f)), 6f);
+			drawList.AddRect(canvasMin, canvasMax, ImGui.ColorConvertFloat4ToU32(new NumericsVector4(0.2f, 0.22f, 0.27f, 1f)), 6f, ImDrawFlags.None, 1.5f);
+
+			foreach (var edge in layout.Edges)
+			{
+				var from = origin + pan + (edge.From * zoom);
+				var to = origin + pan + (edge.To * zoom);
+				drawList.AddLine(from, to, edge.Color, 2f);
+				if (!string.IsNullOrWhiteSpace(edge.Label))
+				{
+					var labelPosition = ((from + to) / 2f) + new NumericsVector2(0f, -10f);
+					var labelSize = ImGui.CalcTextSize(edge.Label);
+					var labelMin = labelPosition - new NumericsVector2((labelSize.X / 2f) + 4f, 2f);
+					var labelMax = labelPosition + new NumericsVector2((labelSize.X / 2f) + 4f, labelSize.Y + 2f);
+					drawList.AddRectFilled(labelMin, labelMax, ToU32(new NumericsVector4(0.09f, 0.1f, 0.13f, 0.95f)), 4f);
+					drawList.AddText(labelPosition - new NumericsVector2(labelSize.X / 2f, 0f), ToU32(new NumericsVector4(0.85f, 0.88f, 0.92f, 1f)), edge.Label);
+				}
+			}
+
+			foreach (var node in layout.Nodes)
+			{
+				var min = origin + pan + (node.Bounds.Min * zoom);
+				var max = origin + pan + (node.Bounds.Max * zoom);
+				var isSelected = string.Equals(selectedId, node.Id, StringComparison.OrdinalIgnoreCase);
+				var borderColor = isSelected ? ToU32(new NumericsVector4(0.98f, 0.98f, 0.99f, 1f)) : node.BorderColor;
+				var borderThickness = isSelected ? 3f : 2f;
+				drawList.AddRectFilled(min, max, node.FillColor, 6f);
+				drawList.AddRect(min, max, borderColor, 6f, ImDrawFlags.None, borderThickness);
+				drawList.AddText(min + new NumericsVector2(10, 8), node.TextColor, node.Title);
+
+				if (node.ProgressRatio > 0f && node.ProgressBarColor != 0u)
+				{
+					var barMin = min + new NumericsVector2(10, 26);
+					var barMax = new NumericsVector2(max.X - 10, min.Y + 34);
+					drawList.AddRectFilled(barMin, barMax, ToU32(new NumericsVector4(0.10f, 0.11f, 0.14f, 1f)), 3f);
+					var fillWidth = (barMax.X - barMin.X) * node.ProgressRatio;
+					if (fillWidth > 0f)
+					{
+						drawList.AddRectFilled(barMin, new NumericsVector2(barMin.X + fillWidth, barMax.Y), node.ProgressBarColor, 3f);
+					}
+
+					drawList.AddText(min + new NumericsVector2(10, 40), node.SubtitleColor, node.Subtitle);
+					if (!string.IsNullOrWhiteSpace(node.Detail))
+					{
+						drawList.AddText(min + new NumericsVector2(10, 58), node.DetailColor, node.Detail);
+					}
+				}
+				else
+				{
+					drawList.AddText(min + new NumericsVector2(10, 30), node.SubtitleColor, node.Subtitle);
+					if (!string.IsNullOrWhiteSpace(node.Detail))
+					{
+						drawList.AddText(min + new NumericsVector2(10, 48), node.DetailColor, node.Detail);
+					}
+				}
+			}
+
+			ImGui.EndChild();
+		}
+
+		ActionGraphLayout BuildActionGraphLayout(
+			IReadOnlyList<ActionDefinitionSnapshot> definitions,
+			HashSet<string> plannerFacts,
+			Dictionary<string, int> candidatesByAction)
+		{
+			const float nodeWidth = 220f;
+			const float nodeHeight = 78f;
+			const float horizontalGap = 52f;
+			const float verticalGap = 24f;
+			const float margin = 20f;
+
+			var producersByFact = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+			var dependencyFactsByPair = new Dictionary<(string SourceId, string TargetId), HashSet<string>>();
+			foreach (var definition in definitions)
+			{
+				foreach (var fact in definition.AddFacts.Where(fact => !string.IsNullOrWhiteSpace(fact)))
+				{
+					if (!producersByFact.TryGetValue(fact, out var producers))
+					{
+						producers = new List<string>();
+						producersByFact[fact] = producers;
+					}
+
+					producers.Add(definition.Id);
+				}
+			}
+
+			var dependenciesByAction = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+			foreach (var definition in definitions)
+			{
+				var dependencies = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+				foreach (var fact in definition.RequiredFacts.Where(fact => !string.IsNullOrWhiteSpace(fact) && !fact.StartsWith('!')))
+				{
+					if (!producersByFact.TryGetValue(fact, out var producers))
+					{
+						continue;
+					}
+
+					foreach (var producer in producers)
+					{
+						if (!string.Equals(producer, definition.Id, StringComparison.OrdinalIgnoreCase))
+						{
+							dependencies.Add(producer);
+							var key = (producer, definition.Id);
+							if (!dependencyFactsByPair.TryGetValue(key, out var facts))
+							{
+								facts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+								dependencyFactsByPair[key] = facts;
+							}
+
+							facts.Add(fact);
+						}
+					}
+				}
+
+				dependenciesByAction[definition.Id] = dependencies.OrderBy(id => id, StringComparer.OrdinalIgnoreCase).ToList();
+			}
+
+			var depthCache = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+			var activePath = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+			int GetDepth(string actionId)
+			{
+				if (depthCache.TryGetValue(actionId, out var cached))
+				{
+					return cached;
+				}
+
+				if (!activePath.Add(actionId))
+				{
+					return 0;
+				}
+
+				var depth = 0;
+				if (dependenciesByAction.TryGetValue(actionId, out var dependencies) && dependencies.Count > 0)
+				{
+					depth = dependencies.Max(GetDepth) + 1;
+				}
+
+				activePath.Remove(actionId);
+				depthCache[actionId] = depth;
+				return depth;
+			}
+
+			var columnGroups = definitions
+				.GroupBy(definition => GetDepth(definition.Id))
+				.OrderBy(group => group.Key)
+				.ToList();
+
+			var nodes = new List<ActionGraphNode>();
+			var nodesById = new Dictionary<string, ActionGraphNode>(StringComparer.OrdinalIgnoreCase);
+			var maxRows = 0;
+			for (var columnIndex = 0; columnIndex < columnGroups.Count; ++columnIndex)
+			{
+				var column = columnGroups[columnIndex].OrderBy(definition => definition.Name, StringComparer.OrdinalIgnoreCase).ToList();
+				maxRows = Math.Max(maxRows, column.Count);
+				for (var rowIndex = 0; rowIndex < column.Count; ++rowIndex)
+				{
+					var definition = column[rowIndex];
+					var missingFacts = GetMissingPrerequisiteFacts(definition, plannerFacts);
+					var manifestationCount = candidatesByAction.TryGetValue(definition.Id, out var count) ? count : 0;
+					var state = missingFacts.Count > 0
+						? "Blocked"
+						: manifestationCount > 0
+							? "Available"
+							: "Deferred";
+					var stateColor = missingFacts.Count > 0
+						? ColorBlocked
+						: manifestationCount > 0
+							? ColorOk
+							: ColorDeferred;
+					var min = new NumericsVector2(
+						margin + (columnIndex * (nodeWidth + horizontalGap)),
+						margin + (rowIndex * (nodeHeight + verticalGap)));
+					var max = min + new NumericsVector2(nodeWidth, nodeHeight);
+					var node = new ActionGraphNode(
+						definition.Id,
+						new GraphBounds(min, max),
+						TrimGraphText(definition.Name, 24),
+						$"{state} | targets {manifestationCount}",
+						missingFacts.Count > 0
+							? $"Need {TrimGraphText(FormatList(missingFacts), 24)}"
+							: $"Adds {TrimGraphText(FormatList(definition.AddFacts), 24)}",
+						ToU32(WithAlpha(stateColor, 0.22f)),
+						ToU32(WithAlpha(stateColor, 0.95f)),
+						ToU32(new NumericsVector4(0.96f, 0.97f, 0.98f, 1f)),
+						ToU32(WithAlpha(stateColor, 1f)),
+						ToU32(new NumericsVector4(0.78f, 0.82f, 0.87f, 1f)));
+					nodes.Add(node);
+					nodesById[definition.Id] = node;
+				}
+			}
+
+			var edges = new List<ActionGraphEdge>();
+			foreach (var (actionId, dependencies) in dependenciesByAction)
+			{
+				if (!nodesById.TryGetValue(actionId, out var targetNode))
+				{
+					continue;
+				}
+
+				foreach (var dependencyId in dependencies)
+				{
+					if (!nodesById.TryGetValue(dependencyId, out var sourceNode))
+					{
+						continue;
+					}
+					var dependencyFacts = dependencyFactsByPair.TryGetValue((dependencyId, actionId), out var facts)
+						? TrimGraphText(FormatList(facts), 28)
+						: string.Empty;
+
+					edges.Add(new ActionGraphEdge(
+						sourceNode.Bounds.Min + new NumericsVector2(nodeWidth, nodeHeight / 2f),
+						targetNode.Bounds.Min + new NumericsVector2(0, nodeHeight / 2f),
+						ToU32(WithAlpha(ColorPlanned, 0.85f)),
+						dependencyFacts));
+				}
+			}
+
+			var canvasWidth = (columnGroups.Count * nodeWidth) + (Math.Max(0, columnGroups.Count - 1) * horizontalGap) + (margin * 2);
+			var canvasHeight = (maxRows * nodeHeight) + (Math.Max(0, maxRows - 1) * verticalGap) + (margin * 2);
+			return new ActionGraphLayout(nodes, edges, new NumericsVector2(canvasWidth, canvasHeight));
+		}
+
+		ActionGraphLayout BuildSkillGraphLayout(IReadOnlyList<SkillDefinition> skills, Dictionary<string, int> agentSkills)
+		{
+			const float nodeWidth = 180f;
+			const float skillNodeHeight = 92f;
+			const float groupHeaderHeight = 32f;
+			const float horizontalGap = 20f;
+			const float verticalGap = 14f;
+			const float categoryGap = 40f;
+			const float margin = 20f;
+
+			agentSkills ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+			var groupOrderByCategory = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+			var skillsByGroup = new Dictionary<string, List<SkillDefinition>>(StringComparer.OrdinalIgnoreCase);
+
+			foreach (var skill in skills)
+			{
+				if (!groupOrderByCategory.TryGetValue(skill.Category, out var groupOrder))
+				{
+					groupOrder = new List<string>();
+					groupOrderByCategory[skill.Category] = groupOrder;
+				}
+
+				if (!skillsByGroup.ContainsKey(skill.Group))
+				{
+					groupOrder.Add(skill.Group);
+					skillsByGroup[skill.Group] = new List<SkillDefinition>();
+				}
+
+				skillsByGroup[skill.Group].Add(skill);
+			}
+
+			string[] knownCategoryOrder = ["Physical", "Mental", "Social", "Supernatural"];
+			var orderedCategories = knownCategoryOrder
+				.Where(groupOrderByCategory.ContainsKey)
+				.Concat(groupOrderByCategory.Keys.Where(c => !knownCategoryOrder.Any(k => string.Equals(k, c, StringComparison.OrdinalIgnoreCase))))
+				.ToList();
+
+			var nodes = new List<ActionGraphNode>();
+			var cursorX = margin;
+
+			for (var ci = 0; ci < orderedCategories.Count; ci++)
+			{
+				if (ci > 0)
+				{
+					cursorX += categoryGap;
+				}
+
+				var category = orderedCategories[ci];
+				var groupOrder = groupOrderByCategory[category];
+
+				foreach (var groupName in groupOrder)
+				{
+					var groupSkills = skillsByGroup[groupName];
+
+					nodes.Add(new ActionGraphNode(
+						$"group:{groupName}",
+						new GraphBounds(
+							new NumericsVector2(cursorX, margin),
+							new NumericsVector2(cursorX + nodeWidth, margin + groupHeaderHeight)),
+						groupName,
+						category,
+						string.Empty,
+						ToU32(new NumericsVector4(0.12f, 0.15f, 0.22f, 1f)),
+						ToU32(new NumericsVector4(0.35f, 0.42f, 0.60f, 0.9f)),
+						ToU32(new NumericsVector4(0.72f, 0.80f, 0.95f, 1f)),
+						ToU32(new NumericsVector4(0.45f, 0.52f, 0.70f, 1f)),
+						default));
+
+					for (var si = 0; si < groupSkills.Count; si++)
+					{
+						var skill = groupSkills[si];
+						var level = agentSkills.TryGetValue(skill.Id, out var l) ? l : 1;
+						var tierColor = GetSkillTierColor(level);
+						var progress = (level - 1f) / 99f;
+						var nodeY = margin + groupHeaderHeight + verticalGap + (si * (skillNodeHeight + verticalGap));
+
+						nodes.Add(new ActionGraphNode(
+							skill.Id,
+							new GraphBounds(
+								new NumericsVector2(cursorX, nodeY),
+								new NumericsVector2(cursorX + nodeWidth, nodeY + skillNodeHeight)),
+							skill.Name,
+							$"Lv {level}  \u2014  {GetSkillTierName(level)}",
+							$"{skill.Category} \u203a {skill.Group}",
+							ToU32(new NumericsVector4(0.08f + (tierColor.X * 0.06f), 0.09f + (tierColor.Y * 0.06f), 0.12f + (tierColor.Z * 0.06f), 1f)),
+							ToU32(WithAlpha(tierColor, 0.6f)),
+							ToU32(new NumericsVector4(0.96f, 0.97f, 0.98f, 1f)),
+							ToU32(tierColor),
+							ToU32(new NumericsVector4(0.55f, 0.60f, 0.68f, 1f)),
+							progress,
+							ToU32(WithAlpha(tierColor, 0.9f))));
+					}
+
+					cursorX += nodeWidth + horizontalGap;
+				}
+			}
+
+			var maxGroupSkills = skillsByGroup.Values.Max(g => g.Count);
+			var totalCanvasWidth = cursorX + margin;
+			var totalCanvasHeight = margin + groupHeaderHeight + verticalGap + (maxGroupSkills * (skillNodeHeight + verticalGap)) + margin;
+			return new ActionGraphLayout(nodes, Array.Empty<ActionGraphEdge>(), new NumericsVector2(totalCanvasWidth, totalCanvasHeight));
+		}
+
+		void DrawSelectedGoapActionDetails(
+			ActionDefinitionSnapshot definition,
+			HashSet<string> plannerFacts,
+			Dictionary<string, int> candidatesByAction)
+		{
+			ImGui.Separator();
+			ImGui.TextUnformatted($"Selected action: {definition.Name}");
+			ImGui.TextUnformatted($"Id: {definition.Id}");
+			ImGui.TextWrapped($"Target kind: {definition.TargetKind}; destination mode: {definition.DestinationMode}");
+			ImGui.TextWrapped($"Required facts: {FormatList(definition.RequiredFacts)}");
+			ImGui.TextWrapped($"Blocked by facts: {FormatList(definition.BlockedByFacts)}");
+			ImGui.TextWrapped($"Adds facts: {FormatList(definition.AddFacts)}");
+			ImGui.TextWrapped($"Removes facts: {FormatList(definition.RemoveFacts)}");
+			ImGui.TextWrapped($"Required target tags: {FormatList(definition.RequiredTargetTags)}");
+			ImGui.TextUnformatted($"Requires reservation: {(definition.RequiresReservation ? "yes" : "no")}");
+			ImGui.TextUnformatted($"Base cost: {definition.BaseCost}; duration ticks: {definition.DurationTicks}");
+			var manifestations = candidatesByAction.TryGetValue(definition.Id, out var count) ? count : 0;
+			ImGui.TextUnformatted($"Current manifestations: {manifestations}");
+			var missingPrerequisiteFacts = GetMissingPrerequisiteFacts(definition, plannerFacts);
+			if (missingPrerequisiteFacts.Count == 0)
+			{
+				ImGui.TextColored(manifestations > 0 ? ColorOk : ColorDeferred, manifestations > 0 ? "Status: available" : "Status: deferred (no current targets)");
+			}
+			else
+			{
+				ImGui.TextColored(ColorBlocked, $"Status: blocked by {FormatList(missingPrerequisiteFacts)}");
 			}
 		}
 
@@ -671,6 +1233,127 @@ namespace DwarvenFortification.UI
 			}
 		}
 
+		void DrawSiteAndMachinePanel(Entity entity)
+		{
+			if (entity.IsConstructionSite())
+			{
+				if (!ImGui.CollapsingHeader("Construction Site"))
+				{
+					return;
+				}
+
+				var missingCosts = entity.GetMissingBuildCosts();
+				var allCosts = entity.GetBuildCosts();
+
+				int totalRequired = 0;
+				int totalStored = 0;
+
+				foreach (var cost in allCosts)
+				{
+					var stored = entity.CountStoredItems(cost.ItemId);
+					totalRequired += cost.Quantity;
+					totalStored += Math.Min(stored, cost.Quantity);
+					var ratio = cost.Quantity > 0 ? (float)stored / cost.Quantity : 1f;
+					ratio = Math.Min(ratio, 1f);
+					ImGui.ProgressBar(ratio, new NumericsVector2(-1, 0), $"{cost.ItemId}: {stored}/{cost.Quantity}");
+				}
+
+				if (totalRequired > 0)
+				{
+					var overallRatio = (float)totalStored / totalRequired;
+					ImGui.Separator();
+					ImGui.ProgressBar(overallRatio, new NumericsVector2(-1, 0), $"Overall: {(int)(overallRatio * 100)}%%");
+				}
+
+				ImGui.Separator();
+				return;
+			}
+
+			var recipes = entity.GetRecipes();
+			if (recipes.Length == 0)
+			{
+				return;
+			}
+
+			if (!ImGui.CollapsingHeader("Workstation"))
+			{
+				return;
+			}
+
+			// Stored inputs summary
+			ImGui.TextUnformatted("Stored Items:");
+			if (entity.Has<InventoryComponent>())
+			{
+				var stored = entity.GetInventory();
+				if (stored.Count == 0)
+				{
+					ImGui.TextDisabled("  (empty)");
+				}
+				else
+				{
+					foreach (var item in stored)
+					{
+						ImGui.TextUnformatted($"  {item.GetItemDefinitionId()}");
+					}
+				}
+			}
+
+			ImGui.Separator();
+
+			// Recipe readiness
+			ImGui.TextUnformatted("Recipes:");
+			foreach (var recipe in recipes)
+			{
+				var ready = entity.HasStoredMaterials(recipe.Inputs);
+				var label = ready ? $"[READY] {recipe.Name}" : $"[WAIT]  {recipe.Name}";
+				ImGui.TextUnformatted(label);
+				foreach (var input in recipe.Inputs)
+				{
+					var storedCount = entity.CountStoredItems(input.ItemId);
+					var ratio = input.Quantity > 0 ? (float)storedCount / input.Quantity : 1f;
+					ratio = Math.Min(ratio, 1f);
+					ImGui.ProgressBar(ratio, new NumericsVector2(-1, 0), $"  {input.ItemId}: {storedCount}/{input.Quantity}");
+				}
+			}
+
+			ImGui.Separator();
+
+			// Production order controls
+			ImGui.TextUnformatted("Production Order:");
+			var activeOrder = entity.GetProductionOrder();
+			var hasOrder = entity.HasActiveProductionOrder();
+
+			if (hasOrder)
+			{
+				ImGui.TextUnformatted($"Active: {activeOrder.ActiveRecipeId}");
+				ImGui.TextUnformatted($"Progress: {activeOrder.BatchesCompleted}/{activeOrder.BatchesRequested} batches");
+
+				if (ImGui.Button("Clear Order"))
+				{
+					entity.ClearProductionOrder();
+				}
+			}
+			else
+			{
+				var recipeNames = recipes.Select(r => r.Name).ToArray();
+				if (selectedProductionRecipeIndex >= recipeNames.Length)
+				{
+					selectedProductionRecipeIndex = 0;
+				}
+
+				ImGui.Combo("Recipe##prod", ref selectedProductionRecipeIndex, recipeNames, recipeNames.Length);
+				ImGui.InputInt("Batches##prod", ref productionOrderBatchCount);
+				productionOrderBatchCount = Math.Max(1, productionOrderBatchCount);
+
+				if (ImGui.Button("Set Order") && recipeNames.Length > 0)
+				{
+					entity.SetProductionOrder(recipes[selectedProductionRecipeIndex].Id, productionOrderBatchCount);
+				}
+			}
+
+			ImGui.Separator();
+		}
+
 		void DrawEntityReflectionSection(Entity entity)
 		{
 			if (!ImGui.CollapsingHeader("Raw Entity Data"))
@@ -794,6 +1477,45 @@ namespace DwarvenFortification.UI
 
 		static NumericsVector4 ToVector4(Color color)
 			=> new(color.R / 255f, color.G / 255f, color.B / 255f, color.A / 255f);
+
+		static uint ToU32(NumericsVector4 color)
+			=> ImGui.ColorConvertFloat4ToU32(color);
+
+		static NumericsVector4 WithAlpha(NumericsVector4 color, float alpha)
+			=> new(color.X, color.Y, color.Z, alpha);
+
+		static string GetSkillTierName(int level)
+			=> level switch
+			{
+				<= 20 => "Novice",
+				<= 40 => "Apprentice",
+				<= 60 => "Journeyman",
+				<= 80 => "Expert",
+				_ => "Master"
+			};
+
+		static NumericsVector4 GetSkillTierColor(int level)
+			=> level switch
+			{
+				<= 20 => new NumericsVector4(0.55f, 0.58f, 0.65f, 1f),   // grey-blue  (Novice)
+				<= 40 => new NumericsVector4(0.27f, 0.76f, 0.67f, 1f),   // teal       (Apprentice)
+				<= 60 => new NumericsVector4(0.88f, 0.72f, 0.22f, 1f),   // gold       (Journeyman)
+				<= 80 => new NumericsVector4(0.92f, 0.48f, 0.15f, 1f),   // orange     (Expert)
+				_ => new NumericsVector4(0.97f, 0.82f, 0.26f, 1f)        // bright amber (Master)
+			};
+
+		static string TrimGraphText(string value, int maxLength)
+		{
+			if (string.IsNullOrWhiteSpace(value) || value.Length <= maxLength)
+			{
+				return value;
+			}
+
+			return value[..Math.Max(0, maxLength - 3)] + "...";
+		}
+
+		static bool Contains(GraphBounds bounds, NumericsVector2 point)
+			=> point.X >= bounds.Min.X && point.X <= bounds.Max.X && point.Y >= bounds.Min.Y && point.Y <= bounds.Max.Y;
 
 		static readonly NumericsVector4 ColorOk = new(0.52f, 0.82f, 0.56f, 1f);
 		static readonly NumericsVector4 ColorPlanned = new(0.95f, 0.78f, 0.34f, 1f);
@@ -946,6 +1668,10 @@ namespace DwarvenFortification.UI
 		}
 
 		readonly record struct CandidateBlockersView(ActionCandidate Candidate, List<string> Blockers);
+		readonly record struct ActionGraphLayout(IReadOnlyList<ActionGraphNode> Nodes, IReadOnlyList<ActionGraphEdge> Edges, NumericsVector2 CanvasSize);
+		readonly record struct GraphBounds(NumericsVector2 Min, NumericsVector2 Max);
+		readonly record struct ActionGraphNode(string Id, GraphBounds Bounds, string Title, string Subtitle, string Detail, uint FillColor, uint BorderColor, uint TextColor, uint SubtitleColor, uint DetailColor, float ProgressRatio = 0f, uint ProgressBarColor = 0u);
+		readonly record struct ActionGraphEdge(NumericsVector2 From, NumericsVector2 To, uint Color, string Label);
 
 		IEnumerable<string> ReflectObject(object obj)
 		{
@@ -1065,6 +1791,26 @@ namespace DwarvenFortification.UI
 				yield return $" - BlocksMovement={worldObjectDefinition.BlocksMovement}";
 				yield return $" - Reservable={worldObjectDefinition.IsReservable}";
 				yield return $" - AcceptedTags=[{string.Join(", ", worldObjectDefinition.AcceptedItemTags)}]";
+				if (worldObjectDefinition.BuildCosts.Length > 0)
+				{
+					yield return $" - BuildCosts=[{string.Join(", ", worldObjectDefinition.BuildCosts.Select(cost => $"{cost.Quantity}x {cost.ItemId}"))}]";
+				}
+
+				if (worldObjectDefinition.Recipes.Length > 0)
+				{
+					yield return $" - Recipes={worldObjectDefinition.Recipes.Length}";
+					foreach (var recipe in worldObjectDefinition.Recipes)
+					{
+						yield return $"   * {recipe.Name}: {string.Join(", ", recipe.Inputs.Select(input => $"{input.Quantity}x {input.ItemId}"))} -> {recipe.OutputQuantity}x {recipe.OutputItemId}";
+					}
+				}
+			}
+
+			if (entity.Has<ConstructionSiteComponent>())
+			{
+				var site = entity.Get<ConstructionSiteComponent>();
+				yield return $" - ConstructionTarget={site.TargetDefinitionId}";
+				yield return $" - MissingBuildCosts=[{string.Join(", ", entity.GetMissingBuildCosts().Select(cost => $"{cost.Quantity}x {cost.ItemId}"))}]";
 			}
 
 			if (entity.Has<ResourceNodeDefinitionComponent>())

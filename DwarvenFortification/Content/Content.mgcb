@@ -37,3 +37,12 @@
 #begin config/resources.json
 /copy:config/resources.json
 
+#begin config/goals.json
+/copy:config/goals.json
+
+#begin config/facts.json
+/copy:config/facts.json
+
+#begin config/skills.json
+/copy:config/skills.json
+

@@ -1,0 +1,144 @@
+{
+  // Facts define the vocabulary of world-state predicates used by the GOAP graph.
+  // Static facts are discrete boolean flags. Dynamic facts are parameterised patterns
+  // instantiated at runtime from world entities (items, locations, knowledge).
+  //
+  // Together with actions.json (edges) and goals.json (target nodes), this file
+  // describes the complete state-space graph that the GOAP planner searches.
+  "facts": [
+    // --- Biology ---
+    {
+      "id": "rest.ok",
+      "description": "Agent rest is at a healthy level.",
+      "category": "biology"
+    },
+    {
+      "id": "rest.low",
+      "description": "Agent rest is critically low.",
+      "category": "biology"
+    },
+    {
+      "id": "hunger.ok",
+      "description": "Agent nutrition is sufficient.",
+      "category": "biology"
+    },
+    {
+      "id": "hunger.low",
+      "description": "Agent nutrition is critically low.",
+      "category": "biology"
+    },
+    {
+      "id": "thirst.ok",
+      "description": "Agent hydration is sufficient.",
+      "category": "biology"
+    },
+    {
+      "id": "thirst.low",
+      "description": "Agent hydration is critically low.",
+      "category": "biology"
+    },
+
+    // --- Agent state ---
+    {
+      "id": "self.hidden",
+      "description": "Agent is concealed from threats.",
+      "category": "agent"
+    },
+    {
+      "id": "memory.capable",
+      "description": "Agent has a functioning memory organ.",
+      "category": "agent"
+    },
+
+    // --- Threat state ---
+    {
+      "id": "enemy.visible",
+      "description": "A hostile entity is visible to the agent.",
+      "category": "threat"
+    },
+    {
+      "id": "enemy.suppressed",
+      "description": "A hostile entity has been suppressed.",
+      "category": "threat"
+    },
+
+    // --- Inventory state ---
+    {
+      "id": "inventory.has-resource-items",
+      "description": "Agent is carrying gatherable resource items.",
+      "category": "inventory"
+    },
+    {
+      "id": "inventory.has-space",
+      "description": "Agent has at least one free inventory slot.",
+      "category": "inventory"
+    },
+
+    // --- World / construction state ---
+    {
+      "id": "construction.pending",
+      "description": "A nearby construction site is ready to be completed.",
+      "category": "world"
+    },
+    {
+      "id": "site.needs-materials",
+      "description": "A nearby construction site is missing build materials.",
+      "category": "world"
+    },
+    {
+      "id": "workstation.needs-inputs",
+      "description": "A nearby workstation has a recipe awaiting input materials.",
+      "category": "world"
+    },
+    {
+      "id": "production.order.active",
+      "description": "There is an active production order to process.",
+      "category": "world"
+    },
+
+    // --- Spatial / knowledge ---
+    {
+      "id": "area.patrolled",
+      "description": "The local area has been recently patrolled.",
+      "category": "spatial"
+    },
+    {
+      "id": "area.scanned",
+      "description": "The local area has been recently scanned for threats.",
+      "category": "spatial"
+    },
+
+    // --- Learned knowledge (prefixed by item) ---
+    {
+      "id": "recipe.ration-broth",
+      "description": "Agent knows the ration-broth cooking recipe.",
+      "category": "knowledge"
+    },
+
+    // --- Dynamic fact patterns (instantiated at runtime) ---
+    {
+      "id": "has.item.<itemId>",
+      "description": "Agent carries an item matching the given definition ID. E.g. has.item.pickaxe.",
+      "category": "inventory",
+      "isDynamic": true
+    },
+    {
+      "id": "has.item-tag.<tag>",
+      "description": "Agent carries at least one item with the given tag. E.g. has.item-tag.mining.",
+      "category": "inventory",
+      "isDynamic": true
+    },
+    {
+      "id": "has.item-filter.<tags>",
+      "description": "Agent carries at least one item matching all given tags (comma-separated). E.g. has.item-filter.ingot,iron.",
+      "category": "inventory",
+      "isDynamic": true
+    },
+    {
+      "id": "knows.item-location.<itemId>",
+      "description": "Agent has memorised the world location of a specific item. E.g. knows.item-location.pickaxe.",
+      "category": "knowledge",
+      "isDynamic": true
+    }
+  ]
+}

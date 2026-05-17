@@ -1,4 +1,4 @@
-﻿using Arch.Core;
+using Arch.Core;
 using DwarvenFortification.ECS;
 using DwarvenFortification.ECS.Authoring;
 using DwarvenFortification.GOAP;
@@ -189,7 +189,6 @@ public sealed class GoapPlannerTests
 	[Test]
 	public void Plan_BuildsExpectedMermaidTreemapDiagram()
 	{
-		var plan = CreatePlannedSecureFoodMermaidPlan();
 		var plan = CreatePlannedSecureFoodMermaidPlan();
 		var diagram = PlanMermaidDiagramBuilder.BuildTreemapDiagram(plan);
 		var usedActionIds = plan.Steps.Select(step => step.Definition.Id).ToArray();

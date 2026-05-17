@@ -26,6 +26,9 @@ namespace DwarvenFortification.ECS
 		readonly Dictionary<string, Entity> agentArchetypeEntities;
 		readonly Dictionary<string, Entity> goalDefinitionEntities;
 		readonly Entity? defaultAgentArchetypeEntity;
+		readonly List<string[]> knownItemFilters;
+		readonly List<FactDefinition> factDefinitions;
+		readonly List<SkillDefinition> skillDefinitions;
 
 		SimulationDefinitionRegistry(
 			World world,
@@ -34,7 +37,9 @@ namespace DwarvenFortification.ECS
 			IEnumerable<WorldObjectDefinition> objects,
 			IEnumerable<ResourceNodeDefinition> resourceNodes,
 			IEnumerable<AgentDefinition> agents,
-			IEnumerable<GoalDefinition> goals)
+			IEnumerable<GoalDefinition> goals,
+			IEnumerable<FactDefinition> facts,
+			IEnumerable<SkillDefinition> skills)
 		{
 			World = world;
 			itemDefinitionEntities = new Dictionary<string, Entity>(StringComparer.OrdinalIgnoreCase);
@@ -45,13 +50,32 @@ namespace DwarvenFortification.ECS
 			resourceNodeDefinitionEntitiesById = new Dictionary<string, Entity>(StringComparer.OrdinalIgnoreCase);
 			agentArchetypeEntities = new Dictionary<string, Entity>(StringComparer.OrdinalIgnoreCase);
 			goalDefinitionEntities = new Dictionary<string, Entity>(StringComparer.OrdinalIgnoreCase);
+			knownItemFilters = new List<string[]>();
+			factDefinitions = new List<FactDefinition>(facts ?? Array.Empty<FactDefinition>());
+			skillDefinitions = new List<SkillDefinition>(skills ?? Array.Empty<SkillDefinition>());
 
 			foreach (var item in items.Where(def => !string.IsNullOrWhiteSpace(def.Id)))
 			{
+				var propertyTags = (item.Properties ?? new System.Collections.Generic.Dictionary<string, string>())
+					.Select(kvp => $"{kvp.Key}:{kvp.Value}")
+					.ToArray();
+				var allTags = (item.Tags ?? Array.Empty<string>()).Concat(propertyTags).ToArray();
 				itemDefinitionEntities[item.Id] = World.Create(
 					new DefinitionIdentityComponent(item.Id, item.Name),
-					new TagCollectionComponent(item.Tags ?? Array.Empty<string>()),
-					new ItemDefinitionComponent(item.IsTool, item.Stackable, item.WeightKg, item.LearnedFacts ?? Array.Empty<string>(), item.NutritionValue, item.HydrationValue, item.ThrowRange));
+					new TagCollectionComponent(allTags),
+					new ItemDefinitionComponent(
+						item.IsTool,
+						item.Stackable,
+						item.WeightKg,
+						item.LearnedFacts ?? Array.Empty<string>(),
+						new ItemNutritionComponent(
+							item.Nutrition?.CarbohydratesGrams ?? 0f,
+							item.Nutrition?.ProteinGrams ?? 0f,
+							item.Nutrition?.FatGrams ?? 0f,
+							item.Nutrition?.SugarGrams ?? 0f,
+							item.Nutrition?.FiberGrams ?? 0f,
+							item.Nutrition?.FluidLiters ?? 0f),
+						item.ThrowRange));
 			}
 
 			foreach (var action in actions.Where(def => !string.IsNullOrWhiteSpace(def.Id)))
@@ -59,8 +83,9 @@ namespace DwarvenFortification.ECS
 				actionDefinitionEntities[action.Id] = World.Create(
 					new DefinitionIdentityComponent(action.Id, action.Name),
 					new ActionDefinitionComponent(action.TargetKind, action.DestinationMode, action.BaseCost, action.DurationTicks),
+					new ActionSkillsComponent(action.Skills ?? Array.Empty<string>()),
 					new ActionRequirementComponent(
-						action.Requires.RequiredItemIds ?? Array.Empty<string>(),
+						action.Requires.RequiredItemTags ?? Array.Empty<string>(),
 						action.Requires.RequiredTargetTags ?? Array.Empty<string>(),
 						action.Requires.RequiredBodyParts ?? Array.Empty<string>(),
 						action.Requires.RequiredOrgans ?? Array.Empty<string>(),
@@ -76,10 +101,47 @@ namespace DwarvenFortification.ECS
 			foreach (var worldObject in objects.Where(def => !string.IsNullOrWhiteSpace(def.Id)))
 			{
 				var color = ParseColor(worldObject.DisplayColor);
+				var buildCosts = (worldObject.BuildCosts ?? Array.Empty<MaterialCostDefinition>())
+					.Where(cost => (!string.IsNullOrWhiteSpace(cost.ItemId) || cost.ItemFilter?.Length > 0) && cost.Quantity > 0)
+					.Select(cost =>
+					{
+						var filter = cost.ItemFilter ?? Array.Empty<string>();
+						if (filter.Length > 0)
+						{
+							if (!knownItemFilters.Any(f => Facts.HasItemFilter(f) == Facts.HasItemFilter(filter)))
+								knownItemFilters.Add(filter);
+							return new MaterialCostComponent(filter, cost.Quantity);
+						}
+						return new MaterialCostComponent(cost.ItemId, cost.Quantity);
+					})
+					.ToArray();
+				var recipes = (worldObject.Recipes ?? Array.Empty<CraftRecipeDefinition>())
+					.Where(recipe => !string.IsNullOrWhiteSpace(recipe.Id) && !string.IsNullOrWhiteSpace(recipe.OutputItemId))
+					.Select(recipe => new CraftRecipeComponent(
+						recipe.Id,
+						recipe.Name,
+						recipe.RequiredFacts ?? Array.Empty<string>(),
+						(recipe.Inputs ?? Array.Empty<MaterialCostDefinition>())
+							.Where(cost => (!string.IsNullOrWhiteSpace(cost.ItemId) || cost.ItemFilter?.Length > 0) && cost.Quantity > 0)
+							.Select(cost =>
+							{
+								var filter = cost.ItemFilter ?? Array.Empty<string>();
+								if (filter.Length > 0)
+								{
+									if (!knownItemFilters.Any(f => Facts.HasItemFilter(f) == Facts.HasItemFilter(filter)))
+										knownItemFilters.Add(filter);
+									return new MaterialCostComponent(filter, cost.Quantity);
+								}
+								return new MaterialCostComponent(cost.ItemId, cost.Quantity);
+							})
+							.ToArray(),
+						recipe.OutputItemId,
+						recipe.OutputQuantity))
+					.ToArray();
 				var entity = World.Create(
 					new DefinitionIdentityComponent(worldObject.Id, worldObject.Name),
 					new TagCollectionComponent(worldObject.Tags ?? Array.Empty<string>()),
-					new WorldObjectDefinitionComponent(worldObject.DisplayColor, worldObject.AcceptedItemTags ?? Array.Empty<string>(), worldObject.BlocksMovement, worldObject.IsReservable, worldObject.Capacity),
+					new WorldObjectDefinitionComponent(worldObject.DisplayColor, worldObject.AcceptedItemTags ?? Array.Empty<string>(), worldObject.BlocksMovement, worldObject.IsReservable, worldObject.Capacity, buildCosts, recipes),
 					new OccupantVisualComponent(color));
 
 				worldObjectDefinitionEntities[worldObject.Id] = entity;
@@ -96,7 +158,7 @@ namespace DwarvenFortification.ECS
 					new ResourceNodeDefinitionComponent(
 						resourceNode.DisplayColor,
 						resourceNode.SupportedActionIds ?? Array.Empty<string>(),
-						resourceNode.RequiredToolItemIds ?? Array.Empty<string>(),
+						resourceNode.RequiredToolItemTags ?? Array.Empty<string>(),
 						resourceNode.YieldItemId,
 						resourceNode.YieldCount,
 						resourceNode.BlocksMovement),
@@ -107,8 +169,16 @@ namespace DwarvenFortification.ECS
 
 			foreach (var agent in agents.Where(def => !string.IsNullOrWhiteSpace(def.Id)))
 			{
+				var agentStartingSkills = new System.Collections.Generic.Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+				if (agent.Skills != null)
+				{
+					foreach (var kvp in agent.Skills)
+						agentStartingSkills[kvp.Key] = kvp.Value;
+				}
+
 				agentArchetypeEntities[agent.Id] = World.Create(
 					new DefinitionIdentityComponent(agent.Id, agent.Name),
+					new AgentSkillsComponent(agentStartingSkills),
 					new AgentArchetypeComponent(
 						agent.FactionId,
 						agent.MemoryProviderId,
@@ -125,14 +195,21 @@ namespace DwarvenFortification.ECS
 						agent.MaxRest,
 						agent.RestDecayPerTick,
 						agent.RestRecoveryPerTick,
-						agent.StartingHunger,
-						agent.MaxHunger,
-						agent.HungerDecayPerTick,
-						agent.HungerRecoveryPerTick,
-						agent.StartingThirst,
-						agent.MaxThirst,
-						agent.ThirstDecayPerTick,
-						agent.ThirstRecoveryPerTick,
+						agent.StartingCarbohydratesGrams,
+						agent.MaxCarbohydratesGrams,
+						agent.StartingProteinGrams,
+						agent.MaxProteinGrams,
+						agent.StartingFatGrams,
+						agent.MaxFatGrams,
+						agent.StartingSugarGrams,
+						agent.MaxSugarGrams,
+						agent.StartingHydrationLiters,
+						agent.MaxHydrationLiters,
+						agent.SugarUsePerTick,
+						agent.HydrationUsePerTick,
+						agent.SugarFromCarbohydratesPerTick,
+						agent.SugarFromFatPerTick,
+						agent.ProteinCatabolismPerTick,
 						agent.BodyWidth,
 						agent.BodyHeight));
 			}
@@ -173,6 +250,12 @@ namespace DwarvenFortification.ECS
 			return true;
 		}
 
+		public IReadOnlyList<string[]> GetKnownItemFilters()
+			=> knownItemFilters;
+
+		public IReadOnlyList<FactDefinition> GetFactDefinitions()
+			=> factDefinitions;
+
 		public IReadOnlyList<string> GetItemDefinitionIdsGrantingFact(string fact)
 			=> itemDefinitionEntities
 				.Where(pair => pair.Value.Get<ItemDefinitionComponent>().LearnedFacts.Contains(fact, StringComparer.OrdinalIgnoreCase))
@@ -195,7 +278,7 @@ namespace DwarvenFortification.ECS
 				new ItemInstanceComponent(identity.Id),
 				new DefinitionIdentityComponent(identity.Id, identity.Name),
 				new TagCollectionComponent(tags.Values),
-				new ItemDefinitionComponent(itemDefinition.IsTool, itemDefinition.Stackable, itemDefinition.WeightKg, itemDefinition.LearnedFacts, itemDefinition.NutritionValue, itemDefinition.HydrationValue, itemDefinition.ThrowRange));
+				new ItemDefinitionComponent(itemDefinition.IsTool, itemDefinition.Stackable, itemDefinition.WeightKg, itemDefinition.LearnedFacts, itemDefinition.Nutrition, itemDefinition.ThrowRange));
 
 			return true;
 		}
@@ -210,6 +293,23 @@ namespace DwarvenFortification.ECS
 			=> paintableOccupants;
 
 		public bool TryCreateWorldObjectEntity(string worldObjectId, Point position, Point cell, out Entity entity)
+		{
+			if (!worldObjectDefinitionEntitiesById.TryGetValue(worldObjectId, out var definitionEntity))
+			{
+				entity = default;
+				return false;
+			}
+
+			var definition = definitionEntity.Get<WorldObjectDefinitionComponent>();
+			if (definition.BuildCosts.Length > 0)
+			{
+				return TryCreateConstructionSiteEntity(definitionEntity, position, cell, out entity);
+			}
+
+			return TryCreateCompletedWorldObjectEntity(worldObjectId, position, cell, out entity);
+		}
+
+		public bool TryCreateCompletedWorldObjectEntity(string worldObjectId, Point position, Point cell, out Entity entity)
 		{
 			entity = default;
 			if (!worldObjectDefinitionEntitiesById.TryGetValue(worldObjectId, out var definitionEntity))
@@ -231,11 +331,51 @@ namespace DwarvenFortification.ECS
 					worldObjectDefinition.AcceptedItemTags,
 					worldObjectDefinition.BlocksMovement,
 					worldObjectDefinition.IsReservable,
-					worldObjectDefinition.Capacity),
+					worldObjectDefinition.Capacity,
+					worldObjectDefinition.BuildCosts,
+					worldObjectDefinition.Recipes),
 				new OccupantVisualComponent(definitionEntity.Get<OccupantVisualComponent>().Color),
 				new RuntimeTransformComponent { Position = position },
 				new CellReferenceComponent { Cell = cell },
 				new InventoryComponent { Items = [], Capacity = worldObjectDefinition.Capacity });
+
+			return true;
+		}
+
+		bool TryCreateConstructionSiteEntity(Entity definitionEntity, Point position, Point cell, out Entity entity)
+		{
+			var identity = definitionEntity.Get<DefinitionIdentityComponent>();
+			var tags = definitionEntity.Get<TagCollectionComponent>();
+			var worldObjectDefinition = definitionEntity.Get<WorldObjectDefinitionComponent>();
+			var siteTags = tags.Values
+				.Concat(new[] { "construction-site", "storage", "container" })
+				.Distinct(StringComparer.OrdinalIgnoreCase)
+				.ToArray();
+			var siteColor = Color.Lerp(definitionEntity.Get<OccupantVisualComponent>().Color, Color.SandyBrown, 0.45f);
+			var capacity = System.Math.Max(1, worldObjectDefinition.BuildCosts.Sum(cost => cost.Quantity));
+
+			entity = RuntimeWorld.Create(
+				new WorldObjectTagComponent(),
+				new WorldObjectReferenceComponent { DefinitionId = identity.Id },
+				new DefinitionIdentityComponent($"{identity.Id}-site", $"{identity.Name} (Site)"),
+				new TagCollectionComponent(siteTags),
+				new WorldObjectDefinitionComponent(
+					worldObjectDefinition.DisplayColorHex,
+					Array.Empty<string>(),
+					false,
+					false,
+					capacity,
+					worldObjectDefinition.BuildCosts,
+					Array.Empty<CraftRecipeComponent>()),
+				new OccupantVisualComponent(siteColor),
+				new RuntimeTransformComponent { Position = position },
+				new CellReferenceComponent { Cell = cell },
+				new InventoryComponent { Items = [], Capacity = capacity },
+				new ConstructionSiteComponent
+				{
+					TargetDefinitionId = identity.Id,
+					BuildCosts = worldObjectDefinition.BuildCosts,
+				});
 
 			return true;
 		}
@@ -260,7 +400,7 @@ namespace DwarvenFortification.ECS
 				new ResourceNodeDefinitionComponent(
 					resourceDefinition.DisplayColorHex,
 					resourceDefinition.SupportedActionIds,
-					resourceDefinition.RequiredToolItemIds,
+					resourceDefinition.RequiredToolItemTags,
 					resourceDefinition.YieldItemId,
 					resourceDefinition.YieldCount,
 					resourceDefinition.BlocksMovement),
@@ -291,7 +431,8 @@ namespace DwarvenFortification.ECS
 						requirements.BlockedByFacts,
 						requirements.RequiresReservation,
 						effects.AddFacts,
-						effects.RemoveFacts);
+						effects.RemoveFacts,
+						entity.Get<ActionSkillsComponent>().Skills);
 				})
 				.ToArray();
 
@@ -300,7 +441,7 @@ namespace DwarvenFortification.ECS
 			var facts = new List<string>();
 
 			facts.AddRange(requirements.RequiredFacts);
-			facts.AddRange(requirements.RequiredItemIds.Select(Facts.HasItem));
+			facts.AddRange(requirements.RequiredItemTags.Select(Facts.HasItemTag));
 			facts.AddRange(requirements.RequiredBodyParts.Select(Facts.HasBodyPart));
 			facts.AddRange(requirements.RequiredOrgans.Select(Facts.HasOrgan));
 			facts.AddRange(requirements.RequiredSystems.Select(Facts.HasSystem));
@@ -338,7 +479,7 @@ namespace DwarvenFortification.ECS
 				definition.DisplayColorHex,
 				tags.Values,
 				definition.SupportedActionIds,
-				definition.RequiredToolItemIds,
+				definition.RequiredToolItemTags,
 				definition.YieldItemId,
 				definition.YieldCount,
 				definition.BlocksMovement);
@@ -412,14 +553,21 @@ namespace DwarvenFortification.ECS
 				archetype.MaxRest,
 				archetype.RestDecayPerTick,
 				archetype.RestRecoveryPerTick,
-				archetype.StartingHunger,
-				archetype.MaxHunger,
-				archetype.HungerDecayPerTick,
-				archetype.HungerRecoveryPerTick,
-				archetype.StartingThirst,
-				archetype.MaxThirst,
-				archetype.ThirstDecayPerTick,
-				archetype.ThirstRecoveryPerTick,
+				archetype.StartingCarbohydratesGrams,
+				archetype.MaxCarbohydratesGrams,
+				archetype.StartingProteinGrams,
+				archetype.MaxProteinGrams,
+				archetype.StartingFatGrams,
+				archetype.MaxFatGrams,
+				archetype.StartingSugarGrams,
+				archetype.MaxSugarGrams,
+				archetype.StartingHydrationLiters,
+				archetype.MaxHydrationLiters,
+				archetype.SugarUsePerTick,
+				archetype.HydrationUsePerTick,
+				archetype.SugarFromCarbohydratesPerTick,
+				archetype.SugarFromFatPerTick,
+				archetype.ProteinCatabolismPerTick,
 				archetype.BodyWidth,
 				archetype.BodyHeight);
 			return true;
@@ -452,19 +600,37 @@ namespace DwarvenFortification.ECS
 					archetype.MaxRest,
 					archetype.RestDecayPerTick,
 					archetype.RestRecoveryPerTick,
-					archetype.StartingHunger,
-					archetype.MaxHunger,
-					archetype.HungerDecayPerTick,
-					archetype.HungerRecoveryPerTick,
-					archetype.StartingThirst,
-					archetype.MaxThirst,
-					archetype.ThirstDecayPerTick,
-					archetype.ThirstRecoveryPerTick,
+					archetype.StartingCarbohydratesGrams,
+					archetype.MaxCarbohydratesGrams,
+					archetype.StartingProteinGrams,
+					archetype.MaxProteinGrams,
+					archetype.StartingFatGrams,
+					archetype.MaxFatGrams,
+					archetype.StartingSugarGrams,
+					archetype.MaxSugarGrams,
+					archetype.StartingHydrationLiters,
+					archetype.MaxHydrationLiters,
+					archetype.SugarUsePerTick,
+					archetype.HydrationUsePerTick,
+					archetype.SugarFromCarbohydratesPerTick,
+					archetype.SugarFromFatPerTick,
+					archetype.ProteinCatabolismPerTick,
 					archetype.BodyWidth,
 					archetype.BodyHeight);
 			}
 
 			return AgentArchetypeSnapshot.Default;
+		}
+
+		public IReadOnlyList<SkillDefinition> GetSkillDefinitions() => skillDefinitions;
+
+		public bool TryGetAgentSkills(string agentId, out System.Collections.Generic.Dictionary<string, int> skills)
+		{
+			skills = null;
+			if (!agentArchetypeEntities.TryGetValue(agentId, out var entity))
+				return false;
+			skills = entity.Get<AgentSkillsComponent>().Skills;
+			return true;
 		}
 
 		public static SimulationDefinitionRegistry LoadFromContentDirectory(string contentRoot)
@@ -483,8 +649,10 @@ namespace DwarvenFortification.ECS
 			var resources = LoadDocument<ResourceNodeDefinitionDocument>(Path.Combine(contentRoot, "resources.json"), options).ResourceNodes;
 			var agents = LoadDocument<AgentDefinitionDocument>(Path.Combine(contentRoot, "agents.json"), options).Agents;
 			var goals = LoadDocument<GoalDefinitionDocument>(Path.Combine(contentRoot, "goals.json"), options).Goals;
+			var facts = LoadDocument<FactDefinitionDocument>(Path.Combine(contentRoot, "facts.json"), options).Facts;
+			var skills = LoadDocument<SkillDefinitionDocument>(Path.Combine(contentRoot, "skills.json"), options).Skills;
 
-			return new SimulationDefinitionRegistry(World.Create(), items, actions, objects, resources, agents, goals);
+			return new SimulationDefinitionRegistry(World.Create(), items, actions, objects, resources, agents, goals, facts, skills);
 		}
 
 		static T LoadDocument<T>(string path, JsonSerializerOptions options)

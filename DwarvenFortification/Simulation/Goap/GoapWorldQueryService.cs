@@ -32,9 +32,25 @@ namespace DwarvenFortification.GOAP
 			foreach (var item in inventory)
 			{
 				facts.Add(Facts.HasItem(item.GetItemDefinitionId()));
+				if (item.Has<TagCollectionComponent>())
+				{
+					foreach (var tag in item.Get<TagCollectionComponent>().Values)
+					{
+						facts.Add(Facts.HasItemTag(tag));
+					}
+				}
+
 				if (!item.Get<ItemDefinitionComponent>().IsTool)
 				{
 					facts.Add(Facts.InventoryHasResourceItems);
+				}
+			}
+
+			foreach (var filter in definitions.GetKnownItemFilters())
+			{
+				if (inventory.Any(item => item.ItemMatchesFilter(filter)))
+				{
+					facts.Add(Facts.HasItemFilter(filter));
 				}
 			}
 
@@ -53,7 +69,14 @@ namespace DwarvenFortification.GOAP
 
 				foreach (var system in body.Systems)
 				{
-					facts.Add(Facts.HasSystem(system));
+					if (agent.IsSystemOperational(system))
+					{
+						facts.Add(Facts.HasSystem(system));
+					}
+					else
+					{
+						facts.Add(Facts.SystemImpaired(system));
+					}
 				}
 			}
 
@@ -85,6 +108,11 @@ namespace DwarvenFortification.GOAP
 
 			facts.Add(agent.IsHungry() ? Facts.HungerLow : Facts.HungerOk);
 			facts.Add(agent.IsThirsty() ? Facts.ThirstLow : Facts.ThirstOk);
+			facts.Add(agent.IsNutrientLow(SimulationEntityExtensions.NutrientKind.Carbohydrates) ? Facts.NutrientLow("carbohydrates") : Facts.NutrientOk("carbohydrates"));
+			facts.Add(agent.IsNutrientLow(SimulationEntityExtensions.NutrientKind.Protein) ? Facts.NutrientLow("protein") : Facts.NutrientOk("protein"));
+			facts.Add(agent.IsNutrientLow(SimulationEntityExtensions.NutrientKind.Fat) ? Facts.NutrientLow("fat") : Facts.NutrientOk("fat"));
+			facts.Add(agent.IsNutrientLow(SimulationEntityExtensions.NutrientKind.Sugar) ? Facts.NutrientLow("sugar") : Facts.NutrientOk("sugar"));
+			facts.Add(agent.IsNutrientLow(SimulationEntityExtensions.NutrientKind.Hydration) ? Facts.NutrientLow("hydration") : Facts.NutrientOk("hydration"));
 
 			if (agent.IsHidden())
 			{
@@ -111,6 +139,46 @@ namespace DwarvenFortification.GOAP
 			}
 
 			var agentCell = world.CoordsAtXY(agent.GetPosition());
+			foreach (var (cell, _, _) in world.EnumerateCells())
+			{
+				if (!cell.TryGetWorldObject(out var worldObject))
+				{
+					continue;
+				}
+
+				if (worldObject.IsConstructionSite())
+				{
+					facts.Add(Facts.ConstructionPending);
+					if (worldObject.GetMissingBuildCosts().Length > 0)
+					{
+						facts.Add(Facts.SiteNeedsMaterials);
+					}
+					continue;
+				}
+
+				if (worldObject.Has<WorldObjectReferenceComponent>())
+				{
+					facts.Add(Facts.HasStructure(worldObject.Get<WorldObjectReferenceComponent>().DefinitionId));
+				}
+
+				foreach (var recipe in worldObject.GetRecipes())
+				{
+					if (recipe.RequiredFacts.All(facts.Contains) && worldObject.HasStoredMaterials(recipe.Inputs))
+					{
+						facts.Add(Facts.CraftableItem(recipe.OutputItemId));
+					}
+				}
+
+				if (worldObject.HasActiveProductionOrder())
+				{
+					facts.Add(Facts.ProductionOrderActive);
+					if (worldObject.GetMissingOrderInputs().Length > 0)
+					{
+						facts.Add(Facts.WorkstationNeedsInputs);
+					}
+				}
+			}
+
 			var hasNearbyEnemy = world.GetAgents()
 				.Where(other => !other.Equals(agent) && !string.Equals(other.GetFactionId(), agent.GetFactionId(), StringComparison.OrdinalIgnoreCase))
 				.Any(other => Vector2.DistanceSquared(world.CoordsAtXY(other.GetPosition()).ToVector2(), agentCell.ToVector2()) <= 64f);
@@ -216,6 +284,102 @@ namespace DwarvenFortification.GOAP
 							}
 						}
 
+						if (string.Equals(action.Id, "haul-material", StringComparison.OrdinalIgnoreCase))
+						{
+							MaterialCostComponent[] missingItems;
+							string removedFact;
+
+							if (worldObject.IsConstructionSite())
+							{
+								missingItems = worldObject.GetMissingBuildCosts();
+								removedFact = Facts.SiteNeedsMaterials;
+							}
+							else if (worldObject.HasActiveProductionOrder())
+							{
+								missingItems = worldObject.GetMissingOrderInputs();
+								removedFact = Facts.WorkstationNeedsInputs;
+							}
+							else
+							{
+								AddRejected(action, "Target is not a construction site or an active production workstation.", coords, null, targetSummary);
+								continue;
+							}
+
+							if (missingItems.Length == 0)
+							{
+								AddRejected(action, "Target already has all required materials.", coords, null, targetSummary);
+								continue;
+							}
+
+							if (!world.TryFindActionDestinationCell(agentCell, coords, action.DestinationMode, out var haulDestination))
+							{
+								AddRejected(action, "No valid destination cell found for haul target.", coords, null, targetSummary);
+								continue;
+							}
+
+							foreach (var missing in missingItems)
+						{
+							var haulItemFact = missing.UsesFilter
+								? Facts.HasItemFilter(missing.ItemFilter)
+								: Facts.HasItem(missing.ItemId);
+							var haulRequiredFacts = BuildRequiredFacts(action, haulItemFact);
+							var haulRemoveFacts = action.RemoveFacts.Concat(new[] { removedFact }).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+							var haulCandidate = new ActionCandidate(action, coords, haulDestination, worldObject, action.BaseCost + action.DurationTicks, haulRequiredFacts, action.AddFacts, haulRemoveFacts);
+							AddAccepted(haulCandidate, $"{targetSummary}: haul {(missing.UsesFilter ? string.Join("+", missing.ItemFilter) : missing.ItemId)}");
+						}
+							continue;
+						}
+
+						if (string.Equals(action.Id, "complete-construction", StringComparison.OrdinalIgnoreCase))
+						{
+							if (!worldObject.IsConstructionSite())
+							{
+								AddRejected(action, "Target is not a construction site.", coords, null, targetSummary);
+								continue;
+							}
+
+							var missingCosts = worldObject.GetMissingBuildCosts();
+							if (missingCosts.Length > 0)
+							{
+								AddRejected(action, $"Construction site is missing: {string.Join(", ", missingCosts.Select(cost => $"{cost.Quantity}x {cost.ItemId}"))}.", coords, null, targetSummary);
+								continue;
+							}
+						}
+
+						if (string.Equals(action.Id, "process-recipe", StringComparison.OrdinalIgnoreCase))
+						{
+							var matchingRecipes = worldObject.GetRecipes()
+								.Where(recipe => recipe.RequiredFacts.All(currentFacts.Contains) && worldObject.HasStoredMaterials(recipe.Inputs))
+								.ToArray();
+							if (matchingRecipes.Length == 0)
+							{
+								AddRejected(action, "Target has no recipe with all required stored materials and facts satisfied.", coords, null, targetSummary);
+								continue;
+							}
+
+							if (!world.TryFindActionDestinationCell(agentCell, coords, action.DestinationMode, out var recipeDestination))
+							{
+								AddRejected(action, "No valid destination cell found for this target.", coords, null, targetSummary);
+								continue;
+							}
+
+							var activeOrder = worldObject.HasActiveProductionOrder() ? worldObject.GetProductionOrder() : default;
+							foreach (var recipe in matchingRecipes)
+							{
+								var addFacts = action.AddFacts.Concat(new[] { Facts.HasItem(recipe.OutputItemId) }).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+								var recipeRemoveFacts = action.RemoveFacts;
+								if (!string.IsNullOrWhiteSpace(activeOrder.ActiveRecipeId) && string.Equals(recipe.Id, activeOrder.ActiveRecipeId, StringComparison.OrdinalIgnoreCase))
+								{
+									recipeRemoveFacts = recipeRemoveFacts.Concat(new[] { Facts.ProductionOrderActive }).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+								}
+
+								var recipeCandidate = new ActionCandidate(action, coords, recipeDestination, worldObject, action.BaseCost + action.DurationTicks, BuildRequiredFacts(action, recipe.RequiredFacts), addFacts, recipeRemoveFacts);
+								AddAccepted(recipeCandidate, $"{targetSummary}: {recipe.Name}");
+							}
+
+							continue;
+						}
+
 						if (string.Equals(action.Id, "sleep", StringComparison.OrdinalIgnoreCase) && !agent.IsRestLow())
 						{
 							AddRejected(action, "Agent is not tired enough to sleep.", coords, null, targetSummary);
@@ -228,12 +392,35 @@ namespace DwarvenFortification.GOAP
 							continue;
 						}
 
-						var candidate = new ActionCandidate(action, coords, destinationCell, worldObject, action.BaseCost + action.DurationTicks, BuildRequiredFacts(action), action.AddFacts, action.RemoveFacts);
+						var addFactsForCandidate = action.AddFacts;
+						var removeFactsForCandidate = action.RemoveFacts;
+						if (string.Equals(action.Id, "complete-construction", StringComparison.OrdinalIgnoreCase))
+						{
+							var completedStructureId = worldObject.Get<ConstructionSiteComponent>().TargetDefinitionId;
+							addFactsForCandidate = action.AddFacts.Concat(new[] { Facts.HasStructure(completedStructureId) }).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+							removeFactsForCandidate = action.RemoveFacts.Concat(new[] { Facts.ConstructionPending }).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+						}
+
+						var candidate = new ActionCandidate(action, coords, destinationCell, worldObject, action.BaseCost + action.DurationTicks, BuildRequiredFacts(action), addFactsForCandidate, removeFactsForCandidate);
 						AddAccepted(candidate, targetSummary);
 					}
 				}
 				else if (string.Equals(action.TargetKind, "self", StringComparison.OrdinalIgnoreCase))
 				{
+					if (string.Equals(action.Id, "eat", StringComparison.OrdinalIgnoreCase)
+						&& !agent.TrySelectConsumableItem(SimulationEntityExtensions.ConsumableKind.Food, out _))
+					{
+						AddRejected(action, "Agent has no edible inventory item suitable for current needs.", agentCell, agentCell, agent.GetName());
+						continue;
+					}
+
+					if (string.Equals(action.Id, "drink", StringComparison.OrdinalIgnoreCase)
+						&& !agent.TrySelectConsumableItem(SimulationEntityExtensions.ConsumableKind.Drink, out _))
+					{
+						AddRejected(action, "Agent has no drinkable inventory item suitable for current needs.", agentCell, agentCell, agent.GetName());
+						continue;
+					}
+
 					var candidate = new ActionCandidate(action, agentCell, agentCell, agent, action.BaseCost + action.DurationTicks, BuildRequiredFacts(action), action.AddFacts, action.RemoveFacts);
 					AddAccepted(candidate, agent.GetName());
 				}
@@ -248,7 +435,7 @@ namespace DwarvenFortification.GOAP
 
 						var otherCell = world.CoordsAtXY(other.GetPosition());
 						var targetSummary = other.GetName();
-						var throwItem = GetRequiredItemIds(action).Select(itemId => agent.GetInventory().FirstOrDefault(item => string.Equals(item.GetItemDefinitionId(), itemId, StringComparison.OrdinalIgnoreCase))).FirstOrDefault();
+						var throwItem = GetRequiredItemsByTag(action, agent.GetInventory()).FirstOrDefault();
 						if (!throwItem.Equals(default(Entity)))
 						{
 							var range = throwItem.Get<ItemDefinitionComponent>().ThrowRange;
@@ -287,6 +474,12 @@ namespace DwarvenFortification.GOAP
 			var missingItemIds = actions
 				.SelectMany(GetRequiredItemIds)
 				.Where(itemId => !string.IsNullOrWhiteSpace(itemId) && !currentFacts.Contains(Facts.HasItem(itemId)))
+				.Distinct(StringComparer.OrdinalIgnoreCase)
+				.ToArray();
+
+			var missingItemTags = actions
+				.SelectMany(GetRequiredItemTags)
+				.Where(tag => !string.IsNullOrWhiteSpace(tag) && !currentFacts.Contains(Facts.HasItemTag(tag)))
 				.Distinct(StringComparer.OrdinalIgnoreCase)
 				.ToArray();
 
@@ -335,6 +528,34 @@ namespace DwarvenFortification.GOAP
 				else if (!string.IsNullOrWhiteSpace(searchAction.Id))
 				{
 					addRejected(searchAction, "No known or discoverable world location for the required item.", null, null, itemId);
+				}
+			}
+
+			foreach (var tag in missingItemTags)
+			{
+				if (!string.IsNullOrWhiteSpace(searchAction.Id) && world.TryFindNearestItemLocationByTag(new[] { tag }, agentCell, out var tagSearchCell, out var tagItemId))
+				{
+					if (currentFacts.Contains(Facts.KnowsItemLocation(tagItemId)) && agent.TryRecallItemLocation(tagItemId, out var knownTagCell) && world.CellContainsItem(knownTagCell, tagItemId) && !string.IsNullOrWhiteSpace(retrieveAction.Id))
+					{
+						if (world.TryFindActionDestinationCell(agentCell, knownTagCell, retrieveAction.DestinationMode, out var tagRetrieveDestination))
+						{
+							yield return new ActionCandidate(retrieveAction, knownTagCell, tagRetrieveDestination, null, retrieveAction.BaseCost + retrieveAction.DurationTicks, BuildRequiredFacts(retrieveAction, Facts.KnowsItemLocation(tagItemId)), new[] { Facts.HasItem(tagItemId), Facts.HasItemTag(tag) }, Array.Empty<string>());
+							continue;
+						}
+					}
+
+					if (world.TryFindActionDestinationCell(agentCell, tagSearchCell, searchAction.DestinationMode, out var tagSearchDestination))
+					{
+						yield return new ActionCandidate(searchAction, tagSearchCell, tagSearchDestination, null, searchAction.BaseCost + searchAction.DurationTicks, BuildRequiredFacts(searchAction), new[] { Facts.KnowsItemLocation(tagItemId) }, Array.Empty<string>());
+					}
+					else
+					{
+						addRejected(searchAction, $"Item with tag '{tag}' exists but no valid search destination was reachable.", tagSearchCell, null, tag);
+					}
+				}
+				else if (!string.IsNullOrWhiteSpace(searchAction.Id))
+				{
+					addRejected(searchAction, $"No discoverable item with tag '{tag}' found in the world.", null, null, tag);
 				}
 			}
 
@@ -447,6 +668,40 @@ namespace DwarvenFortification.GOAP
 				if (Facts.TryGetHasItemId(fact, out var itemId))
 				{
 					yield return itemId;
+				}
+			}
+		}
+
+		static IEnumerable<string> GetRequiredItemTags(ActionDefinitionSnapshot action)
+		{
+			foreach (var fact in action.RequiredFacts)
+			{
+				if (Facts.TryGetHasItemTag(fact, out var tag))
+				{
+					yield return tag;
+				}
+			}
+		}
+
+		static IEnumerable<Entity> GetRequiredItemsByTag(ActionDefinitionSnapshot action, System.Collections.Generic.IList<Entity> inventory)
+		{
+			foreach (var fact in action.RequiredFacts)
+			{
+				if (Facts.TryGetHasItemFilter(fact, out var tags))
+				{
+					var match = inventory.FirstOrDefault(item => item.ItemMatchesFilter(tags));
+					if (!match.Equals(default(Entity)))
+					{
+						yield return match;
+					}
+				}
+				else if (Facts.TryGetHasItemId(fact, out var itemId))
+				{
+					var match = inventory.FirstOrDefault(item => string.Equals(item.GetItemDefinitionId(), itemId, StringComparison.OrdinalIgnoreCase));
+					if (!match.Equals(default(Entity)))
+					{
+						yield return match;
+					}
 				}
 			}
 		}

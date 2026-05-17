@@ -5,13 +5,24 @@ namespace DwarvenFortification.GOAP
 	public static class Facts
 	{
 		const string HasItemPrefix = "has.item.";
+		const string HasItemTagPrefix = "has.item-tag.";
+		const string HasItemFilterPrefix = "has.item-filter.";
 		const string HasBodyPartPrefix = "has.body-part.";
 		const string HasOrganPrefix = "has.organ.";
 		const string HasSystemPrefix = "has.system.";
+		const string SystemImpairedPrefix = "system.impaired.";
 		const string MemoryProviderPrefix = "memory.provider.";
 		const string KnowsItemLocationPrefix = "knows.item-location.";
+		const string NutrientLowPrefix = "nutrient.low.";
+		const string NutrientOkPrefix = "nutrient.ok.";
+		const string HasStructurePrefix = "has.structure.";
+		const string CraftableItemPrefix = "craftable.item.";
 
 		public const string MemoryCapable = "memory.capable";
+		public const string ConstructionPending = "construction.pending";
+		public const string SiteNeedsMaterials = "site.needs-materials";
+		public const string WorkstationNeedsInputs = "workstation.needs-inputs";
+		public const string ProductionOrderActive = "production.order.active";
 		public const string InventoryHasResourceItems = "inventory.has-resource-items";
 		public const string InventoryHasSpace = "inventory.has-space";
 		public const string RestLow = "rest.low";
@@ -39,14 +50,65 @@ namespace DwarvenFortification.GOAP
 		public static string HasSystem(string system)
 			=> $"{HasSystemPrefix}{system}";
 
+		public static string SystemImpaired(string system)
+			=> $"{SystemImpairedPrefix}{system}";
+
 		public static string MemoryProvider(string providerId)
 			=> $"{MemoryProviderPrefix}{providerId}";
 
 		public static string KnowsItemLocation(string itemId)
 			=> $"{KnowsItemLocationPrefix}{itemId}";
 
+		public static string NutrientLow(string nutrient)
+			=> $"{NutrientLowPrefix}{nutrient}";
+
+		public static string NutrientOk(string nutrient)
+			=> $"{NutrientOkPrefix}{nutrient}";
+
+		public static string HasStructure(string structureId)
+			=> $"{HasStructurePrefix}{structureId}";
+
+		public static string CraftableItem(string itemId)
+			=> $"{CraftableItemPrefix}{itemId}";
+
+		public static string HasItemTag(string tag)
+			=> $"{HasItemTagPrefix}{tag}";
+
+		public static string HasItemFilter(string[] tags)
+		{
+			if (tags.Length == 1)
+			{
+				return HasItemTag(tags[0]);
+			}
+
+			var sorted = (string[])tags.Clone();
+			Array.Sort(sorted, StringComparer.OrdinalIgnoreCase);
+			return $"{HasItemFilterPrefix}{string.Join(",", sorted)}";
+		}
+
 		public static bool TryGetHasItemId(string fact, out string itemId)
 			=> TryGetFactSuffix(fact, HasItemPrefix, out itemId);
+
+		public static bool TryGetHasItemTag(string fact, out string tag)
+			=> TryGetFactSuffix(fact, HasItemTagPrefix, out tag);
+
+		public static bool TryGetHasItemFilter(string fact, out string[] tags)
+		{
+			if (TryGetFactSuffix(fact, HasItemFilterPrefix, out var suffix))
+			{
+				tags = suffix.Split(',', StringSplitOptions.RemoveEmptyEntries);
+				return tags.Length > 0;
+			}
+
+			if (TryGetFactSuffix(fact, HasItemTagPrefix, out var singleTag))
+			{
+				tags = new[] { singleTag };
+				return true;
+			}
+
+			tags = Array.Empty<string>();
+			return false;
+		}
 
 		public static bool TryGetKnownItemLocationId(string fact, out string itemId)
 			=> TryGetFactSuffix(fact, KnowsItemLocationPrefix, out itemId);

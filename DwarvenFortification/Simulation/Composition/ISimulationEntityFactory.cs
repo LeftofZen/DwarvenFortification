@@ -8,6 +8,7 @@ namespace DwarvenFortification.Simulation.Composition
 		Entity CreateAgent(string name, Point position, string archetypeId = "dwarf");
 		Entity CreateItem(string definitionId);
 		Entity CreateWorldObject(string definitionId, Point position, Point cell);
+		Entity CreateCompletedWorldObject(string definitionId, Point position, Point cell);
 		Entity CreateResourceNode(string definitionId, Point position, Point cell);
 	}
 }

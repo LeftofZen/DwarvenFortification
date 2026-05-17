@@ -6,7 +6,7 @@
       "displayColor": "#96A0AA",
       "tags": ["mineable", "ore", "tin"],
       "supportedActionIds": ["mine"],
-      "requiredToolItemIds": ["pickaxe"],
+      "requiredToolItemTags": ["mining"],
       "yieldItemId": "tin-ore",
       "yieldCount": 40,
       "blocksMovement": false
@@ -17,7 +17,7 @@
       "displayColor": "#B5651D",
       "tags": ["mineable", "ore", "copper"],
       "supportedActionIds": ["mine"],
-      "requiredToolItemIds": ["pickaxe"],
+      "requiredToolItemTags": ["mining"],
       "yieldItemId": "copper-ore",
       "yieldCount": 36,
       "blocksMovement": false
@@ -28,7 +28,7 @@
       "displayColor": "#D4AF37",
       "tags": ["mineable", "ore", "gold"],
       "supportedActionIds": ["mine"],
-      "requiredToolItemIds": ["pickaxe"],
+      "requiredToolItemTags": ["mining"],
       "yieldItemId": "gold-ore",
       "yieldCount": 18,
       "blocksMovement": false
@@ -39,7 +39,7 @@
       "displayColor": "#C0C0C8",
       "tags": ["mineable", "ore", "silver"],
       "supportedActionIds": ["mine"],
-      "requiredToolItemIds": ["pickaxe"],
+      "requiredToolItemTags": ["mining"],
       "yieldItemId": "silver-ore",
       "yieldCount": 24,
       "blocksMovement": false
@@ -50,7 +50,7 @@
       "displayColor": "#7A7F84",
       "tags": ["mineable", "ore", "iron"],
       "supportedActionIds": ["mine"],
-      "requiredToolItemIds": ["pickaxe"],
+      "requiredToolItemTags": ["mining"],
       "yieldItemId": "iron-ore",
       "yieldCount": 42,
       "blocksMovement": false
@@ -61,7 +61,7 @@
       "displayColor": "#36454F",
       "tags": ["mineable", "fuel", "coal"],
       "supportedActionIds": ["mine"],
-      "requiredToolItemIds": ["pickaxe"],
+      "requiredToolItemTags": ["mining"],
       "yieldItemId": "coal",
       "yieldCount": 55,
       "blocksMovement": false
@@ -72,7 +72,7 @@
       "displayColor": "#808080",
       "tags": ["mineable", "stone"],
       "supportedActionIds": ["mine"],
-      "requiredToolItemIds": ["pickaxe"],
+      "requiredToolItemTags": ["mining"],
       "yieldItemId": "stone",
       "yieldCount": 100,
       "blocksMovement": false
@@ -83,7 +83,7 @@
       "displayColor": "#4C7C34",
       "tags": ["tree", "wood", "oak"],
       "supportedActionIds": ["cut-tree"],
-      "requiredToolItemIds": ["axe"],
+      "requiredToolItemTags": ["woodcutting"],
       "yieldItemId": "oak-log",
       "yieldCount": 28,
       "blocksMovement": true
@@ -94,7 +94,7 @@
       "displayColor": "#9BBA6F",
       "tags": ["tree", "wood", "birch"],
       "supportedActionIds": ["cut-tree"],
-      "requiredToolItemIds": ["axe"],
+      "requiredToolItemTags": ["woodcutting"],
       "yieldItemId": "birch-log",
       "yieldCount": 24,
       "blocksMovement": true
@@ -105,7 +105,7 @@
       "displayColor": "#5C6E36",
       "tags": ["tree", "wood", "teak"],
       "supportedActionIds": ["cut-tree"],
-      "requiredToolItemIds": ["axe"],
+      "requiredToolItemTags": ["woodcutting"],
       "yieldItemId": "teak-log",
       "yieldCount": 30,
       "blocksMovement": true
@@ -116,7 +116,7 @@
       "displayColor": "#41693C",
       "tags": ["tree", "wood", "elm"],
       "supportedActionIds": ["cut-tree"],
-      "requiredToolItemIds": ["axe"],
+      "requiredToolItemTags": ["woodcutting"],
       "yieldItemId": "elm-log",
       "yieldCount": 26,
       "blocksMovement": true
@@ -127,7 +127,7 @@
       "displayColor": "#6C8F5F",
       "tags": ["tree", "wood", "willow"],
       "supportedActionIds": ["cut-tree"],
-      "requiredToolItemIds": ["axe"],
+      "requiredToolItemTags": ["woodcutting"],
       "yieldItemId": "willow-log",
       "yieldCount": 22,
       "blocksMovement": true
@@ -138,7 +138,7 @@
       "displayColor": "#B55D3A",
       "tags": ["tree", "wood", "maple"],
       "supportedActionIds": ["cut-tree"],
-      "requiredToolItemIds": ["axe"],
+      "requiredToolItemTags": ["woodcutting"],
       "yieldItemId": "maple-log",
       "yieldCount": 27,
       "blocksMovement": true

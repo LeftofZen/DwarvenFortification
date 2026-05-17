@@ -73,6 +73,7 @@ namespace DwarvenFortification
 				GameServices.Logger,
 				simulationUi);
 			world = simulationRuntime.World;
+			world.PlanningSnapshotProvider = inspectorPlanner.Inspect;
 			GameServices.GridWorld = world;
 
 			_spriteBatch = new SpriteBatch(GraphicsDevice);
