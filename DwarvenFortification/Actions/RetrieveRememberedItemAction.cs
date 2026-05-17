@@ -22,9 +22,10 @@ namespace DwarvenFortification.Actions
 		}
 
 		public override bool IsStillValid(ISimulationWorld world)
-			=> owner.TryRecallItemLocation(itemDefinitionId, out var rememberedCell)
-				&& rememberedCell == targetCell
-				&& world.CellContainsItem(targetCell, itemDefinitionId);
+			// Only check that the item is still physically at the target cell.
+			// Do NOT require the agent to have already memorised the location — this action may
+			// be queued as part of a plan whose earlier search step hasn't run yet.
+			=> world.CellContainsItem(targetCell, itemDefinitionId);
 
 		protected override AgentActionStatus OnTick()
 		{

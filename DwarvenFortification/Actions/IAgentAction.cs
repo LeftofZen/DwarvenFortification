@@ -11,6 +11,8 @@ namespace DwarvenFortification.Actions
 		AgentActionMetadata Metadata { get; }
 		AgentActionStatus Status { get; }
 		string FailureReason { get; }
+		int Progress { get; }
+		int Cost { get; }
 		void ApplyActionMetadata(AgentActionMetadata metadata);
 		bool IsStillValid(ISimulationWorld world);
 		AgentActionStatus Tick();

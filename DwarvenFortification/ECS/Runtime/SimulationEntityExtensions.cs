@@ -561,7 +561,9 @@ namespace DwarvenFortification.ECS.Runtime
 
 			return system?.ToLowerInvariant() switch
 			{
-				"digestion" => !IsHydrationCritical(entity) && !IsNutrientLow(entity, NutrientKind.Protein, 0.08f),
+				// Digestion does NOT require hydration — removing that dependency prevents a
+				// circular deadlock where the agent cannot plan 'drink' when critically dehydrated.
+				"digestion" => !IsNutrientLow(entity, NutrientKind.Protein, 0.08f),
 				"respiratory" => !IsHydrationCritical(entity) && !IsNutrientLow(entity, NutrientKind.Sugar, 0.1f),
 				"nervous" => !IsHydrationCritical(entity) && !IsNutrientLow(entity, NutrientKind.Sugar, 0.18f) && !IsNutrientLow(entity, NutrientKind.Fat, 0.12f),
 				"musculoskeletal" => !IsHydrationCritical(entity) && !IsNutrientLow(entity, NutrientKind.Carbohydrates, 0.18f) && !IsNutrientLow(entity, NutrientKind.Protein, 0.14f),
@@ -679,6 +681,7 @@ namespace DwarvenFortification.ECS.Runtime
 
 		public enum ConsumableKind
 		{
+			None,
 			Food,
 			Drink,
 		}

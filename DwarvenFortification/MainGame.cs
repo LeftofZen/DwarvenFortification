@@ -39,6 +39,14 @@ namespace DwarvenFortification
 			_graphics.PreferredBackBufferWidth = 1920;
 			_graphics.ApplyChanges();
 
+			Window.AllowUserResizing = true;
+			Window.ClientSizeChanged += (_, _) =>
+			{
+				_graphics.PreferredBackBufferWidth = Window.ClientBounds.Width;
+				_graphics.PreferredBackBufferHeight = Window.ClientBounds.Height;
+				_graphics.ApplyChanges();
+			};
+
 			//var viewportadapter = new BoxingViewportAdapter(Window, GraphicsDevice, 800, 600);
 			//_camera = new OrthographicCamera(viewportadapter);
 

@@ -18,17 +18,17 @@ namespace DwarvenFortification.Actions
 			this.owner = owner;
 			ActionId = actionId;
 			Metadata = new AgentActionMetadata(AgentActionSource.Autonomous, "autonomous");
-			this.Cost = cost;
-			this.Progress = 0;
+			Cost = cost;
+			Progress = 0;
 
 			runtimeContext.Logger.Log(Logging.LogLevel.Debug, $"new action created: {this}");
 		}
 
 		protected readonly IActionRuntimeContext runtimeContext;
-		protected int Progress;
-		protected int Cost;
-
 		protected Entity owner;
+
+		public int Progress { get; protected set; }
+		public int Cost { get; protected set; }
 
 		public string Name => GetType().Name;
 		public string ActionId { get; }

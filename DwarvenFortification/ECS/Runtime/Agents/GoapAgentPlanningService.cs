@@ -3,6 +3,7 @@ using DwarvenFortification.Actions;
 using DwarvenFortification.GOAP.Plans;
 using DwarvenFortification.Logging;
 using DwarvenFortification.Simulation.Composition;
+using System.Linq;
 
 namespace DwarvenFortification.ECS.Runtime.Agents
 {
@@ -29,9 +30,18 @@ namespace DwarvenFortification.ECS.Runtime.Agents
 			var plan = planSelector.SelectCandidatePlan(agent, planningSnapshot);
 			if (plan == null)
 			{
+				// Log why no plan was found (once per N ticks to avoid spam).
+				var eligibleGoals = planningSnapshot.Goals.Where(g => g.IsEligible && !g.IsSatisfied).ToArray();
+				if (eligibleGoals.Length > 0)
+				{
+					var goalSummary = string.Join(", ", eligibleGoals.Select(g => g.Goal.Id));
+					context.Logger.Log(LogLevel.Warning, $"{agent.GetName()} idle: eligible unsatisfied goals [{goalSummary}] but no plan found. Facts: [{string.Join(", ", planningSnapshot.CurrentFacts.Take(20))}]");
+				}
 				agent.EnqueueAction(new TimedAction(runtimeContext, agent, "idle", IdleDurationTicks));
 				return false;
 			}
+
+			context.Logger.Log(LogLevel.Info, $"{agent.GetName()} enqueuing plan for goal '{plan.Goal.Id}' with {plan.Steps.Count} steps: [{string.Join(" -> ", plan.Steps.Select(s => s.Definition.Id))}]");
 
 			if (planExecutor.Enqueue(agent, plan))
 			{

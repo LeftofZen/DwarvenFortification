@@ -495,15 +495,34 @@ namespace DwarvenFortification.GOAP
 
 			foreach (var itemId in missingItemIds)
 			{
-				if (currentFacts.Contains(Facts.KnowsItemLocation(itemId)) && agent.TryRecallItemLocation(itemId, out var knownCell) && world.CellContainsItem(knownCell, itemId) && !string.IsNullOrWhiteSpace(retrieveAction.Id))
+				if (currentFacts.Contains(Facts.KnowsItemLocation(itemId)) && !string.IsNullOrWhiteSpace(retrieveAction.Id))
 				{
-					if (world.TryFindActionDestinationCell(agentCell, knownCell, retrieveAction.DestinationMode, out var retrieveDestination))
+					// Prefer the agent's confirmed recalled location; fall back to the world-found
+					// cell for hypothetical planning states where KnowsItemLocation is a projected
+					// fact added by a prior simulated search step before agent memory is updated.
+					var hasItemCell = false;
+					var itemCell = default(Point);
+					if (agent.TryRecallItemLocation(itemId, out var knownCell) && world.CellContainsItem(knownCell, itemId))
 					{
-						yield return new ActionCandidate(retrieveAction, knownCell, retrieveDestination, null, retrieveAction.BaseCost + retrieveAction.DurationTicks, BuildRequiredFacts(retrieveAction, Facts.KnowsItemLocation(itemId)), new[] { Facts.HasItem(itemId) }, Array.Empty<string>());
+						hasItemCell = true;
+						itemCell = knownCell;
 					}
-					else
+					else if (world.TryFindNearestItemLocation(itemId, agentCell, out var foundCell))
 					{
-						addRejected(retrieveAction, "Remembered item location exists but no route to a valid action destination was found.", knownCell, null, itemId);
+						hasItemCell = true;
+						itemCell = foundCell;
+					}
+
+					if (hasItemCell)
+					{
+						if (world.TryFindActionDestinationCell(agentCell, itemCell, retrieveAction.DestinationMode, out var retrieveDestination))
+						{
+							yield return new ActionCandidate(retrieveAction, itemCell, retrieveDestination, null, retrieveAction.BaseCost + retrieveAction.DurationTicks, BuildRequiredFacts(retrieveAction, Facts.KnowsItemLocation(itemId)), new[] { Facts.HasItem(itemId) }, Array.Empty<string>());
+						}
+						else
+						{
+							addRejected(retrieveAction, "Item location known but no route to a valid action destination was found.", itemCell, null, itemId);
+						}
 					}
 
 					continue;
@@ -545,12 +564,22 @@ namespace DwarvenFortification.GOAP
 			{
 				if (!string.IsNullOrWhiteSpace(searchAction.Id) && world.TryFindNearestItemLocationByTag(new[] { tag }, agentCell, out var tagSearchCell, out var tagItemId))
 				{
-					if (currentFacts.Contains(Facts.KnowsItemLocation(tagItemId)) && agent.TryRecallItemLocation(tagItemId, out var knownTagCell) && world.CellContainsItem(knownTagCell, tagItemId) && !string.IsNullOrWhiteSpace(retrieveAction.Id))
+					if (currentFacts.Contains(Facts.KnowsItemLocation(tagItemId)) && !string.IsNullOrWhiteSpace(retrieveAction.Id))
 					{
-						if (world.TryFindActionDestinationCell(agentCell, knownTagCell, retrieveAction.DestinationMode, out var tagRetrieveDestination))
+						// Prefer the agent's confirmed recalled location; fall back to tagSearchCell
+						// for hypothetical planning states where KnowsItemLocation is projected.
+						var tagItemCell = (agent.TryRecallItemLocation(tagItemId, out var knownTagCell) && world.CellContainsItem(knownTagCell, tagItemId))
+							? knownTagCell
+							: tagSearchCell;
+
+						if (world.TryFindActionDestinationCell(agentCell, tagItemCell, retrieveAction.DestinationMode, out var tagRetrieveDestination))
 						{
-							yield return new ActionCandidate(retrieveAction, knownTagCell, tagRetrieveDestination, null, retrieveAction.BaseCost + retrieveAction.DurationTicks, BuildRequiredFacts(retrieveAction, Facts.KnowsItemLocation(tagItemId)), new[] { Facts.HasItem(tagItemId), Facts.HasItemTag(tag) }, Array.Empty<string>());
+							yield return new ActionCandidate(retrieveAction, tagItemCell, tagRetrieveDestination, null, retrieveAction.BaseCost + retrieveAction.DurationTicks, BuildRequiredFacts(retrieveAction, Facts.KnowsItemLocation(tagItemId)), new[] { Facts.HasItem(tagItemId), Facts.HasItemTag(tag) }, Array.Empty<string>());
 							continue;
+						}
+						else
+						{
+							addRejected(retrieveAction, $"Item with tag '{tag}' location known but no route to a valid action destination was found.", tagItemCell, null, tag);
 						}
 					}
 

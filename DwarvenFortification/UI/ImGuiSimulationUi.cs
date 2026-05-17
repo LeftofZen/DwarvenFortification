@@ -1,5 +1,6 @@
 using Arch.Core;
 using Arch.Core.Extensions;
+using DwarvenFortification.Actions;
 using DwarvenFortification.ECS;
 using DwarvenFortification.ECS.Authoring;
 using DwarvenFortification.ECS.Components;
@@ -338,9 +339,6 @@ namespace DwarvenFortification.UI
 				? PlanningSnapshotProvider(entity)
 				: null;
 
-			DrawEntityOverview(entity);
-			DrawAgentActionControls(entity);
-
 			if (!entity.IsAgent())
 			{
 				DrawSiteAndMachinePanel(entity);
@@ -348,14 +346,17 @@ namespace DwarvenFortification.UI
 				return;
 			}
 
-			DrawGoalSection(entity, planningSnapshot);
+			DrawEntityOverview(entity);
 			DrawBodyNutritionSection(entity);
 			DrawInventorySection(entity);
-			DrawAgentSkillsSection(entity);
-			DrawSkillCatalogSection(entity, planningSnapshot);
-			DrawActionSection(entity, planningSnapshot);
+			//DrawAgentActionControls(entity);
+			DrawGoalSection(entity, planningSnapshot);
 			DrawPlanningSection(planningSnapshot);
-			DrawEntityReflectionSection(entity);
+			DrawActivePlanSection(entity);
+			DrawActionSection(entity, planningSnapshot);
+			//DrawAgentSkillsSection(entity);
+			//DrawSkillCatalogSection(entity, planningSnapshot);
+			//DrawEntityReflectionSection(entity);
 		}
 
 		void DrawEntityOverview(Entity entity)
@@ -1094,6 +1095,100 @@ namespace DwarvenFortification.UI
 			else
 			{
 				ImGui.TextColored(ColorBlocked, $"Status: blocked by {FormatList(missingPrerequisiteFacts)}");
+			}
+		}
+
+		void DrawActivePlanSection(Entity entity)
+		{
+			if (!entity.Has<ActionQueueComponent>())
+			{
+				return;
+			}
+
+			var queue = entity.Get<ActionQueueComponent>().Actions.ToArray();
+			if (queue.Length == 0)
+			{
+				return;
+			}
+
+			if (!ImGui.CollapsingHeader($"Active Execution — {queue.Length} action(s) queued", ImGuiTreeNodeFlags.DefaultOpen))
+			{
+				return;
+			}
+
+			// ── Gantt bar ─────────────────────────────────────────────────────────────
+			const float barHeight = 26f;
+			const float gap = 2f;
+			var totalDisplayCost = queue.Sum(a => Math.Max(1, a.Cost));
+			var availableWidth = ImGui.GetContentRegionAvail().X;
+			var drawList = ImGui.GetWindowDrawList();
+			var origin = ImGui.GetCursorScreenPos();
+
+			// Reserve space so ImGui layout accounts for the bar
+			ImGui.Dummy(new NumericsVector2(availableWidth, barHeight));
+
+			// Background track
+			drawList.AddRectFilled(origin, origin + new NumericsVector2(availableWidth, barHeight),
+				ImGui.ColorConvertFloat4ToU32(new NumericsVector4(0.08f, 0.09f, 0.12f, 1f)), 4f);
+
+			var segX = origin.X;
+			for (var i = 0; i < queue.Length; ++i)
+			{
+				var action = queue[i];
+				var displayCost = Math.Max(1, action.Cost);
+				var segWidth = (displayCost / (float)totalDisplayCost) * availableWidth;
+
+				var segMin = new NumericsVector2(segX + (i > 0 ? gap : 0), origin.Y + 1f);
+				var segMax = new NumericsVector2(segX + segWidth - (i < queue.Length - 1 ? gap : 0), origin.Y + barHeight - 1f);
+
+				// Segment background
+				var bgColor = action.Status == AgentActionStatus.Running
+					? ImGui.ColorConvertFloat4ToU32(new NumericsVector4(0.12f, 0.28f, 0.48f, 1f))
+					: ImGui.ColorConvertFloat4ToU32(new NumericsVector4(0.16f, 0.17f, 0.20f, 1f));
+				drawList.AddRectFilled(segMin, segMax, bgColor, 3f);
+
+				// Progress fill for the running action
+				if (action.Status == AgentActionStatus.Running && action.Cost > 0)
+				{
+					var ratio = Math.Clamp(action.Progress / (float)action.Cost, 0f, 1f);
+					var fillMax = new NumericsVector2(segMin.X + (segMax.X - segMin.X) * ratio, segMax.Y);
+					drawList.AddRectFilled(segMin, fillMax,
+						ImGui.ColorConvertFloat4ToU32(new NumericsVector4(0.22f, 0.58f, 0.88f, 1f)), 3f);
+				}
+
+				// Segment border
+				var borderColor = action.Status == AgentActionStatus.Running
+					? ImGui.ColorConvertFloat4ToU32(new NumericsVector4(0.40f, 0.80f, 1.00f, 1f))
+					: ImGui.ColorConvertFloat4ToU32(new NumericsVector4(0.26f, 0.28f, 0.32f, 1f));
+				drawList.AddRect(segMin, segMax, borderColor, 3f);
+
+				// Label clipped to segment
+				var label = action.ActionId ?? action.Name;
+				drawList.PushClipRect(segMin, segMax, true);
+				var textPos = new NumericsVector2(segMin.X + 4f, segMin.Y + (barHeight - 13f) * 0.5f);
+				drawList.AddText(textPos, ImGui.ColorConvertFloat4ToU32(new NumericsVector4(0.88f, 0.90f, 0.94f, 1f)), label);
+				drawList.PopClipRect();
+
+				segX += segWidth;
+			}
+
+			// ── Step list ─────────────────────────────────────────────────────────────
+			ImGui.Spacing();
+			for (var i = 0; i < queue.Length; ++i)
+			{
+				var action = queue[i];
+				var isRunning = action.Status == AgentActionStatus.Running;
+				var isFailed = action.Status == AgentActionStatus.Failed;
+				var color = isRunning ? ColorOk : isFailed ? ColorBlocked : new NumericsVector4(0.55f, 0.57f, 0.60f, 1f);
+				var marker = isRunning ? "▶" : isFailed ? "✗" : " ";
+				var progressStr = action.Cost > 0
+					? $"  [{action.Progress}/{action.Cost} ticks ({100f * action.Progress / (float)action.Cost:0.#}%)]"
+					: string.Empty;
+				ImGui.TextColored(color, $"{marker} [{i + 1}] {action.ActionId}{progressStr}");
+				if (!string.IsNullOrWhiteSpace(action.FailureReason))
+				{
+					ImGui.TextColored(ColorBlocked, $"     ↳ {action.FailureReason}");
+				}
 			}
 		}
 

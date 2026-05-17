@@ -125,26 +125,16 @@ namespace DwarvenFortification.GOAP
 					break;
 
 				case "eat":
-						if (!agent.TrySelectConsumableItem(SimulationEntityExtensions.ConsumableKind.Food, out var eatItem))
-						{
-							break;
-						}
-
-						EnqueueAction(agent, new TimedAction(runtimeContext, agent, step.Definition.Id, agent.ComputeEffectiveDuration(step.Definition.Skills, step.Definition.DurationTicks)), metadata);
-						EnqueueAction(agent, new ConsumeInventoryItemAction(runtimeContext, agent, eatItem.GetItemDefinitionId(), true, false), metadata);
-						break;
+					EnqueueAction(agent, new TimedAction(runtimeContext, agent, step.Definition.Id, agent.ComputeEffectiveDuration(step.Definition.Skills, step.Definition.DurationTicks)), metadata);
+					EnqueueAction(agent, new ConsumeInventoryItemAction(runtimeContext, agent, SimulationEntityExtensions.ConsumableKind.Food), metadata);
+					break;
 
 					case "drink":
-						if (!agent.TrySelectConsumableItem(SimulationEntityExtensions.ConsumableKind.Drink, out var drinkItem))
-						{
-							break;
-						}
+					EnqueueAction(agent, new TimedAction(runtimeContext, agent, step.Definition.Id, agent.ComputeEffectiveDuration(step.Definition.Skills, step.Definition.DurationTicks)), metadata);
+					EnqueueAction(agent, new ConsumeInventoryItemAction(runtimeContext, agent, SimulationEntityExtensions.ConsumableKind.Drink), metadata);
+					break;
 
-						EnqueueAction(agent, new TimedAction(runtimeContext, agent, step.Definition.Id, agent.ComputeEffectiveDuration(step.Definition.Skills, step.Definition.DurationTicks)), metadata);
-						EnqueueAction(agent, new ConsumeInventoryItemAction(runtimeContext, agent, drinkItem.GetItemDefinitionId(), false, true), metadata);
-						break;
-
-					case "scan-area":
+				case "scan-area":
 						EnqueueAction(agent, new TimedAction(runtimeContext, agent, step.Definition.Id, agent.ComputeEffectiveDuration(step.Definition.Skills, step.Definition.DurationTicks)), metadata);
 						EnqueueAction(agent, new ScanAreaAction(runtimeContext, agent, 8, 180), metadata);
 						break;
