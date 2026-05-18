@@ -1,15 +1,15 @@
 using Arch.Core;
 
-namespace DwarvenFortification.GOAP.Plans
+namespace DwarvenFortification.GOAP
 {
-	public interface IPlanSelector
+	public interface IGoapPlanSelector
 	{
-		Plan SelectCandidatePlan(Entity agent, PlanningSnapshot snapshot);
+		GoapPlan SelectCandidatePlan(Entity agent, GoapSnapshot snapshot);
 	}
 
-	public sealed class DefaultGoapPlanSelector : IPlanSelector
+	public sealed class GoapPlanSelector : IGoapPlanSelector
 	{
-		public Plan SelectCandidatePlan(Entity agent, PlanningSnapshot snapshot)
+		public GoapPlan SelectCandidatePlan(Entity agent, GoapSnapshot snapshot)
 		{
 			if (snapshot == null || snapshot.CandidatePlans.Count == 0)
 			{

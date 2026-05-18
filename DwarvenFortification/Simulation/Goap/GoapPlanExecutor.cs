@@ -3,8 +3,7 @@ using Arch.Core.Extensions;
 using DwarvenFortification.Actions;
 using DwarvenFortification.ECS.Components;
 using DwarvenFortification.ECS.Runtime;
-using DwarvenFortification.GOAP.Actions;
-using DwarvenFortification.GOAP.Plans;
+using DwarvenFortification.GOAP;
 using DwarvenFortification.Simulation.Composition;
 using DwarvenFortification.Simulation.World;
 using DwarvenFortification.UI;
@@ -13,7 +12,7 @@ using System.Linq;
 
 namespace DwarvenFortification.GOAP
 {
-	public sealed class GoapPlanExecutor : IPlanExecutor
+	public sealed class GoapPlanExecutor : IGoapPlanExecutor
 	{
 		readonly IActionRuntimeContext runtimeContext;
 
@@ -22,10 +21,10 @@ namespace DwarvenFortification.GOAP
 			this.runtimeContext = runtimeContext;
 		}
 
-		public bool Enqueue(Entity agent, Plan plan)
+		public bool Enqueue(Entity agent, GoapPlan plan)
 			=> Enqueue(agent, plan, null);
 
-		public bool Enqueue(Entity agent, Plan plan, AgentActionMetadata metadata)
+		public bool Enqueue(Entity agent, GoapPlan plan, AgentActionMetadata metadata)
 		{
 			if (plan == null || plan.Steps.Count == 0)
 			{
@@ -42,19 +41,26 @@ namespace DwarvenFortification.GOAP
 			return true;
 		}
 
-		public bool Enqueue(Entity agent, ActionCandidate step)
+		public bool Enqueue(Entity agent, GoapActionCandidate step)
 			=> Enqueue(agent, step, null);
 
-		public bool Enqueue(Entity agent, ActionCandidate step, AgentActionMetadata metadata)
+		public bool Enqueue(Entity agent, GoapActionCandidate step, AgentActionMetadata metadata)
 		{
 			Enqueue(agent, step, runtimeContext.World, metadata);
 			return true;
 		}
 
-		void Enqueue(Entity agent, ActionCandidate step, ISimulationWorld world, AgentActionMetadata metadata)
+		void Enqueue(Entity agent, GoapActionCandidate step, ISimulationWorld world, AgentActionMetadata metadata)
 		{
 			{
-				world.PlotPath(agent, step.DestinationCell, metadata);
+				// Self-targeted candidates (eat, drink, sleep, scan, etc.) have the agent as their target entity
+				// and require no movement — their DestinationCell is the stale planning-time position.
+				// All other candidates (retrieve-known-item, resource nodes, world objects, etc.) need a path.
+				var agentIsTarget = step.TargetEntity.HasValue && step.TargetEntity.Value.Equals(agent);
+				if (!agentIsTarget)
+				{
+					world.PlotPath(agent, step.DestinationCell, metadata);
+				}
 
 				switch (step.Definition.Id)
 				{
@@ -80,7 +86,7 @@ namespace DwarvenFortification.GOAP
 					{
 						var haulItemId = string.Empty;
 						string[] haulItemFilter = null;
-						foreach (var fact in step.RequiredFacts)
+						foreach (var fact in step.Requirements)
 						{
 							if (Facts.TryGetHasItemFilter(fact, out var filterTags)) { haulItemFilter = filterTags; break; }
 							if (Facts.TryGetHasItemId(fact, out var id)) { haulItemId = id; break; }
@@ -182,7 +188,7 @@ namespace DwarvenFortification.GOAP
 						break;
 
 					case "search-for-item":
-						var searchedItemId = GetItemIdFromKnowledgeFact(step.AddFacts.FirstOrDefault());
+						var searchedItemId = GetItemIdFromKnowledgeFact(step.Effects.FirstOrDefault());
 						if (!string.IsNullOrWhiteSpace(searchedItemId))
 						{
 							EnqueueAction(agent, new TimedAction(runtimeContext, agent, step.Definition.Id, agent.ComputeEffectiveDuration(step.Definition.Skills, step.Definition.DurationTicks)), metadata);
@@ -192,7 +198,7 @@ namespace DwarvenFortification.GOAP
 						break;
 
 					case "retrieve-known-item":
-						var retrievedItemId = GetItemIdFromHasItemFact(step.AddFacts.FirstOrDefault());
+						var retrievedItemId = GetItemIdFromHasItemFact(step.Effects.FirstOrDefault());
 						if (!string.IsNullOrWhiteSpace(retrievedItemId))
 						{
 							EnqueueAction(agent, new TimedAction(runtimeContext, agent, step.Definition.Id, agent.ComputeEffectiveDuration(step.Definition.Skills, step.Definition.DurationTicks)), metadata);
@@ -202,10 +208,10 @@ namespace DwarvenFortification.GOAP
 						break;
 
 					case "communicate":
-						if (step.TargetEntity.HasValue && step.AddFacts.Length > 0)
+						if (step.TargetEntity.HasValue && step.Effects.Length > 0)
 						{
 							EnqueueAction(agent, new TimedAction(runtimeContext, agent, step.Definition.Id, agent.ComputeEffectiveDuration(step.Definition.Skills, step.Definition.DurationTicks)), metadata);
-							EnqueueAction(agent, new CommunicateAction(runtimeContext, agent, step.TargetEntity.Value, step.AddFacts.First()), metadata);
+							EnqueueAction(agent, new CommunicateAction(runtimeContext, agent, step.TargetEntity.Value, step.Effects.First()), metadata);
 						}
 
 						break;
@@ -228,9 +234,9 @@ namespace DwarvenFortification.GOAP
 			agent.EnqueueAction(action);
 		}
 
-		static string GetRequiredItemId(ActionDefinitionSnapshot definition)
+		static string GetRequiredItemId(GoapAction definition)
 		{
-			foreach (var fact in definition.RequiredFacts)
+			foreach (var fact in definition.Requirements)
 			{
 				if (Facts.TryGetHasItemId(fact, out var itemId))
 				{
@@ -251,8 +257,8 @@ namespace DwarvenFortification.GOAP
 				? itemId
 				: string.Empty;
 
-		static string GetCraftedOutputItemId(ActionCandidate step)
-			=> step.AddFacts.FirstOrDefault(fact => Facts.TryGetHasItemId(fact, out _)) is string fact
+		static string GetCraftedOutputItemId(GoapActionCandidate step)
+			=> step.Effects.FirstOrDefault(fact => Facts.TryGetHasItemId(fact, out _)) is string fact
 				&& Facts.TryGetHasItemId(fact, out var itemId)
 					? itemId
 					: string.Empty;

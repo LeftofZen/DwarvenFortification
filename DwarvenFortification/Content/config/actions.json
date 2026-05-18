@@ -8,19 +8,14 @@
       "skills": ["might", "vitality"],
       "targetKind": "resourceNode",
       "destinationMode": "adjacent",
-      "requires": {
-        "requiredItemTags": ["mining"],
-        "requiredTargetTags": ["mineable"],
-        "requiredBodyParts": ["hands"],
-        "requiredSystems": ["musculoskeletal", "respiratory"],
-        "requiresFreeInventorySlot": true,
-        "requiresReservation": true
-      },
       "outputs": [],
-      "effects": {
-        "addFacts": ["inventory.has-resource-items"],
-        "removeFacts": []
-      }
+      "requirements": [
+        "has.item-tag.mining",
+        "bodyPart.hands",
+        "system.musculoskeletal",
+        "system.respiratory"
+      ],
+      "effects": ["inventory.has-resource-items"]
     },
     {
       "id": "cut-tree",
@@ -30,19 +25,14 @@
       "skills": ["might", "vitality"],
       "targetKind": "resourceNode",
       "destinationMode": "adjacent",
-      "requires": {
-        "requiredItemTags": ["woodcutting"],
-        "requiredTargetTags": ["tree"],
-        "requiredBodyParts": ["hands"],
-        "requiredSystems": ["musculoskeletal", "respiratory"],
-        "requiresFreeInventorySlot": true,
-        "requiresReservation": true
-      },
       "outputs": [],
-      "effects": {
-        "addFacts": ["inventory.has-resource-items"],
-        "removeFacts": []
-      }
+      "requirements": [
+        "has.item-tag.woodcutting",
+        "bodyPart.hands",
+        "system.musculoskeletal",
+        "system.respiratory"
+      ],
+      "effects": ["inventory.has-resource-items"]
     },
     {
       "id": "store-items",
@@ -52,16 +42,9 @@
       "skills": ["finesse"],
       "targetKind": "worldObject",
       "destinationMode": "adjacent",
-      "requires": {
-        "requiredTargetTags": ["storage"],
-        "requiredBodyParts": ["hands"],
-        "requiresReservation": false
-      },
       "outputs": [],
-      "effects": {
-        "addFacts": [],
-        "removeFacts": ["inventory.has-resource-items"]
-      }
+      "requirements": ["bodyPart.hands"],
+      "effects": []
     },
     {
       "id": "sleep",
@@ -71,17 +54,14 @@
       "skills": ["vitality"],
       "targetKind": "worldObject",
       "destinationMode": "adjacent",
-      "requires": {
-        "requiredTargetTags": ["bed"],
-        "requiredBodyParts": ["legs", "feet"],
-        "requiredOrgans": ["brain", "lungs"],
-        "requiresReservation": true
-      },
       "outputs": [],
-      "effects": {
-        "addFacts": ["rest.ok"],
-        "removeFacts": ["rest.low"]
-      }
+      "requirements": [
+        "bodyPart.legs",
+        "bodyPart.feet",
+        "organ.brain",
+        "organ.lungs"
+      ],
+      "effects": ["rest.ok"]
     },
     {
       "id": "complete-construction",
@@ -91,19 +71,14 @@
       "skills": ["might", "engineering"],
       "targetKind": "worldObject",
       "destinationMode": "adjacent",
-      "requires": {
-        "requiredTargetTags": ["construction-site"],
-        "requiredBodyParts": ["hands"],
-        "requiredOrgans": ["brain"],
-        "requiredSystems": ["musculoskeletal"],
-        "requiredFacts": ["construction.pending"],
-        "requiresReservation": true
-      },
       "outputs": [],
-      "effects": {
-        "addFacts": [],
-        "removeFacts": ["construction.pending"]
-      }
+      "requirements": [
+        "construction.pending",
+        "bodyPart.hands",
+        "organ.brain",
+        "system.musculoskeletal"
+      ],
+      "effects": []
     },
     {
       "id": "process-recipe",
@@ -113,18 +88,14 @@
       "skills": ["finesse", "engineering"],
       "targetKind": "worldObject",
       "destinationMode": "adjacent",
-      "requires": {
-        "requiredTargetTags": ["workstation"],
-        "requiredBodyParts": ["hands"],
-        "requiredOrgans": ["brain"],
-        "requiredSystems": ["musculoskeletal", "nervous"],
-        "requiresReservation": true
-      },
       "outputs": [],
-      "effects": {
-        "addFacts": [],
-        "removeFacts": []
-      }
+      "requirements": [
+        "bodyPart.hands",
+        "organ.brain",
+        "system.musculoskeletal",
+        "system.nervous"
+      ],
+      "effects": []
     },
     {
       "id": "eat",
@@ -134,17 +105,16 @@
       "skills": [],
       "targetKind": "self",
       "destinationMode": "current",
-      "requires": {
-        "requiredBodyParts": ["hands"],
-        "requiredOrgans": ["mouth", "stomach"],
-        "requiredSystems": ["digestion"],
-        "requiredFacts": ["hunger.low", "has.item-tag.food"]
-      },
       "outputs": [],
-      "effects": {
-        "addFacts": ["hunger.ok"],
-        "removeFacts": ["hunger.low"]
-      }
+      "requirements": [
+        "hunger.low",
+        "has.item-tag.food",
+        "bodyPart.hands",
+        "organ.mouth",
+        "organ.stomach",
+        "system.digestion"
+      ],
+      "effects": ["hunger.ok"]
     },
     {
       "id": "drink",
@@ -154,17 +124,16 @@
       "skills": [],
       "targetKind": "self",
       "destinationMode": "current",
-      "requires": {
-        "requiredBodyParts": ["hands"],
-        "requiredOrgans": ["mouth", "stomach"],
-        "requiredSystems": ["digestion"],
-        "requiredFacts": ["thirst.low", "has.item-tag.drink"]
-      },
       "outputs": [],
-      "effects": {
-        "addFacts": ["thirst.ok"],
-        "removeFacts": ["thirst.low"]
-      }
+      "requirements": [
+        "thirst.low",
+        "has.item-tag.drink",
+        "bodyPart.hands",
+        "organ.mouth",
+        "organ.stomach",
+        "system.digestion"
+      ],
+      "effects": ["thirst.ok"]
     },
     {
       "id": "scan-area",
@@ -174,16 +143,9 @@
       "skills": ["perception"],
       "targetKind": "self",
       "destinationMode": "current",
-      "requires": {
-        "requiredOrgans": ["brain"],
-        "requiredSystems": ["nervous"],
-        "blockedByFacts": ["area.scanned"]
-      },
       "outputs": [],
-      "effects": {
-        "addFacts": ["area.scanned"],
-        "removeFacts": []
-      }
+      "requirements": ["organ.brain", "system.nervous"],
+      "effects": ["area.scanned"]
     },
     {
       "id": "hide",
@@ -193,18 +155,16 @@
       "skills": ["agility", "finesse"],
       "targetKind": "self",
       "destinationMode": "current",
-      "requires": {
-        "requiredBodyParts": ["legs", "feet"],
-        "requiredOrgans": ["brain", "lungs"],
-        "requiredSystems": ["musculoskeletal"],
-        "requiredFacts": ["enemy.visible"],
-        "blockedByFacts": ["self.hidden"]
-      },
       "outputs": [],
-      "effects": {
-        "addFacts": ["self.hidden"],
-        "removeFacts": []
-      }
+      "requirements": [
+        "enemy.visible",
+        "bodyPart.legs",
+        "bodyPart.feet",
+        "organ.brain",
+        "organ.lungs",
+        "system.musculoskeletal"
+      ],
+      "effects": ["self.hidden"]
     },
     {
       "id": "patrol-area",
@@ -214,17 +174,16 @@
       "skills": ["vitality", "perception"],
       "targetKind": "self",
       "destinationMode": "current",
-      "requires": {
-        "requiredBodyParts": ["legs", "feet"],
-        "requiredOrgans": ["brain", "lungs"],
-        "requiredSystems": ["musculoskeletal", "respiratory"],
-        "blockedByFacts": ["area.patrolled"]
-      },
       "outputs": [],
-      "effects": {
-        "addFacts": ["area.patrolled", "area.scanned"],
-        "removeFacts": []
-      }
+      "requirements": [
+        "bodyPart.legs",
+        "bodyPart.feet",
+        "organ.brain",
+        "organ.lungs",
+        "system.musculoskeletal",
+        "system.respiratory"
+      ],
+      "effects": ["area.patrolled", "area.scanned"]
     },
     {
       "id": "throw-item",
@@ -234,19 +193,16 @@
       "skills": ["precision", "might"],
       "targetKind": "enemy",
       "destinationMode": "current",
-      "requires": {
-        "requiredItemTags": ["throwable"],
-        "requiredBodyParts": ["hands", "arms"],
-        "requiredOrgans": ["brain"],
-        "requiredSystems": ["musculoskeletal"],
-        "requiredFacts": ["enemy.visible"],
-        "blockedByFacts": ["self.hidden"]
-      },
       "outputs": [],
-      "effects": {
-        "addFacts": ["enemy.suppressed"],
-        "removeFacts": []
-      }
+      "requirements": [
+        "enemy.visible",
+        "has.item-tag.throwable",
+        "bodyPart.hands",
+        "bodyPart.arms",
+        "organ.brain",
+        "system.musculoskeletal"
+      ],
+      "effects": ["enemy.suppressed"]
     },
     {
       "id": "search-for-item",
@@ -256,14 +212,9 @@
       "skills": ["perception", "analysis"],
       "targetKind": "self",
       "destinationMode": "current",
-      "requires": {
-        "requiredFacts": ["memory.capable"]
-      },
       "outputs": [],
-      "effects": {
-        "addFacts": [],
-        "removeFacts": []
-      }
+      "requirements": ["memory.capable"],
+      "effects": []
     },
     {
       "id": "retrieve-known-item",
@@ -273,14 +224,9 @@
       "skills": ["agility"],
       "targetKind": "self",
       "destinationMode": "current",
-      "requires": {
-        "requiredFacts": ["memory.capable"]
-      },
       "outputs": [],
-      "effects": {
-        "addFacts": [],
-        "removeFacts": []
-      }
+      "requirements": ["memory.capable"],
+      "effects": []
     },
     {
       "id": "communicate",
@@ -290,14 +236,9 @@
       "skills": ["persuasion", "empathy"],
       "targetKind": "ally",
       "destinationMode": "adjacent",
-      "requires": {
-        "requiredFacts": ["memory.capable"]
-      },
       "outputs": [],
-      "effects": {
-        "addFacts": [],
-        "removeFacts": []
-      }
+      "requirements": ["memory.capable"],
+      "effects": []
     },
     {
       "id": "read-cookbook",
@@ -307,14 +248,9 @@
       "skills": ["erudition"],
       "targetKind": "self",
       "destinationMode": "current",
-      "requires": {
-        "requiredFacts": ["memory.capable"]
-      },
       "outputs": [],
-      "effects": {
-        "addFacts": [],
-        "removeFacts": []
-      }
+      "requirements": ["memory.capable"],
+      "effects": []
     },
     {
       "id": "haul-material",
@@ -324,16 +260,9 @@
       "skills": ["might", "vitality"],
       "targetKind": "worldObject",
       "destinationMode": "adjacent",
-      "requires": {
-        "requiredBodyParts": ["hands"],
-        "requiredSystems": ["musculoskeletal"],
-        "requiresReservation": false
-      },
       "outputs": [],
-      "effects": {
-        "addFacts": [],
-        "removeFacts": []
-      }
+      "requirements": ["bodyPart.hands", "system.musculoskeletal"],
+      "effects": []
     }
   ]
 }

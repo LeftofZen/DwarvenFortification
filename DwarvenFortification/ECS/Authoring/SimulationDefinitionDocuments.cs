@@ -7,9 +7,9 @@ namespace DwarvenFortification.ECS.Authoring
 	{
 		public string Id { get; init; } = string.Empty;
 		public string Name { get; init; } = string.Empty;
-		public string[] Tags { get; init; } = Array.Empty<string>();
+		public string[] Tags { get; init; } = [];
 		public Dictionary<string, string> Properties { get; init; } = new();
-		public string[] LearnedFacts { get; init; } = Array.Empty<string>();
+		public string[] LearnedFacts { get; init; } = [];
 		public bool IsTool { get; init; }
 		public bool Stackable { get; init; } = true;
 		public float WeightKg { get; init; } = 1f;
@@ -29,20 +29,7 @@ namespace DwarvenFortification.ECS.Authoring
 
 	public sealed class ItemDefinitionDocument
 	{
-		public ItemDefinition[] Items { get; init; } = Array.Empty<ItemDefinition>();
-	}
-
-	public sealed class ActionRequirementDefinition
-	{
-		public string[] RequiredItemTags { get; init; } = Array.Empty<string>();
-		public string[] RequiredTargetTags { get; init; } = Array.Empty<string>();
-		public string[] RequiredBodyParts { get; init; } = Array.Empty<string>();
-		public string[] RequiredOrgans { get; init; } = Array.Empty<string>();
-		public string[] RequiredSystems { get; init; } = Array.Empty<string>();
-		public string[] RequiredFacts { get; init; } = Array.Empty<string>();
-		public string[] BlockedByFacts { get; init; } = Array.Empty<string>();
-		public bool RequiresFreeInventorySlot { get; init; }
-		public bool RequiresReservation { get; init; }
+		public ItemDefinition[] Items { get; init; } = [];
 	}
 
 	public sealed class ActionOutputDefinition
@@ -54,7 +41,7 @@ namespace DwarvenFortification.ECS.Authoring
 	public sealed class MaterialCostDefinition
 	{
 		public string ItemId { get; init; } = string.Empty;
-		public string[] ItemFilter { get; init; } = Array.Empty<string>();
+		public string[] ItemFilter { get; init; } = [];
 		public int Quantity { get; init; } = 1;
 	}
 
@@ -62,16 +49,10 @@ namespace DwarvenFortification.ECS.Authoring
 	{
 		public string Id { get; init; } = string.Empty;
 		public string Name { get; init; } = string.Empty;
-		public string[] RequiredFacts { get; init; } = Array.Empty<string>();
-		public MaterialCostDefinition[] Inputs { get; init; } = Array.Empty<MaterialCostDefinition>();
+		public string[] RequiredFacts { get; init; } = [];
+		public MaterialCostDefinition[] Inputs { get; init; } = [];
 		public string OutputItemId { get; init; } = string.Empty;
 		public int OutputQuantity { get; init; } = 1;
-	}
-
-	public sealed class ActionEffectDefinition
-	{
-		public string[] AddFacts { get; init; } = Array.Empty<string>();
-		public string[] RemoveFacts { get; init; } = Array.Empty<string>();
 	}
 
 	public sealed class ActionDefinition
@@ -82,15 +63,15 @@ namespace DwarvenFortification.ECS.Authoring
 		public int DurationTicks { get; init; } = 1;
 		public string TargetKind { get; init; } = string.Empty;
 		public string DestinationMode { get; init; } = string.Empty;
-		public string[] Skills { get; init; } = Array.Empty<string>();
-		public ActionRequirementDefinition Requires { get; init; } = new();
-		public ActionOutputDefinition[] Outputs { get; init; } = Array.Empty<ActionOutputDefinition>();
-		public ActionEffectDefinition Effects { get; init; } = new();
+		public string[] Skills { get; init; } = [];
+		public string[] Requirements { get; init; } = [];
+		public string[] Effects { get; init; } = [];
+		public ActionOutputDefinition[] Outputs { get; init; } = [];
 	}
 
 	public sealed class ActionDefinitionDocument
 	{
-		public ActionDefinition[] Actions { get; init; } = Array.Empty<ActionDefinition>();
+		public ActionDefinition[] Actions { get; init; } = [];
 	}
 
 	public sealed class WorldObjectDefinition
@@ -98,18 +79,18 @@ namespace DwarvenFortification.ECS.Authoring
 		public string Id { get; init; } = string.Empty;
 		public string Name { get; init; } = string.Empty;
 		public string DisplayColor { get; init; } = "#FFFFFF";
-		public string[] Tags { get; init; } = Array.Empty<string>();
-		public string[] AcceptedItemTags { get; init; } = Array.Empty<string>();
+		public string[] Tags { get; init; } = [];
+		public string[] AcceptedItemTags { get; init; } = [];
 		public bool BlocksMovement { get; init; }
 		public bool IsReservable { get; init; }
 		public int Capacity { get; init; }
-		public MaterialCostDefinition[] BuildCosts { get; init; } = Array.Empty<MaterialCostDefinition>();
-		public CraftRecipeDefinition[] Recipes { get; init; } = Array.Empty<CraftRecipeDefinition>();
+		public MaterialCostDefinition[] BuildCosts { get; init; } = [];
+		public CraftRecipeDefinition[] Recipes { get; init; } = [];
 	}
 
 	public sealed class WorldObjectDefinitionDocument
 	{
-		public WorldObjectDefinition[] Objects { get; init; } = Array.Empty<WorldObjectDefinition>();
+		public WorldObjectDefinition[] Objects { get; init; } = [];
 	}
 
 	public sealed class ResourceNodeDefinition
@@ -117,9 +98,9 @@ namespace DwarvenFortification.ECS.Authoring
 		public string Id { get; init; } = string.Empty;
 		public string Name { get; init; } = string.Empty;
 		public string DisplayColor { get; init; } = "#FFFFFF";
-		public string[] Tags { get; init; } = Array.Empty<string>();
-		public string[] SupportedActionIds { get; init; } = Array.Empty<string>();
-		public string[] RequiredToolItemTags { get; init; } = Array.Empty<string>();
+		public string[] Tags { get; init; } = [];
+		public string[] SupportedActionIds { get; init; } = [];
+		public string[] RequiredToolItemTags { get; init; } = [];
 		public string YieldItemId { get; init; } = string.Empty;
 		public int YieldCount { get; init; }
 		public bool BlocksMovement { get; init; }
@@ -127,7 +108,7 @@ namespace DwarvenFortification.ECS.Authoring
 
 	public sealed class ResourceNodeDefinitionDocument
 	{
-		public ResourceNodeDefinition[] ResourceNodes { get; init; } = Array.Empty<ResourceNodeDefinition>();
+		public ResourceNodeDefinition[] ResourceNodes { get; init; } = [];
 	}
 
 	public sealed class AgentDefinition
@@ -136,10 +117,10 @@ namespace DwarvenFortification.ECS.Authoring
 		public string Name { get; init; } = string.Empty;
 		public string FactionId { get; init; } = "neutral";
 		public string MemoryProviderId { get; init; } = string.Empty;
-		public string[] StartingItemIds { get; init; } = Array.Empty<string>();
-		public string[] BodyParts { get; init; } = Array.Empty<string>();
-		public string[] Organs { get; init; } = Array.Empty<string>();
-		public string[] Systems { get; init; } = Array.Empty<string>();
+		public string[] StartingItemIds { get; init; } = [];
+		public string[] BodyParts { get; init; } = [];
+		public string[] Organs { get; init; } = [];
+		public string[] Systems { get; init; } = [];
 		public int InventoryCapacity { get; init; } = 5;
 		public float MinSpeed { get; init; } = 2f;
 		public float MaxSpeed { get; init; } = 4f;
@@ -171,7 +152,7 @@ namespace DwarvenFortification.ECS.Authoring
 
 	public sealed class AgentDefinitionDocument
 	{
-		public AgentDefinition[] Agents { get; init; } = Array.Empty<AgentDefinition>();
+		public AgentDefinition[] Agents { get; init; } = [];
 	}
 
 	public sealed class GoalDefinition
@@ -179,15 +160,13 @@ namespace DwarvenFortification.ECS.Authoring
 		public string Id { get; init; } = string.Empty;
 		public string Name { get; init; } = string.Empty;
 		public int Priority { get; init; }
-		public string[] DesiredFacts { get; init; } = Array.Empty<string>();
-		public string[] ForbiddenFacts { get; init; } = Array.Empty<string>();
-		public string[] RequiredFacts { get; init; } = Array.Empty<string>();
-		public string[] BlockedByFacts { get; init; } = Array.Empty<string>();
+		public string[] Effects { get; init; } = [];
+		public string[] Requirements { get; init; } = [];
 	}
 
 	public sealed class GoalDefinitionDocument
 	{
-		public GoalDefinition[] Goals { get; init; } = Array.Empty<GoalDefinition>();
+		public GoalDefinition[] Goals { get; init; } = [];
 	}
 
 	public sealed class FactDefinition
@@ -200,7 +179,7 @@ namespace DwarvenFortification.ECS.Authoring
 
 	public sealed class FactDefinitionDocument
 	{
-		public FactDefinition[] Facts { get; init; } = Array.Empty<FactDefinition>();
+		public FactDefinition[] Facts { get; init; } = [];
 	}
 
 	public sealed class SkillDefinition
@@ -214,6 +193,6 @@ namespace DwarvenFortification.ECS.Authoring
 
 	public sealed class SkillDefinitionDocument
 	{
-		public SkillDefinition[] Skills { get; init; } = Array.Empty<SkillDefinition>();
+		public SkillDefinition[] Skills { get; init; } = [];
 	}
 }

@@ -1,6 +1,6 @@
 using Arch.Core;
 using DwarvenFortification.Actions;
-using DwarvenFortification.GOAP.Plans;
+using DwarvenFortification.GOAP;
 using DwarvenFortification.Logging;
 using DwarvenFortification.Simulation.Composition;
 using System.Linq;
@@ -11,12 +11,12 @@ namespace DwarvenFortification.ECS.Runtime.Agents
 	{
 		const int IdleDurationTicks = 60;
 
-		readonly Planner planner;
-		readonly IPlanSelector planSelector;
-		readonly IPlanExecutor planExecutor;
+		readonly GoapPlanner planner;
+		readonly IGoapPlanSelector planSelector;
+		readonly IGoapPlanExecutor planExecutor;
 		readonly IActionRuntimeContext runtimeContext;
 
-		public GoapAgentPlanningService(Planner planner, IPlanSelector planSelector, IPlanExecutor planExecutor, IActionRuntimeContext runtimeContext)
+		public GoapAgentPlanningService(GoapPlanner planner, IGoapPlanSelector planSelector, IGoapPlanExecutor planExecutor, IActionRuntimeContext runtimeContext)
 		{
 			this.planner = planner;
 			this.planSelector = planSelector;
@@ -35,7 +35,7 @@ namespace DwarvenFortification.ECS.Runtime.Agents
 				if (eligibleGoals.Length > 0)
 				{
 					var goalSummary = string.Join(", ", eligibleGoals.Select(g => g.Goal.Id));
-					context.Logger.Log(LogLevel.Warning, $"{agent.GetName()} idle: eligible unsatisfied goals [{goalSummary}] but no plan found. Facts: [{string.Join(", ", planningSnapshot.CurrentFacts.Take(20))}]");
+					context.Logger.Log(LogLevel.Warning, $"{agent.GetName()} idle: eligible unsatisfied goals [{goalSummary}] but no plan found. Facts: [{string.Join(", ", planningSnapshot.CurrentState.Take(20))}]");
 				}
 				agent.EnqueueAction(new TimedAction(runtimeContext, agent, "idle", IdleDurationTicks));
 				return false;

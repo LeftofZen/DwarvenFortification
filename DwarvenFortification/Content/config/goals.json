@@ -4,144 +4,92 @@
       "id": "recover-and-store",
       "name": "Recover And Store",
       "priority": 100,
-      "desiredFacts": ["rest.ok"],
-      "forbiddenFacts": ["inventory.has-resource-items"],
-      "requiredFacts": ["rest.low", "inventory.has-resource-items"],
-      "blockedByFacts": []
+      "effects": ["rest.ok"],
+      "requirements": ["rest.low", "inventory.has-resource-items"]
     },
     {
       "id": "recover-rest",
       "name": "Recover Rest",
       "priority": 90,
-      "desiredFacts": ["rest.ok"],
-      "forbiddenFacts": [],
-      "requiredFacts": ["rest.low"],
-      "blockedByFacts": []
+      "effects": ["rest.ok"],
+      "requirements": ["rest.low"]
     },
     {
       "id": "satisfy-thirst",
       "name": "Satisfy Thirst",
       "priority": 95,
-      "desiredFacts": ["thirst.ok"],
-      "forbiddenFacts": [],
-      "requiredFacts": ["thirst.low"],
-      "blockedByFacts": []
+      "effects": ["thirst.ok"],
+      "requirements": ["thirst.low"]
     },
     {
       "id": "satisfy-hunger",
       "name": "Satisfy Hunger",
       "priority": 92,
-      "desiredFacts": ["hunger.ok"],
-      "forbiddenFacts": [],
-      "requiredFacts": ["hunger.low"],
-      "blockedByFacts": []
+      "effects": ["hunger.ok"],
+      "requirements": ["hunger.low"]
     },
     {
       "id": "hide-from-enemy",
       "name": "Hide From Enemy",
       "priority": 88,
-      "desiredFacts": ["self.hidden"],
-      "forbiddenFacts": [],
-      "requiredFacts": ["enemy.visible"],
-      "blockedByFacts": []
+      "effects": ["self.hidden"],
+      "requirements": ["enemy.visible"]
     },
     {
       "id": "suppress-enemy",
       "name": "Suppress Enemy",
       "priority": 84,
-      "desiredFacts": ["enemy.suppressed"],
-      "forbiddenFacts": [],
-      "requiredFacts": ["enemy.visible", "has.item-tag.throwable"],
-      "blockedByFacts": ["self.hidden"]
+      "effects": ["enemy.suppressed"],
+      "requirements": ["enemy.visible", "has.item-tag.throwable"]
     },
     {
       "id": "store-resources",
       "name": "Store Resources",
       "priority": 80,
-      "desiredFacts": [],
-      "forbiddenFacts": ["inventory.has-resource-items"],
-      "requiredFacts": ["inventory.has-resource-items"],
-      "blockedByFacts": []
+      "effects": [],
+      "requirements": ["inventory.has-resource-items"]
     },
     {
       "id": "finish-construction",
       "name": "Finish Construction",
       "priority": 70,
-      "desiredFacts": [],
-      "forbiddenFacts": ["construction.pending"],
-      "requiredFacts": ["construction.pending"],
-      "blockedByFacts": [
-        "enemy.visible",
-        "rest.low",
-        "hunger.low",
-        "thirst.low"
-      ]
+      "effects": [],
+      "requirements": ["construction.pending"]
     },
     {
       "id": "supply-construction",
       "name": "Supply Construction",
       "priority": 72,
-      "desiredFacts": [],
-      "forbiddenFacts": ["site.needs-materials"],
-      "requiredFacts": ["site.needs-materials"],
-      "blockedByFacts": [
-        "enemy.visible",
-        "rest.low",
-        "hunger.low",
-        "thirst.low"
-      ]
+      "effects": [],
+      "requirements": ["site.needs-materials"]
     },
     {
       "id": "supply-workstation",
       "name": "Supply Workstation",
       "priority": 42,
-      "desiredFacts": [],
-      "forbiddenFacts": ["workstation.needs-inputs"],
-      "requiredFacts": ["workstation.needs-inputs"],
-      "blockedByFacts": [
-        "enemy.visible",
-        "rest.low",
-        "hunger.low",
-        "thirst.low"
-      ]
+      "effects": [],
+      "requirements": ["workstation.needs-inputs"]
     },
     {
       "id": "run-production-order",
       "name": "Run Production Order",
       "priority": 40,
-      "desiredFacts": [],
-      "forbiddenFacts": ["production.order.active"],
-      "requiredFacts": ["production.order.active"],
-      "blockedByFacts": [
-        "enemy.visible",
-        "rest.low",
-        "hunger.low",
-        "thirst.low"
-      ]
+      "effects": [],
+      "requirements": ["production.order.active"]
     },
     {
       "id": "patrol-area",
       "name": "Patrol Area",
       "priority": 15,
-      "desiredFacts": ["area.patrolled"],
-      "forbiddenFacts": [],
-      "requiredFacts": [],
-      "blockedByFacts": [
-        "rest.low",
-        "hunger.low",
-        "thirst.low",
-        "inventory.has-resource-items",
-        "enemy.visible"
-      ]
+      "effects": ["area.patrolled"],
+      "requirements": []
     },
     {
       "id": "gather-resource",
       "name": "Gather Resource",
       "priority": 10,
-      "desiredFacts": ["inventory.has-resource-items"],
-      "forbiddenFacts": [],
-      "requiredFacts": [],
-      "blockedByFacts": []
+      "effects": ["inventory.has-resource-items"],
+      "requirements": []
     }
   ]
 }

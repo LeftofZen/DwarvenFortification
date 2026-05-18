@@ -207,24 +207,23 @@ namespace DwarvenFortification.ECS.Runtime
 
 		public static MaterialCostComponent[] GetBuildCosts(this Entity entity)
 			=> entity.IsConstructionSite()
-				? entity.Get<ConstructionSiteComponent>().BuildCosts ?? Array.Empty<MaterialCostComponent>()
+				? entity.Get<ConstructionSiteComponent>().BuildCosts ?? []
 				: entity.Has<WorldObjectDefinitionComponent>()
-					? entity.Get<WorldObjectDefinitionComponent>().BuildCosts ?? Array.Empty<MaterialCostComponent>()
-					: Array.Empty<MaterialCostComponent>();
+					? entity.Get<WorldObjectDefinitionComponent>().BuildCosts ?? []
+					: [];
 
 		public static MaterialCostComponent[] GetMissingBuildCosts(this Entity entity)
-			=> entity.GetBuildCosts()
+			=> [.. entity.GetBuildCosts()
 				.Select(cost => cost.WithQuantity(System.Math.Max(0, cost.Quantity - entity.CountStoredItemsForCost(cost))))
-				.Where(cost => cost.Quantity > 0)
-				.ToArray();
+				.Where(cost => cost.Quantity > 0)];
 
 		public static bool HasAllBuildMaterials(this Entity entity)
 			=> entity.GetMissingBuildCosts().Length == 0;
 
 		public static CraftRecipeComponent[] GetRecipes(this Entity entity)
 			=> entity.Has<WorldObjectDefinitionComponent>()
-				? entity.Get<WorldObjectDefinitionComponent>().Recipes ?? Array.Empty<CraftRecipeComponent>()
-				: Array.Empty<CraftRecipeComponent>();
+				? entity.Get<WorldObjectDefinitionComponent>().Recipes ?? []
+				: [];
 
 		public static bool TryGetRecipeForOutput(this Entity entity, string outputItemId, out CraftRecipeComponent recipe)
 		{
@@ -240,7 +239,7 @@ namespace DwarvenFortification.ECS.Runtime
 			var consumed = new List<Entity>();
 			if (!entity.Has<InventoryComponent>())
 			{
-				return consumed.ToArray();
+				return [.. consumed];
 			}
 
 			ref var inventory = ref entity.Get<InventoryComponent>();
@@ -260,7 +259,7 @@ namespace DwarvenFortification.ECS.Runtime
 
 					if (stored.Equals(default(Entity)))
 					{
-						return consumed.ToArray();
+						return [.. consumed];
 					}
 
 					inventory.Items.Remove(stored);
@@ -268,7 +267,7 @@ namespace DwarvenFortification.ECS.Runtime
 				}
 			}
 
-			return consumed.ToArray();
+			return [.. consumed];
 		}
 
 		public static bool CanStore(this Entity entity, Entity item)
@@ -783,19 +782,18 @@ namespace DwarvenFortification.ECS.Runtime
 		{
 			if (!entity.HasActiveProductionOrder())
 			{
-				return Array.Empty<MaterialCostComponent>();
+				return [];
 			}
 
 			var order = entity.Get<ProductionOrderComponent>();
 			if (!entity.TryGetRecipeById(order.ActiveRecipeId, out var recipe))
 			{
-				return Array.Empty<MaterialCostComponent>();
+				return [];
 			}
 
-			return recipe.Inputs
+			return [.. recipe.Inputs
 				.Select(cost => cost.WithQuantity(System.Math.Max(0, cost.Quantity - entity.CountStoredItemsForCost(cost))))
-				.Where(cost => cost.Quantity > 0)
-				.ToArray();
+				.Where(cost => cost.Quantity > 0)];
 		}
 
 		public static void SetProductionOrder(this Entity entity, string recipeId, int batches)

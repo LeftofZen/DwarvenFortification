@@ -102,11 +102,11 @@ namespace DwarvenFortification.GOAP
 
 			if (TryGetFactSuffix(fact, HasItemTagPrefix, out var singleTag))
 			{
-				tags = new[] { singleTag };
+				tags = [singleTag];
 				return true;
 			}
 
-			tags = Array.Empty<string>();
+			tags = [];
 			return false;
 		}
 

@@ -1,13 +1,18 @@
 using Microsoft.Xna.Framework;
 
-namespace DwarvenFortification.GOAP.Actions
+namespace DwarvenFortification.GOAP
 {
-
-	public sealed class ActionDiagnostic
+	public enum GoapActionDiagnosticStatus
 	{
-		public ActionDiagnostic(
-			ActionDefinitionSnapshot definition,
-			ActionDiagnosticStatus status,
+		Available,
+		Rejected,
+	}
+
+	public sealed class GoapActionDiagnostic
+	{
+		public GoapActionDiagnostic(
+			GoapAction definition,
+			GoapActionDiagnosticStatus status,
 			string reason,
 			Point? targetCell,
 			Point? destinationCell,
@@ -23,8 +28,8 @@ namespace DwarvenFortification.GOAP.Actions
 			Cost = cost;
 		}
 
-		public ActionDefinitionSnapshot Definition { get; }
-		public ActionDiagnosticStatus Status { get; }
+		public GoapAction Definition { get; }
+		public GoapActionDiagnosticStatus Status { get; }
 		public string Reason { get; }
 		public Point? TargetCell { get; }
 		public Point? DestinationCell { get; }

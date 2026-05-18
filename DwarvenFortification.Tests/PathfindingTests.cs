@@ -12,7 +12,7 @@ public sealed class PathfindingTests
 	[Test]
 	public void GraphPathfinder_UsesLowestTotalEdgeCost()
 	{
-		var edges = new Dictionary<string, GraphEdge<string>[]>
+		var edges = new Dictionary<string, GraphEdge<string, string>[]>
 		{
 			["start"] = [new("direct", 10f), new("cheap-1", 2f)],
 			["cheap-1"] = [new("cheap-2", 2f)],
@@ -21,7 +21,7 @@ public sealed class PathfindingTests
 			["goal"] = [],
 		};
 
-		var request = new GraphPathRequest<string>(
+		var request = new GraphPathRequest<string, string>(
 			"start",
 			"goal",
 			node => edges[node],
@@ -41,14 +41,14 @@ public sealed class PathfindingTests
 	[Test]
 	public void GraphPathfinder_ReturnsFalseWhenDestinationIsUnreachable()
 	{
-		var edges = new Dictionary<string, GraphEdge<string>[]>
+		var edges = new Dictionary<string, GraphEdge<string, string>[]>
 		{
 			["start"] = [new("middle", 1f)],
 			["middle"] = [],
 			["goal"] = [],
 		};
 
-		var request = new GraphPathRequest<string>(
+		var request = new GraphPathRequest<string, string>(
 			"start",
 			"goal",
 			node => edges[node],
@@ -60,17 +60,17 @@ public sealed class PathfindingTests
 		Assert.Multiple(() =>
 		{
 			Assert.That(found, Is.False);
-			Assert.That(result, Is.EqualTo(default(GraphPathResult<string>)));
+			Assert.That(result, Is.EqualTo(default(GraphPathResult<string, string>)));
 		});
 	}
 
 	[Test]
 	public void GraphPathfinder_ReturnsSingleNodePathWhenStartMatchesDestination()
 	{
-		var request = new GraphPathRequest<string>(
+		var request = new GraphPathRequest<string, string>(
 			"start",
 			"start",
-			static _ => Array.Empty<GraphEdge<string>>(),
+			static _ => Array.Empty<GraphEdge<string, string>>(),
 			EstimateRemainingCost: static (from, to) => 0f,
 			NodeComparer: StringComparer.OrdinalIgnoreCase);
 
@@ -87,7 +87,7 @@ public sealed class PathfindingTests
 	[Test]
 	public void GraphPathfinder_ThrowsWhenEdgeExpansionDelegateIsNull()
 	{
-		var request = new GraphPathRequest<string>(
+		var request = new GraphPathRequest<string, string>(
 			"start",
 			"goal",
 			null!,
@@ -102,7 +102,7 @@ public sealed class PathfindingTests
 	[Test]
 	public void GraphPathfinder_ThrowsWhenExpandedEdgesSequenceIsNull()
 	{
-		var request = new GraphPathRequest<string>(
+		var request = new GraphPathRequest<string, string>(
 			"start",
 			"goal",
 			static _ => null!,

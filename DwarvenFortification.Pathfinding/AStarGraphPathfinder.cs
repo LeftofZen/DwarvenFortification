@@ -2,13 +2,13 @@ namespace DwarvenFortification.Simulation.Pathfinding
 {
 	public sealed class AStarGraphPathfinder : IGraphPathfinder
 	{
-		public bool TryFindPath<TNode>(GraphPathRequest<TNode> request, out GraphPathResult<TNode> path)
+		public bool TryFindPath<TNode, TLabel>(GraphPathRequest<TNode, TLabel> request, out GraphPathResult<TNode, TLabel> path)
 		{
 			ArgumentNullException.ThrowIfNull(request.ExpandEdges);
 
 			var comparer = request.NodeComparer ?? EqualityComparer<TNode>.Default;
 			return TryFindPath(
-				new GraphSearchRequest<TNode>(
+				new GraphSearchRequest<TNode, TLabel>(
 					request.StartNode,
 					node => comparer.Equals(node, request.DestinationNode),
 					request.ExpandEdges,
@@ -19,7 +19,7 @@ namespace DwarvenFortification.Simulation.Pathfinding
 				out path);
 		}
 
-		public bool TryFindPath<TNode>(GraphSearchRequest<TNode> request, out GraphPathResult<TNode> path)
+		public bool TryFindPath<TNode, TLabel>(GraphSearchRequest<TNode, TLabel> request, out GraphPathResult<TNode, TLabel> path)
 		{
 			ArgumentNullException.ThrowIfNull(request.ExpandEdges);
 			ArgumentNullException.ThrowIfNull(request.IsGoalNode);
@@ -29,7 +29,7 @@ namespace DwarvenFortification.Simulation.Pathfinding
 
 			if (request.IsGoalNode(request.StartNode))
 			{
-				path = new GraphPathResult<TNode>(new[] { request.StartNode }, 0f);
+				path = new GraphPathResult<TNode, TLabel>([request.StartNode], Array.Empty<TLabel>(), 0f);
 				return true;
 			}
 
@@ -39,7 +39,7 @@ namespace DwarvenFortification.Simulation.Pathfinding
 			{
 				[request.StartNode] = 0f,
 			};
-			var cameFrom = new Dictionary<TNode, TNode>(comparer);
+			var cameFrom = new Dictionary<TNode, (TNode Parent, TLabel Edge)>(comparer);
 
 			frontier.Enqueue(request.StartNode, heuristic(request.StartNode));
 
@@ -52,7 +52,8 @@ namespace DwarvenFortification.Simulation.Pathfinding
 
 				if (request.IsGoalNode(current))
 				{
-					path = new GraphPathResult<TNode>(ReconstructPath(current, cameFrom), bestCosts[current]);
+					var (pathNodes, pathEdges) = ReconstructPath(current, cameFrom);
+					path = new GraphPathResult<TNode, TLabel>(pathNodes, pathEdges, bestCosts[current]);
 					return true;
 				}
 
@@ -73,7 +74,7 @@ namespace DwarvenFortification.Simulation.Pathfinding
 						continue;
 					}
 
-					cameFrom[edge.Destination] = current;
+					cameFrom[edge.Destination] = (current, edge.Label);
 					bestCosts[edge.Destination] = nextCost;
 					frontier.Enqueue(edge.Destination, nextCost + heuristic(edge.Destination));
 				}
@@ -86,19 +87,24 @@ namespace DwarvenFortification.Simulation.Pathfinding
 				=> 0f;
 		}
 
-		static IReadOnlyList<TNode> ReconstructPath<TNode>(TNode destination, IReadOnlyDictionary<TNode, TNode> cameFrom)
+		static (IReadOnlyList<TNode> Nodes, IReadOnlyList<TLabel> Edges) ReconstructPath<TNode, TLabel>(
+			TNode destination,
+			IReadOnlyDictionary<TNode, (TNode Parent, TLabel Edge)> cameFrom)
 		{
-			var path = new List<TNode> { destination };
+			var nodes = new List<TNode> { destination };
+			var edges = new List<TLabel>();
 			var current = destination;
 
-			while (cameFrom.TryGetValue(current, out var previous))
+			while (cameFrom.TryGetValue(current, out var entry))
 			{
-				path.Add(previous);
-				current = previous;
+				edges.Add(entry.Edge);
+				nodes.Add(entry.Parent);
+				current = entry.Parent;
 			}
 
-			path.Reverse();
-			return path;
+			nodes.Reverse();
+			edges.Reverse();
+			return (nodes, edges);
 		}
 	}
 }

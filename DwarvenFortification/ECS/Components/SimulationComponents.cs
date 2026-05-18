@@ -25,7 +25,7 @@ namespace DwarvenFortification.ECS.Components
 		public int Quantity { get; init; }
 
 		public MaterialCostComponent(string itemId, int quantity)
-			: this() { ItemId = itemId; ItemFilter = Array.Empty<string>(); Quantity = quantity; }
+			: this() { ItemId = itemId; ItemFilter = []; Quantity = quantity; }
 
 		public MaterialCostComponent(string[] itemFilter, int quantity)
 			: this() { ItemId = string.Join(",", itemFilter); ItemFilter = itemFilter; Quantity = quantity; }
@@ -35,29 +35,10 @@ namespace DwarvenFortification.ECS.Components
 
 		public bool UsesFilter => ItemFilter != null && ItemFilter.Length > 0;
 
-		public MaterialCostComponent WithQuantity(int newQuantity) => new(ItemId, ItemFilter ?? Array.Empty<string>(), newQuantity);
+		public MaterialCostComponent WithQuantity(int newQuantity) => new(ItemId, ItemFilter ?? [], newQuantity);
 	}
 
 	public readonly record struct CraftRecipeComponent(string Id, string Name, string[] RequiredFacts, MaterialCostComponent[] Inputs, string OutputItemId, int OutputQuantity);
-
-	public readonly record struct ActionRequirementComponent(
-		string[] RequiredItemTags,
-		string[] RequiredTargetTags,
-		string[] RequiredBodyParts,
-		string[] RequiredOrgans,
-		string[] RequiredSystems,
-		string[] RequiredFacts,
-		string[] BlockedByFacts,
-		bool RequiresFreeInventorySlot,
-		bool RequiresReservation);
-
-	public readonly record struct ActionOutputComponent(ActionOutputDefinition[] Outputs);
-
-	public readonly record struct ActionEffectComponent(string[] AddFacts, string[] RemoveFacts);
-
-	public readonly record struct ActionDefinitionComponent(string TargetKind, string DestinationMode, int BaseCost, int DurationTicks);
-
-	public readonly record struct ActionSkillsComponent(string[] Skills);
 
 	public readonly record struct AgentSkillsComponent(Dictionary<string, int> Skills)
 	{
@@ -120,8 +101,6 @@ namespace DwarvenFortification.ECS.Components
 
 	public readonly record struct ItemInstanceComponent(string DefinitionId);
 
-	public readonly record struct GoalDefinitionComponent(int Priority, string[] DesiredFacts, string[] ForbiddenFacts, string[] RequiredFacts, string[] BlockedByFacts);
-
 	public readonly record struct AgentArchetypeSnapshot(
 		string FactionId,
 		string MemoryProviderId,
@@ -159,10 +138,10 @@ namespace DwarvenFortification.ECS.Components
 		public static AgentArchetypeSnapshot Default => new(
 			"neutral",
 			string.Empty,
-			Array.Empty<string>(),
-			Array.Empty<string>(),
-			Array.Empty<string>(),
-			Array.Empty<string>(),
+			[],
+			[],
+			[],
+			[],
 			5,
 			2f,
 			4f,

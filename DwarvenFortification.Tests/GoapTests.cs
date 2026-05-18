@@ -2,8 +2,6 @@ using Arch.Core;
 using DwarvenFortification.ECS;
 using DwarvenFortification.ECS.Authoring;
 using DwarvenFortification.GOAP;
-using DwarvenFortification.GOAP.Actions;
-using DwarvenFortification.GOAP.Plans;
 using Microsoft.Xna.Framework;
 using System.Text.Json;
 
@@ -22,14 +20,14 @@ public sealed class GoapPlannerTests
 				Id = "secure-food",
 				Name = "Secure Food",
 				Priority = 10,
-				DesiredFacts = ["food.available"],
+				Effects = ["food.available"],
 			},
 		};
 		var actions = new[]
 		{
-			CreateActionDefinition("forage", ["berries.found"], baseCost: 1),
-			CreateActionDefinition("harvest-berries", ["food.available"], requiredFacts: ["berries.found"], baseCost: 1),
-			CreateActionDefinition("buy-rations", ["food.available"], baseCost: 5),
+			CreateActionDefinition("forage", requirements: [], effects: ["berries.found"], baseCost: 1),
+			CreateActionDefinition("harvest-berries", requirements: ["berries.found"], effects: ["food.available"], baseCost: 1),
+			CreateActionDefinition("buy-rations", requirements: [], effects: ["food.available"], baseCost: 5),
 		};
 
 		var (planner, agent, _) = CreatePlanner(goals, actions, [], _ => ["forage", "harvest-berries", "buy-rations"]);
@@ -55,13 +53,13 @@ public sealed class GoapPlannerTests
 				Id = "rest",
 				Name = "Rest",
 				Priority = 5,
-				DesiredFacts = ["restored"],
-				RequiredFacts = ["bed.available"],
+				Effects = ["restored"],
+				Requirements = ["bed.available"],
 			},
 		};
 		var actions = new[]
 		{
-			CreateActionDefinition("sleep", ["restored"]),
+			CreateActionDefinition("sleep", requirements: [], effects: ["restored"]),
 		};
 
 		var (planner, agent, _) = CreatePlanner(goals, actions, [], _ => []);
@@ -73,7 +71,7 @@ public sealed class GoapPlannerTests
 		Assert.Multiple(() =>
 		{
 			Assert.That(snapshot.Goals[0].IsEligible, Is.False);
-			Assert.That(snapshot.Goals[0].MissingRequiredFacts, Is.EqualTo(new[] { "bed.available" }));
+			Assert.That(snapshot.Goals[0].MissingRequiredStates, Is.EqualTo(new[] { "bed.available" }));
 			Assert.That(snapshot.Goals[0].CandidatePlan, Is.Null);
 		});
 	}
@@ -88,12 +86,12 @@ public sealed class GoapPlannerTests
 				Id = "hide",
 				Name = "Hide",
 				Priority = 20,
-				DesiredFacts = ["self.hidden"],
+				Effects = ["self.hidden"],
 			},
 		};
 		var actions = new[]
 		{
-			CreateActionDefinition("hide", ["self.hidden"], requiredFacts: ["!enemy.visible"]),
+			CreateActionDefinition("hide", requirements: ["!enemy.visible"], effects: ["self.hidden"]),
 		};
 
 		var (planner, safeAgent, _) = CreatePlanner(goals, actions, [], _ => ["hide"]);
@@ -119,13 +117,13 @@ public sealed class GoapPlannerTests
 				Id = "secure-food",
 				Name = "Secure Food",
 				Priority = 10,
-				DesiredFacts = ["food.available"],
+				Effects = ["food.available"],
 			},
 		};
 		var actions = new[]
 		{
-			CreateActionDefinition("forage", ["berries.found"], durationTicks: 4),
-			CreateActionDefinition("harvest-berries", ["food.available"], requiredFacts: ["berries.found"], durationTicks: 6),
+			CreateActionDefinition("forage", requirements: [], effects: ["berries.found"], durationTicks: 4),
+			CreateActionDefinition("harvest-berries", requirements: ["berries.found"], effects: ["food.available"], durationTicks: 6),
 		};
 
 		var (planner, agent, _) = CreatePlanner(
@@ -139,10 +137,10 @@ public sealed class GoapPlannerTests
 		Assert.That(plan, Is.Not.Null);
 		Assert.Multiple(() =>
 		{
-			Assert.That(plan!.Root.Kind, Is.EqualTo(PlanNodeKind.Goal));
+			Assert.That(plan!.Root.Kind, Is.EqualTo(GoapPlanNodeKind.Goal));
 			Assert.That(plan.Root.Children, Has.Count.EqualTo(1));
-			Assert.That(plan.Root.Children[0].Kind, Is.EqualTo(PlanNodeKind.Requirement));
-			Assert.That(plan.Root.Children[0].Children[0].Kind, Is.EqualTo(PlanNodeKind.Requirement));
+			Assert.That(plan.Root.Children[0].Kind, Is.EqualTo(GoapPlanNodeKind.Requirement));
+			Assert.That(plan.Root.Children[0].Children[0].Kind, Is.EqualTo(GoapPlanNodeKind.Requirement));
 			Assert.That(plan.Root.Children[0].Children[0].Children[0].Candidate?.Definition.Id, Is.EqualTo("forage"));
 			Assert.That(plan.Root.Children[0].Children[1].Candidate?.Definition.Id, Is.EqualTo("harvest-berries"));
 			Assert.That(plan.Steps.Select(step => step.Definition.Id), Is.EqualTo(new[] { "forage", "harvest-berries" }));
@@ -159,20 +157,20 @@ public sealed class GoapPlannerTests
 				Id = "secure-food",
 				Name = "Secure Food",
 				Priority = 10,
-				DesiredFacts = ["food.available"],
+				Effects = ["food.available"],
 			},
 		};
 		var actions = new[]
 		{
-			CreateActionDefinition("forage", ["berries.found"]),
-			CreateActionDefinition("harvest-berries", ["food.available"], requiredFacts: ["berries.found"]),
+			CreateActionDefinition("forage", requirements: [], effects: ["berries.found"]),
+			CreateActionDefinition("harvest-berries", requirements: ["berries.found"], effects: ["food.available"]),
 		};
 
 		var (planner, agent, queryService) = CreatePlanner(
 			goals,
 			actions,
 			[],
-			currentFacts => currentFacts.Contains("berries.found")
+			currentState => currentState.Contains("berries.found")
 				? ["harvest-berries"]
 				: ["forage"]);
 
@@ -190,7 +188,7 @@ public sealed class GoapPlannerTests
 	public void Plan_BuildsExpectedMermaidTreemapDiagram()
 	{
 		var plan = CreatePlannedSecureFoodMermaidPlan();
-		var diagram = PlanMermaidDiagramBuilder.BuildTreemapDiagram(plan);
+		var diagram = GoapPlanDiagram.BuildTreemapDiagram(plan);
 		var usedActionIds = plan.Steps.Select(step => step.Definition.Id).ToArray();
 
 		Assert.Multiple(() =>
@@ -199,16 +197,16 @@ public sealed class GoapPlannerTests
 			Assert.That(usedActionIds, Has.None.Matches<string>(id => UnrelatedSecureFoodWorldActionIds.Contains(id, StringComparer.OrdinalIgnoreCase)));
 			Assert.That(diagram, Does.StartWith("treemap-beta"));
 			Assert.That(diagram, Does.Contain("\"Goal: Secure Food (cost 40)\""));
-			Assert.That(diagram, Does.Contain("    \"Requirement: Require fact 'food.available' (cost 40)\""));
-			Assert.That(diagram, Does.Contain("        \"Requirement: Require fact 'seasoning.ready' (cost 6)\""));
-			Assert.That(diagram, Does.Contain("            \"Requirement: Require fact 'seasoning.salt' (cost 1)\""));
+			Assert.That(diagram, Does.Contain("    \"Requirement: Require state 'food.available' (cost 40)\""));
+			Assert.That(diagram, Does.Contain("        \"Requirement: Require state 'seasoning.ready' (cost 6)\""));
+			Assert.That(diagram, Does.Contain("            \"Requirement: Require state 'seasoning.salt' (cost 1)\""));
 			Assert.That(diagram, Does.Contain("                \"Action: quarry-salt (cost 1)\": 1"));
-			Assert.That(diagram, Does.Contain("            \"Requirement: Require fact 'seasoning.herbs' (cost 2)\""));
+			Assert.That(diagram, Does.Contain("            \"Requirement: Require state 'seasoning.herbs' (cost 2)\""));
 			Assert.That(diagram, Does.Contain("                \"Action: gather-herbs (cost 2)\": 2"));
 			Assert.That(diagram, Does.Contain("            \"Action: grind-seasoning (cost 3)\": 3"));
-			Assert.That(diagram, Does.Contain("        \"Requirement: Require fact 'berries.found' (cost 24)\""));
-			Assert.That(diagram, Does.Contain("            \"Requirement: Require fact 'basket.ready' (cost 15)\""));
-			Assert.That(diagram, Does.Contain("                \"Requirement: Require fact 'fiber.collected' (cost 7)\""));
+			Assert.That(diagram, Does.Contain("        \"Requirement: Require state 'berries.found' (cost 24)\""));
+			Assert.That(diagram, Does.Contain("            \"Requirement: Require state 'basket.ready' (cost 15)\""));
+			Assert.That(diagram, Does.Contain("                \"Requirement: Require state 'fiber.collected' (cost 7)\""));
 			Assert.That(diagram, Does.Contain("                    \"Action: collect-fiber (cost 7)\": 7"));
 			Assert.That(diagram, Does.Contain("                \"Action: weave-basket (cost 8)\": 8"));
 			Assert.That(diagram, Does.Contain("            \"Action: forage-berries (cost 9)\": 9"));
@@ -223,7 +221,7 @@ public sealed class GoapPlannerTests
 	public void Plan_BuildsExpectedMermaidGanttDiagram()
 	{
 		var plan = CreatePlannedSecureFoodMermaidPlan();
-		var diagram = PlanMermaidDiagramBuilder.BuildGanttDiagram(plan);
+		var diagram = GoapPlanDiagram.BuildGanttDiagram(plan);
 		var usedActionIds = plan.Steps.Select(step => step.Definition.Id).ToArray();
 
 		Assert.Multiple(() =>
@@ -274,7 +272,7 @@ public sealed class GoapPlannerTests
 		"weave-cloak",
 	];
 
-	static Plan CreatePlannedSecureFoodMermaidPlan()
+	static GoapPlan CreatePlannedSecureFoodMermaidPlan()
 	{
 		var goals = new[]
 		{
@@ -283,29 +281,29 @@ public sealed class GoapPlannerTests
 				Id = "secure-food",
 				Name = "Secure Food",
 				Priority = 10,
-				DesiredFacts = ["food.available"],
+				Effects = ["food.available"],
 			},
 		};
 		var actions = new[]
 		{
-			CreateActionDefinition("quarry-salt", ["seasoning.salt"], durationTicks: 1, baseCost: 0),
-			CreateActionDefinition("gather-herbs", ["seasoning.herbs"], durationTicks: 2, baseCost: 0),
-			CreateActionDefinition("grind-seasoning", ["seasoning.ready"], requiredFacts: ["seasoning.salt", "seasoning.herbs"], durationTicks: 3, baseCost: 0),
-			CreateActionDefinition("collect-fiber", ["fiber.collected"], durationTicks: 7, baseCost: 0),
-			CreateActionDefinition("weave-basket", ["basket.ready"], requiredFacts: ["fiber.collected"], durationTicks: 8, baseCost: 0),
-			CreateActionDefinition("forage-berries", ["berries.found"], requiredFacts: ["basket.ready"], durationTicks: 9, baseCost: 0),
-			CreateActionDefinition("cook-feast", ["food.available"], requiredFacts: ["berries.found", "seasoning.ready"], durationTicks: 10, baseCost: 0),
-			CreateActionDefinition("fell-tree", ["tree.logs"], durationTicks: 4, baseCost: 0),
-			CreateActionDefinition("split-logs", ["firewood.ready"], requiredFacts: ["tree.logs"], durationTicks: 2, baseCost: 0),
-			CreateActionDefinition("shape-tool-handle", ["tool.handle"], requiredFacts: ["tree.logs"], durationTicks: 3, baseCost: 0),
-			CreateActionDefinition("mine-iron", ["ore.iron"], durationTicks: 5, baseCost: 0),
-			CreateActionDefinition("smelt-iron-ingot", ["ingot.iron"], requiredFacts: ["ore.iron", "firewood.ready"], durationTicks: 6, baseCost: 0),
-			CreateActionDefinition("forge-pickaxe-head", ["pickaxe.head"], requiredFacts: ["ingot.iron"], durationTicks: 4, baseCost: 0),
-			CreateActionDefinition("assemble-pickaxe", ["pickaxe.ready"], requiredFacts: ["pickaxe.head", "tool.handle"], durationTicks: 3, baseCost: 0),
-			CreateActionDefinition("dig-deep-mine", ["mine.deep-access"], requiredFacts: ["pickaxe.ready"], durationTicks: 8, baseCost: 0),
-			CreateActionDefinition("shear-wool", ["wool.raw"], durationTicks: 3, baseCost: 0),
-			CreateActionDefinition("spin-yarn", ["yarn.spun"], requiredFacts: ["wool.raw"], durationTicks: 4, baseCost: 0),
-			CreateActionDefinition("weave-cloak", ["clothing.warm"], requiredFacts: ["yarn.spun"], durationTicks: 6, baseCost: 0),
+			CreateActionDefinition("quarry-salt", requirements: [], effects: ["seasoning.salt"], durationTicks: 1, baseCost: 0),
+			CreateActionDefinition("gather-herbs", requirements: [], effects: ["seasoning.herbs"], durationTicks: 2, baseCost: 0),
+			CreateActionDefinition("grind-seasoning", requirements: ["seasoning.salt", "seasoning.herbs"], effects: ["seasoning.ready"], durationTicks: 3, baseCost: 0),
+			CreateActionDefinition("collect-fiber", requirements: [], effects: ["fiber.collected"], durationTicks: 7, baseCost: 0),
+			CreateActionDefinition("weave-basket", requirements: ["fiber.collected"], effects: ["basket.ready"], durationTicks: 8, baseCost: 0),
+			CreateActionDefinition("forage-berries", requirements: ["basket.ready"], effects: ["berries.found"], durationTicks: 9, baseCost: 0),
+			CreateActionDefinition("cook-feast", requirements: ["berries.found", "seasoning.ready"], effects: ["food.available"], durationTicks: 10, baseCost: 0),
+			CreateActionDefinition("fell-tree", requirements: [], effects: ["tree.logs"], durationTicks: 4, baseCost: 0),
+			CreateActionDefinition("split-logs", requirements: ["tree.logs"], effects: ["firewood.ready"], durationTicks: 2, baseCost: 0),
+			CreateActionDefinition("shape-tool-handle", requirements: ["tree.logs"], effects: ["tool.handle"], durationTicks: 3, baseCost: 0),
+			CreateActionDefinition("mine-iron", requirements: [], effects: ["ore.iron"], durationTicks: 5, baseCost: 0),
+			CreateActionDefinition("smelt-iron-ingot", requirements: ["ore.iron", "firewood.ready"], effects: ["ingot.iron"], durationTicks: 6, baseCost: 0),
+			CreateActionDefinition("forge-pickaxe-head", requirements: ["ingot.iron"], effects: ["pickaxe.head"], durationTicks: 4, baseCost: 0),
+			CreateActionDefinition("assemble-pickaxe", requirements: ["pickaxe.head", "tool.handle"], effects: ["pickaxe.ready"], durationTicks: 3, baseCost: 0),
+			CreateActionDefinition("dig-deep-mine", requirements: ["pickaxe.ready"], effects: ["mine.deep-access"], durationTicks: 8, baseCost: 0),
+			CreateActionDefinition("shear-wool", requirements: [], effects: ["wool.raw"], durationTicks: 3, baseCost: 0),
+			CreateActionDefinition("spin-yarn", requirements: ["wool.raw"], effects: ["yarn.spun"], durationTicks: 4, baseCost: 0),
+			CreateActionDefinition("weave-cloak", requirements: ["yarn.spun"], effects: ["clothing.warm"], durationTicks: 6, baseCost: 0),
 		};
 
 		var (planner, agent, _) = CreatePlanner(
@@ -321,20 +319,20 @@ public sealed class GoapPlannerTests
 		return planner.BuildCandidatePlans(agent).Single();
 	}
 
-	static (Planner Planner, Entity Agent, StubGoapWorldQueryService QueryService) CreatePlanner(
+	static (GoapPlanner Planner, Entity Agent, StubGoapWorldQueryService QueryService) CreatePlanner(
 		GoalDefinition[] goals,
 		ActionDefinition[] actions,
-		IEnumerable<string> currentFacts,
+		IEnumerable<string> currentState,
 		Func<HashSet<string>, IReadOnlyList<string>> availableActionIdsFactory)
 	{
 		var definitions = TestSimulationDefinitions.CreateRegistry(actions, goals);
 		var world = World.Create();
 		var agent = world.Create();
-		var queryService = new StubGoapWorldQueryService(currentFacts, availableActionIdsFactory);
-		return (new Planner(definitions, queryService), agent, queryService);
+		var queryService = new StubGoapWorldQueryService(currentState, availableActionIdsFactory);
+		return (new GoapPlanner(definitions, queryService), agent, queryService);
 	}
 
-	static ActionDefinition CreateActionDefinition(string id, string[] addFacts, string[]? requiredFacts = null, int durationTicks = 0, int baseCost = 1)
+	static ActionDefinition CreateActionDefinition(string id, string[] requirements, string[] effects, int durationTicks = 0, int baseCost = 1)
 		=> new()
 		{
 			Id = id,
@@ -343,54 +341,47 @@ public sealed class GoapPlannerTests
 			DestinationMode = "current",
 			BaseCost = baseCost,
 			DurationTicks = durationTicks,
-			Requires = new ActionRequirementDefinition
-			{
-				RequiredFacts = requiredFacts ?? [],
-			},
-			Effects = new ActionEffectDefinition
-			{
-				AddFacts = addFacts,
-			},
+			Requirements = requirements,
+			Effects = effects,
 		};
 
-	sealed class StubGoapWorldQueryService : IWorldQueryService
+	sealed class StubGoapWorldQueryService : IGoapWorldQueryService
 	{
-		readonly HashSet<string> currentFacts;
+		readonly HashSet<string> currentState;
 		readonly Func<HashSet<string>, IReadOnlyList<string>> availableActionIdsFactory;
 
-		public StubGoapWorldQueryService(IEnumerable<string> currentFacts, Func<HashSet<string>, IReadOnlyList<string>> availableActionIdsFactory)
+		public StubGoapWorldQueryService(IEnumerable<string> currentState, Func<HashSet<string>, IReadOnlyList<string>> availableActionIdsFactory)
 		{
-			this.currentFacts = new HashSet<string>(currentFacts, StringComparer.OrdinalIgnoreCase);
+			this.currentState = new HashSet<string>(currentState, StringComparer.OrdinalIgnoreCase);
 			this.availableActionIdsFactory = availableActionIdsFactory;
 		}
 
 		public List<string[]> ObservedStates { get; } = new();
 
-		public HashSet<string> BuildCurrentFacts(Entity agent)
-			=> new(currentFacts, StringComparer.OrdinalIgnoreCase);
+		public HashSet<string> BuildCurrentState(Entity agent)
+			=> new(currentState, StringComparer.OrdinalIgnoreCase);
 
-		public CandidateQuerySnapshot InspectCandidates(Entity agent, IReadOnlyList<ActionDefinitionSnapshot> actions, HashSet<string> currentFacts)
+		public GoapCandidateQuery InspectCandidates(Entity agent, IReadOnlyList<GoapAction> actions, HashSet<string> currentState)
 		{
-			var snapshotFacts = currentFacts.OrderBy(fact => fact, StringComparer.OrdinalIgnoreCase).ToArray();
-			ObservedStates.Add(snapshotFacts);
-			return new(BuildCandidates(agent, actions, currentFacts).ToArray(), Array.Empty<ActionDiagnostic>());
+			var snapshotStates = currentState.OrderBy(s => s, StringComparer.OrdinalIgnoreCase).ToArray();
+			ObservedStates.Add(snapshotStates);
+			return new([.. BuildCandidates(agent, actions, currentState)], Array.Empty<GoapActionDiagnostic>());
 		}
 
-		public IEnumerable<ActionCandidate> BuildCandidates(Entity agent, IReadOnlyList<ActionDefinitionSnapshot> actions, HashSet<string> currentFacts)
+		public IEnumerable<GoapActionCandidate> BuildCandidates(Entity agent, IReadOnlyList<GoapAction> actions, HashSet<string> currentState)
 		{
-			var availableActionIds = availableActionIdsFactory(new HashSet<string>(currentFacts, StringComparer.OrdinalIgnoreCase));
+			var availableActionIds = availableActionIdsFactory(new HashSet<string>(currentState, StringComparer.OrdinalIgnoreCase));
 			foreach (var actionId in availableActionIds)
 			{
 				var action = actions.First(definition => string.Equals(definition.Id, actionId, StringComparison.OrdinalIgnoreCase));
-				yield return new ActionCandidate(
+				yield return new GoapActionCandidate(
 					action,
 					Point.Zero,
 					Point.Zero,
 					null,
 					action.BaseCost + action.DurationTicks,
-					action.RequiredFacts,
-					action.AddFacts,
-					action.RemoveFacts);
+					action.Requirements,
+					action.Effects);
 			}
 		}
 	}

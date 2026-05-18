@@ -1,36 +1,31 @@
-using DwarvenFortification.GOAP.Plans;
-
 namespace DwarvenFortification.GOAP
 {
-	public sealed class GoalDebugView
+	public sealed class GoapGoalView
 	{
-		public GoalDebugView(
-			Goal goal,
+		public GoapGoalView(
+			GoapGoal goal,
 			bool isEligible,
 			bool isSatisfied,
 			IReadOnlyList<string> missingRequiredFacts,
-			IReadOnlyList<string> activeBlockingFacts,
-			Plan candidatePlan,
+			GoapPlan candidatePlan,
 			int effectivePriority)
 		{
 			Goal = goal;
 			IsEligible = isEligible;
 			IsSatisfied = isSatisfied;
-			MissingRequiredFacts = missingRequiredFacts;
-			ActiveBlockingFacts = activeBlockingFacts;
+			MissingRequiredStates = missingRequiredFacts;
 			CandidatePlan = candidatePlan;
 			EffectivePriority = effectivePriority;
 		}
 
-		public Goal Goal { get; }
+		public GoapGoal Goal { get; }
 		public bool IsEligible { get; }
 		public bool IsSatisfied { get; }
-		public IReadOnlyList<string> MissingRequiredFacts { get; }
-		public IReadOnlyList<string> ActiveBlockingFacts { get; }
-		public Plan CandidatePlan { get; }
+		public IReadOnlyList<string> MissingRequiredStates { get; }
+		public GoapPlan CandidatePlan { get; }
 
 		/// <summary>
-		/// The runtime-computed priority, which may differ from Goal.Priority when dynamic
+		/// The runtime-computed priority, which may differ from GoapGoal.Priority when dynamic
 		/// scaling is applied (e.g. priority rises as hunger/thirst/rest deficits deepen).
 		/// </summary>
 		public int EffectivePriority { get; }

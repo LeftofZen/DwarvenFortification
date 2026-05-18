@@ -14,6 +14,14 @@ Every mechanic in this game reduces to a single idea: **agents search for paths 
 
 This framing means the entire design space — adding items, buildings, actions, recipes, goals — is the same problem at every level: adding nodes and edges to the graph.
 
+## Existing GOAP implementations
+
+These repo's can be used as reference when implementing GOAP systems:
+- https://github.com/Joy-less/GameReadyGoap/tree/main/GameReadyGoap
+- https://github.com/tckerr/SimpleGOAP
+- https://github.com/caesuric/mountain-goap
+- https://github.com/luxkun/ReGoap
+
 ## Config as graph definition
 
 The `Content/config/` directory is the **complete specification of the state-space graph**. No gameplay logic lives in the config; it only describes the graph topology.

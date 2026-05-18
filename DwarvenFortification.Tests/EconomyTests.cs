@@ -21,11 +21,11 @@ public sealed class EconomyTests
 		{
 			Assert.That(worldObject.IsConstructionSite(), Is.True);
 			Assert.That(worldObject.Get<ConstructionSiteComponent>().TargetDefinitionId, Is.EqualTo("ore-bin"));
-			Assert.That(worldObject.GetMissingBuildCosts().Select(cost => (cost.ItemId, cost.Quantity)), Is.EquivalentTo(new[]
-			{
+			Assert.That(worldObject.GetMissingBuildCosts().Select(cost => (cost.ItemId, cost.Quantity)), Is.EquivalentTo(
+			[
 				("oak-planks", 6),
 				("stone", 4),
-			}));
+			]));
 		});
 	}
 
@@ -68,7 +68,7 @@ public sealed class EconomyTests
 		Assert.Multiple(() =>
 		{
 			Assert.That(consumed, Has.Length.EqualTo(3));
-			Assert.That(consumed.Select(item => item.GetItemDefinitionId()), Is.EquivalentTo(new[] { "iron-ore", "iron-ore", "coal" }));
+			Assert.That(consumed.Select(item => item.GetItemDefinitionId()), Is.EquivalentTo(["iron-ore", "iron-ore", "coal"]));
 			Assert.That(smelter.CountStoredItems("iron-ore"), Is.Zero);
 			Assert.That(smelter.CountStoredItems("coal"), Is.Zero);
 		});

@@ -3,7 +3,6 @@ using Arch.Core.Extensions;
 using DwarvenFortification.ECS.Authoring;
 using DwarvenFortification.ECS.Components;
 using DwarvenFortification.GOAP;
-using DwarvenFortification.GOAP.Actions;
 using DwarvenFortification.Simulation.World;
 using Microsoft.Xna.Framework;
 using System;
@@ -15,21 +14,21 @@ using System.Text.Json.Serialization;
 
 namespace DwarvenFortification.ECS
 {
-	public sealed class SimulationDefinitionRegistry : IDefinitionSource
+	public sealed class SimulationDefinitionRegistry : IGoapDefinitionSource
 	{
 		readonly Dictionary<string, Entity> itemDefinitionEntities;
-		readonly Dictionary<string, Entity> actionDefinitionEntities;
 		readonly Dictionary<string, Entity> worldObjectDefinitionEntities;
 		readonly Dictionary<string, Entity> worldObjectDefinitionEntitiesById;
 		readonly Dictionary<string, Entity> resourceNodeDefinitionEntitiesById;
 		readonly List<OccupantPaletteEntry> paintableOccupants;
 		readonly List<ItemPaletteEntry> paletteItems;
 		readonly Dictionary<string, Entity> agentArchetypeEntities;
-		readonly Dictionary<string, Entity> goalDefinitionEntities;
 		readonly Entity? defaultAgentArchetypeEntity;
 		readonly List<string[]> knownItemFilters;
 		readonly List<FactDefinition> factDefinitions;
 		readonly List<SkillDefinition> skillDefinitions;
+		readonly List<GoapAction> goapActions;
+		readonly List<GoapGoal> goapGoals;
 
 		SimulationDefinitionRegistry(
 			World world,
@@ -44,14 +43,14 @@ namespace DwarvenFortification.ECS
 		{
 			World = world;
 			itemDefinitionEntities = new Dictionary<string, Entity>(StringComparer.OrdinalIgnoreCase);
-			actionDefinitionEntities = new Dictionary<string, Entity>(StringComparer.OrdinalIgnoreCase);
 			worldObjectDefinitionEntities = new Dictionary<string, Entity>(StringComparer.OrdinalIgnoreCase);
 			worldObjectDefinitionEntitiesById = new Dictionary<string, Entity>(StringComparer.OrdinalIgnoreCase);
 			paintableOccupants = [];
 			paletteItems = [];
+			goapActions = [];
+			goapGoals = [];
 			resourceNodeDefinitionEntitiesById = new Dictionary<string, Entity>(StringComparer.OrdinalIgnoreCase);
 			agentArchetypeEntities = new Dictionary<string, Entity>(StringComparer.OrdinalIgnoreCase);
-			goalDefinitionEntities = new Dictionary<string, Entity>(StringComparer.OrdinalIgnoreCase);
 			knownItemFilters = new List<string[]>();
 			factDefinitions = new List<FactDefinition>(facts ?? Array.Empty<FactDefinition>());
 			skillDefinitions = new List<SkillDefinition>(skills ?? Array.Empty<SkillDefinition>());
@@ -61,7 +60,7 @@ namespace DwarvenFortification.ECS
 				var propertyTags = (item.Properties ?? new System.Collections.Generic.Dictionary<string, string>())
 					.Select(kvp => $"{kvp.Key}:{kvp.Value}")
 					.ToArray();
-				var allTags = (item.Tags ?? Array.Empty<string>()).Concat(propertyTags).ToArray();
+				var allTags = (item.Tags ?? []).Concat(propertyTags).ToArray();
 				itemDefinitionEntities[item.Id] = World.Create(
 					new DefinitionIdentityComponent(item.Id, item.Name),
 					new TagCollectionComponent(allTags),
@@ -69,7 +68,7 @@ namespace DwarvenFortification.ECS
 						item.IsTool,
 						item.Stackable,
 						item.WeightKg,
-						item.LearnedFacts ?? Array.Empty<string>(),
+						item.LearnedFacts ?? [],
 						new ItemNutritionComponent(
 							item.Nutrition?.CarbohydratesGrams ?? 0f,
 							item.Nutrition?.ProteinGrams ?? 0f,
@@ -84,32 +83,26 @@ namespace DwarvenFortification.ECS
 
 			foreach (var action in actions.Where(def => !string.IsNullOrWhiteSpace(def.Id)))
 			{
-				actionDefinitionEntities[action.Id] = World.Create(
-					new DefinitionIdentityComponent(action.Id, action.Name),
-					new ActionDefinitionComponent(action.TargetKind, action.DestinationMode, action.BaseCost, action.DurationTicks),
-					new ActionSkillsComponent(action.Skills ?? Array.Empty<string>()),
-					new ActionRequirementComponent(
-						action.Requires.RequiredItemTags ?? Array.Empty<string>(),
-						action.Requires.RequiredTargetTags ?? Array.Empty<string>(),
-						action.Requires.RequiredBodyParts ?? Array.Empty<string>(),
-						action.Requires.RequiredOrgans ?? Array.Empty<string>(),
-						action.Requires.RequiredSystems ?? Array.Empty<string>(),
-						action.Requires.RequiredFacts ?? Array.Empty<string>(),
-						action.Requires.BlockedByFacts ?? Array.Empty<string>(),
-						action.Requires.RequiresFreeInventorySlot,
-						action.Requires.RequiresReservation),
-					new ActionOutputComponent(action.Outputs ?? Array.Empty<ActionOutputDefinition>()),
-					new ActionEffectComponent(action.Effects.AddFacts ?? Array.Empty<string>(), action.Effects.RemoveFacts ?? Array.Empty<string>()));
+				goapActions.Add(new GoapAction(
+					action.Id,
+					action.Name,
+					action.TargetKind,
+					action.DestinationMode,
+					action.BaseCost,
+					action.DurationTicks,
+					action.Requirements ?? [],
+					action.Effects ?? [],
+					action.Skills ?? []));
 			}
 
 			foreach (var worldObject in objects.Where(def => !string.IsNullOrWhiteSpace(def.Id)))
 			{
 				var color = ParseColor(worldObject.DisplayColor);
-				var buildCosts = (worldObject.BuildCosts ?? Array.Empty<MaterialCostDefinition>())
+				var buildCosts = (worldObject.BuildCosts ?? [])
 					.Where(cost => (!string.IsNullOrWhiteSpace(cost.ItemId) || cost.ItemFilter?.Length > 0) && cost.Quantity > 0)
 					.Select(cost =>
 					{
-						var filter = cost.ItemFilter ?? Array.Empty<string>();
+						var filter = cost.ItemFilter ?? [];
 						if (filter.Length > 0)
 						{
 							if (!knownItemFilters.Any(f => Facts.HasItemFilter(f) == Facts.HasItemFilter(filter)))
@@ -119,17 +112,17 @@ namespace DwarvenFortification.ECS
 						return new MaterialCostComponent(cost.ItemId, cost.Quantity);
 					})
 					.ToArray();
-				var recipes = (worldObject.Recipes ?? Array.Empty<CraftRecipeDefinition>())
+				var recipes = (worldObject.Recipes ?? [])
 					.Where(recipe => !string.IsNullOrWhiteSpace(recipe.Id) && !string.IsNullOrWhiteSpace(recipe.OutputItemId))
 					.Select(recipe => new CraftRecipeComponent(
 						recipe.Id,
 						recipe.Name,
-						recipe.RequiredFacts ?? Array.Empty<string>(),
-						(recipe.Inputs ?? Array.Empty<MaterialCostDefinition>())
+						recipe.RequiredFacts ?? [],
+						[.. (recipe.Inputs ?? [])
 							.Where(cost => (!string.IsNullOrWhiteSpace(cost.ItemId) || cost.ItemFilter?.Length > 0) && cost.Quantity > 0)
 							.Select(cost =>
 							{
-								var filter = cost.ItemFilter ?? Array.Empty<string>();
+								var filter = cost.ItemFilter ?? [];
 								if (filter.Length > 0)
 								{
 									if (!knownItemFilters.Any(f => Facts.HasItemFilter(f) == Facts.HasItemFilter(filter)))
@@ -137,15 +130,14 @@ namespace DwarvenFortification.ECS
 									return new MaterialCostComponent(filter, cost.Quantity);
 								}
 								return new MaterialCostComponent(cost.ItemId, cost.Quantity);
-							})
-							.ToArray(),
+							})],
 						recipe.OutputItemId,
 						recipe.OutputQuantity))
 					.ToArray();
 				var entity = World.Create(
 					new DefinitionIdentityComponent(worldObject.Id, worldObject.Name),
-					new TagCollectionComponent(worldObject.Tags ?? Array.Empty<string>()),
-					new WorldObjectDefinitionComponent(worldObject.DisplayColor, worldObject.AcceptedItemTags ?? Array.Empty<string>(), worldObject.BlocksMovement, worldObject.IsReservable, worldObject.Capacity, buildCosts, recipes),
+					new TagCollectionComponent(worldObject.Tags ?? []),
+					new WorldObjectDefinitionComponent(worldObject.DisplayColor, worldObject.AcceptedItemTags ?? [], worldObject.BlocksMovement, worldObject.IsReservable, worldObject.Capacity, buildCosts, recipes),
 					new OccupantVisualComponent(color));
 
 				worldObjectDefinitionEntities[worldObject.Id] = entity;
@@ -158,11 +150,11 @@ namespace DwarvenFortification.ECS
 				var color = ParseColor(resourceNode.DisplayColor);
 				resourceNodeDefinitionEntitiesById[resourceNode.Id] = World.Create(
 					new DefinitionIdentityComponent(resourceNode.Id, resourceNode.Name),
-					new TagCollectionComponent(resourceNode.Tags ?? Array.Empty<string>()),
+					new TagCollectionComponent(resourceNode.Tags ?? []),
 					new ResourceNodeDefinitionComponent(
 						resourceNode.DisplayColor,
-						resourceNode.SupportedActionIds ?? Array.Empty<string>(),
-						resourceNode.RequiredToolItemTags ?? Array.Empty<string>(),
+						resourceNode.SupportedActionIds ?? [],
+						resourceNode.RequiredToolItemTags ?? [],
 						resourceNode.YieldItemId,
 						resourceNode.YieldCount,
 						resourceNode.BlocksMovement),
@@ -186,10 +178,10 @@ namespace DwarvenFortification.ECS
 					new AgentArchetypeComponent(
 						agent.FactionId,
 						agent.MemoryProviderId,
-						agent.StartingItemIds ?? Array.Empty<string>(),
-						agent.BodyParts ?? Array.Empty<string>(),
-						agent.Organs ?? Array.Empty<string>(),
-						agent.Systems ?? Array.Empty<string>(),
+						agent.StartingItemIds ?? [],
+						agent.BodyParts ?? [],
+						agent.Organs ?? [],
+						agent.Systems ?? [],
 						agent.InventoryCapacity,
 						agent.MinSpeed,
 						agent.MaxSpeed,
@@ -220,14 +212,12 @@ namespace DwarvenFortification.ECS
 
 			foreach (var goal in goals.Where(def => !string.IsNullOrWhiteSpace(def.Id)))
 			{
-				goalDefinitionEntities[goal.Id] = World.Create(
-					new DefinitionIdentityComponent(goal.Id, goal.Name),
-					new GoalDefinitionComponent(
-						goal.Priority,
-						goal.DesiredFacts ?? Array.Empty<string>(),
-						goal.ForbiddenFacts ?? Array.Empty<string>(),
-						goal.RequiredFacts ?? Array.Empty<string>(),
-						goal.BlockedByFacts ?? Array.Empty<string>()));
+				goapGoals.Add(new GoapGoal(
+					goal.Id,
+					goal.Name,
+					goal.Priority,
+					goal.Effects ?? [],
+					goal.Requirements ?? []));
 			}
 
 			defaultAgentArchetypeEntity = agentArchetypeEntities.Count > 0
@@ -261,10 +251,9 @@ namespace DwarvenFortification.ECS
 			=> factDefinitions;
 
 		public IReadOnlyList<string> GetItemDefinitionIdsGrantingFact(string fact)
-			=> itemDefinitionEntities
+			=> [.. itemDefinitionEntities
 				.Where(pair => pair.Value.Get<ItemDefinitionComponent>().LearnedFacts.Contains(fact, StringComparer.OrdinalIgnoreCase))
-				.Select(pair => pair.Key)
-				.ToArray();
+				.Select(pair => pair.Key)];
 
 		public bool TryCreateItemEntity(string itemId, out Entity entity)
 		{
@@ -355,7 +344,7 @@ namespace DwarvenFortification.ECS
 			var tags = definitionEntity.Get<TagCollectionComponent>();
 			var worldObjectDefinition = definitionEntity.Get<WorldObjectDefinitionComponent>();
 			var siteTags = tags.Values
-				.Concat(new[] { "construction-site", "storage", "container" })
+				.Concat(["construction-site", "storage", "container"])
 				.Distinct(StringComparer.OrdinalIgnoreCase)
 				.ToArray();
 			var siteColor = Color.Lerp(definitionEntity.Get<OccupantVisualComponent>().Color, Color.SandyBrown, 0.45f);
@@ -368,12 +357,12 @@ namespace DwarvenFortification.ECS
 				new TagCollectionComponent(siteTags),
 				new WorldObjectDefinitionComponent(
 					worldObjectDefinition.DisplayColorHex,
-					Array.Empty<string>(),
+					[],
 					false,
 					false,
 					capacity,
 					worldObjectDefinition.BuildCosts,
-					Array.Empty<CraftRecipeComponent>()),
+					[]),
 				new OccupantVisualComponent(siteColor),
 				new RuntimeTransformComponent { Position = position },
 				new CellReferenceComponent { Cell = cell },
@@ -418,56 +407,8 @@ namespace DwarvenFortification.ECS
 			return true;
 		}
 
-		public IReadOnlyList<ActionDefinitionSnapshot> GetActionDefinitions()
-			=> actionDefinitionEntities.Values
-				.Select(entity =>
-				{
-					var identity = entity.Get<DefinitionIdentityComponent>();
-					var definition = entity.Get<ActionDefinitionComponent>();
-					var requirements = entity.Get<ActionRequirementComponent>();
-					var effects = entity.Get<ActionEffectComponent>();
-					return new ActionDefinitionSnapshot(
-						identity.Id,
-						identity.Name,
-						definition.TargetKind,
-						definition.DestinationMode,
-						definition.BaseCost,
-						definition.DurationTicks,
-						requirements.RequiredTargetTags,
-						BuildPlannerFacts(identity.Id, requirements),
-						requirements.BlockedByFacts,
-						requirements.RequiresReservation,
-						effects.AddFacts,
-						effects.RemoveFacts,
-						entity.Get<ActionSkillsComponent>().Skills);
-				})
-				.ToArray();
-
-		static string[] BuildPlannerFacts(string actionId, ActionRequirementComponent requirements)
-		{
-			var facts = new List<string>();
-
-			facts.AddRange(requirements.RequiredFacts);
-			facts.AddRange(requirements.RequiredItemTags.Select(Facts.HasItemTag));
-			facts.AddRange(requirements.RequiredBodyParts.Select(Facts.HasBodyPart));
-			facts.AddRange(requirements.RequiredOrgans.Select(Facts.HasOrgan));
-			facts.AddRange(requirements.RequiredSystems.Select(Facts.HasSystem));
-
-			if (requirements.RequiresFreeInventorySlot)
-			{
-				facts.Add(Facts.InventoryHasSpace);
-			}
-
-			if (string.Equals(actionId, "store-items", StringComparison.OrdinalIgnoreCase))
-			{
-				facts.Add(Facts.InventoryHasResourceItems);
-			}
-
-			return facts
-				.Where(fact => !string.IsNullOrWhiteSpace(fact))
-				.Distinct(StringComparer.OrdinalIgnoreCase)
-				.ToArray();
-		}
+		public IReadOnlyList<GoapAction> GetActionDefinitions()
+			=> goapActions;
 
 		public bool TryGetResourceNodeDefinition(string resourceNodeId, out ResourceNodeDefinitionSnapshot snapshot)
 		{
@@ -493,23 +434,8 @@ namespace DwarvenFortification.ECS
 			return true;
 		}
 
-		public IReadOnlyList<Goal> GetGoalDefinitions()
-			=> goalDefinitionEntities.Values
-				.Select(entity =>
-				{
-					var identity = entity.Get<DefinitionIdentityComponent>();
-					var goal = entity.Get<GoalDefinitionComponent>();
-					return new Goal(
-						identity.Id,
-						identity.Name,
-						goal.Priority,
-						goal.DesiredFacts,
-						goal.ForbiddenFacts,
-						goal.RequiredFacts,
-						goal.BlockedByFacts);
-				})
-				.OrderByDescending(goal => goal.Priority)
-				.ToArray();
+		public IReadOnlyList<GoapGoal> GetGoalDefinitions()
+			=> [.. goapGoals.OrderByDescending(goal => goal.Priority)];
 
 		public bool IsCellTypeWalkable(CellType cellType)
 		{

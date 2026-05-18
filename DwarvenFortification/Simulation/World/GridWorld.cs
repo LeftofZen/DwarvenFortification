@@ -16,9 +16,7 @@ using DwarvenFortification.ECS;
 using DwarvenFortification.Simulation.Pathfinding;
 using DwarvenFortification.ECS.Runtime;
 using DwarvenFortification.UI;
-using DwarvenFortification.GOAP.Actions;
 using DwarvenFortification.Camera;
-using DwarvenFortification.GOAP.Plans;
 using DwarvenFortification.Input;
 
 namespace DwarvenFortification.Simulation.World
@@ -45,7 +43,7 @@ namespace DwarvenFortification.Simulation.World
 		readonly GoapPlanExecutor manualActionExecutor;
 		readonly Camera2D camera;
 
-		public Func<Entity, PlanningSnapshot> PlanningSnapshotProvider { get; set; }
+		public Func<Entity, GoapSnapshot> PlanningSnapshotProvider { get; set; }
 
 		/// <summary>World-space centre of the grid. Useful for initially focusing the camera.</summary>
 		public Vector2 WorldCenter => new(Width * cellSize * 0.5f, Height * cellSize * 0.5f);
@@ -610,7 +608,7 @@ namespace DwarvenFortification.Simulation.World
 			return $"Queued drop item '{item.GetName()}'.";
 		}
 
-		string QueueWorldAction(Entity agent, ActionCandidate candidate, AgentActionMetadata metadata)
+		string QueueWorldAction(Entity agent, GoapActionCandidate candidate, AgentActionMetadata metadata)
 		{
 			manualActionExecutor.Enqueue(agent, candidate, metadata);
 			return $"Queued action '{candidate.Definition.Name}' targeting {candidate.TargetCell}.";

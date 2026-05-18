@@ -43,7 +43,7 @@ namespace DwarvenFortification.Simulation.Pathfinding
 				return false;
 			}
 
-			pathCells = path.Select(node => new Point(node.X, node.Y)).ToArray();
+			pathCells = [.. path.Select(node => new Point(node.X, node.Y))];
 			return true;
 		}
 

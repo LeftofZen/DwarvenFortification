@@ -3,7 +3,7 @@ using Arch.Core.Extensions;
 using DwarvenFortification.ECS;
 using DwarvenFortification.ECS.Components;
 using DwarvenFortification.ECS.Runtime;
-using DwarvenFortification.GOAP.Actions;
+using DwarvenFortification.GOAP;
 using DwarvenFortification.Simulation.World;
 using Microsoft.Xna.Framework;
 using System;
@@ -12,7 +12,7 @@ using System.Linq;
 
 namespace DwarvenFortification.GOAP
 {
-	public sealed class GoapWorldQueryService : IWorldQueryService
+	public sealed class GoapWorldQueryService : IGoapWorldQueryService
 	{
 		readonly SimulationDefinitionRegistry definitions;
 		readonly Func<ISimulationWorld> worldAccessor;
@@ -23,7 +23,7 @@ namespace DwarvenFortification.GOAP
 			this.worldAccessor = worldAccessor;
 		}
 
-		public HashSet<string> BuildCurrentFacts(Entity agent)
+		public HashSet<string> BuildCurrentState(Entity agent)
 		{
 			var world = worldAccessor();
 			var facts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -190,19 +190,19 @@ namespace DwarvenFortification.GOAP
 			return facts;
 		}
 
-		public CandidateQuerySnapshot InspectCandidates(Entity agent, IReadOnlyList<ActionDefinitionSnapshot> actions, HashSet<string> currentFacts)
+		public GoapCandidateQuery InspectCandidates(Entity agent, IReadOnlyList<GoapAction> actions, HashSet<string> currentState)
 		{
-			var accepted = new List<ActionCandidate>();
-			var diagnostics = new List<ActionDiagnostic>();
+			var accepted = new List<GoapActionCandidate>();
+			var diagnostics = new List<GoapActionDiagnostic>();
 			var world = worldAccessor();
 			var agentCell = world.CoordsAtXY(agent.GetPosition());
 
-			void AddAccepted(ActionCandidate candidate, string targetSummary)
+			void AddAccepted(GoapActionCandidate candidate, string targetSummary)
 			{
 				accepted.Add(candidate);
-				diagnostics.Add(new ActionDiagnostic(
+				diagnostics.Add(new GoapActionDiagnostic(
 					candidate.Definition,
-					ActionDiagnosticStatus.Available,
+					GoapActionDiagnosticStatus.Available,
 					"Action manifestation available.",
 					candidate.TargetCell,
 					candidate.DestinationCell,
@@ -210,10 +210,10 @@ namespace DwarvenFortification.GOAP
 					candidate.Cost));
 			}
 
-			void AddRejected(ActionDefinitionSnapshot definition, string reason, Point? targetCell = null, Point? destinationCell = null, string targetSummary = "none")
-				=> diagnostics.Add(new ActionDiagnostic(definition, ActionDiagnosticStatus.Rejected, reason, targetCell, destinationCell, targetSummary, null));
+			void AddRejected(GoapAction definition, string reason, Point? targetCell = null, Point? destinationCell = null, string targetSummary = "none")
+				=> diagnostics.Add(new GoapActionDiagnostic(definition, GoapActionDiagnosticStatus.Rejected, reason, targetCell, destinationCell, targetSummary, null));
 
-			foreach (var bridgeCandidate in BuildKnowledgeBridgeCandidates(agent, actions, currentFacts, AddRejected))
+			foreach (var bridgeCandidate in BuildKnowledgeBridgeCandidates(agent, actions, currentState, AddRejected))
 			{
 				AddAccepted(bridgeCandidate, FormatTargetSummary(bridgeCandidate.TargetEntity, bridgeCandidate.TargetCell));
 			}
@@ -242,19 +242,13 @@ namespace DwarvenFortification.GOAP
 							continue;
 						}
 
-						if (!action.RequiredTargetTags.All(tag => resourceDefinition.Tags.Contains(tag, StringComparer.OrdinalIgnoreCase)))
-						{
-							AddRejected(action, $"Target is missing required tags: {string.Join(", ", action.RequiredTargetTags.Where(tag => !resourceDefinition.Tags.Contains(tag, StringComparer.OrdinalIgnoreCase)))}.", coords, null, targetSummary);
-							continue;
-						}
-
 						if (!world.TryFindActionDestinationCell(agentCell, coords, action.DestinationMode, out var destinationCell))
 						{
 							AddRejected(action, "No valid destination cell found for this target.", coords, null, targetSummary);
 							continue;
 						}
 
-						var candidate = new ActionCandidate(action, coords, destinationCell, resourceNode, action.BaseCost + action.DurationTicks, BuildRequiredFacts(action), action.AddFacts, action.RemoveFacts);
+						var candidate = new GoapActionCandidate(action, coords, destinationCell, resourceNode, action.BaseCost + action.DurationTicks, BuildRequirements(action), action.Effects);
 						AddAccepted(candidate, targetSummary);
 					}
 				}
@@ -268,12 +262,6 @@ namespace DwarvenFortification.GOAP
 						}
 
 						var targetSummary = worldObject.GetName();
-						if (!action.RequiredTargetTags.All(tag => worldObject.Get<TagCollectionComponent>().Contains(tag)))
-						{
-							AddRejected(action, $"Target is missing required tags: {string.Join(", ", action.RequiredTargetTags.Where(tag => !worldObject.Get<TagCollectionComponent>().Contains(tag)))}.", coords, null, targetSummary);
-							continue;
-						}
-
 						if (string.Equals(action.Id, "store-items", StringComparison.OrdinalIgnoreCase))
 						{
 							var storable = agent.GetInventory().Any(item => !item.Get<ItemDefinitionComponent>().IsTool && worldObject.CanStore(item));
@@ -287,17 +275,14 @@ namespace DwarvenFortification.GOAP
 						if (string.Equals(action.Id, "haul-material", StringComparison.OrdinalIgnoreCase))
 						{
 							MaterialCostComponent[] missingItems;
-							string removedFact;
 
 							if (worldObject.IsConstructionSite())
 							{
 								missingItems = worldObject.GetMissingBuildCosts();
-								removedFact = Facts.SiteNeedsMaterials;
 							}
 							else if (worldObject.HasActiveProductionOrder())
 							{
 								missingItems = worldObject.GetMissingOrderInputs();
-								removedFact = Facts.WorkstationNeedsInputs;
 							}
 							else
 							{
@@ -322,9 +307,8 @@ namespace DwarvenFortification.GOAP
 							var haulItemFact = missing.UsesFilter
 								? Facts.HasItemFilter(missing.ItemFilter)
 								: Facts.HasItem(missing.ItemId);
-							var haulRequiredFacts = BuildRequiredFacts(action, haulItemFact);
-							var haulRemoveFacts = action.RemoveFacts.Concat(new[] { removedFact }).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-							var haulCandidate = new ActionCandidate(action, coords, haulDestination, worldObject, action.BaseCost + action.DurationTicks, haulRequiredFacts, action.AddFacts, haulRemoveFacts);
+							var haulRequirements = BuildRequirements(action, haulItemFact);
+							var haulCandidate = new GoapActionCandidate(action, coords, haulDestination, worldObject, action.BaseCost + action.DurationTicks, haulRequirements, action.Effects);
 							AddAccepted(haulCandidate, $"{targetSummary}: haul {(missing.UsesFilter ? string.Join("+", missing.ItemFilter) : missing.ItemId)}");
 						}
 							continue;
@@ -349,7 +333,7 @@ namespace DwarvenFortification.GOAP
 						if (string.Equals(action.Id, "process-recipe", StringComparison.OrdinalIgnoreCase))
 						{
 							var matchingRecipes = worldObject.GetRecipes()
-								.Where(recipe => recipe.RequiredFacts.All(currentFacts.Contains) && worldObject.HasStoredMaterials(recipe.Inputs))
+								.Where(recipe => recipe.RequiredFacts.All(currentState.Contains) && worldObject.HasStoredMaterials(recipe.Inputs))
 								.ToArray();
 							if (matchingRecipes.Length == 0)
 							{
@@ -366,14 +350,8 @@ namespace DwarvenFortification.GOAP
 							var activeOrder = worldObject.HasActiveProductionOrder() ? worldObject.GetProductionOrder() : default;
 							foreach (var recipe in matchingRecipes)
 							{
-								var addFacts = action.AddFacts.Concat(new[] { Facts.HasItem(recipe.OutputItemId) }).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-								var recipeRemoveFacts = action.RemoveFacts;
-								if (!string.IsNullOrWhiteSpace(activeOrder.ActiveRecipeId) && string.Equals(recipe.Id, activeOrder.ActiveRecipeId, StringComparison.OrdinalIgnoreCase))
-								{
-									recipeRemoveFacts = recipeRemoveFacts.Concat(new[] { Facts.ProductionOrderActive }).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-								}
-
-								var recipeCandidate = new ActionCandidate(action, coords, recipeDestination, worldObject, action.BaseCost + action.DurationTicks, BuildRequiredFacts(action, recipe.RequiredFacts), addFacts, recipeRemoveFacts);
+								var addStatesForRecipe = action.Effects.Concat([Facts.HasItem(recipe.OutputItemId)]).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+							var recipeCandidate = new GoapActionCandidate(action, coords, recipeDestination, worldObject, action.BaseCost + action.DurationTicks, BuildRequirements(action, recipe.RequiredFacts), addStatesForRecipe);
 								AddAccepted(recipeCandidate, $"{targetSummary}: {recipe.Name}");
 							}
 
@@ -392,22 +370,20 @@ namespace DwarvenFortification.GOAP
 							continue;
 						}
 
-						var addFactsForCandidate = action.AddFacts;
-						var removeFactsForCandidate = action.RemoveFacts;
-						if (string.Equals(action.Id, "complete-construction", StringComparison.OrdinalIgnoreCase))
-						{
-							var completedStructureId = worldObject.Get<ConstructionSiteComponent>().TargetDefinitionId;
-							addFactsForCandidate = action.AddFacts.Concat(new[] { Facts.HasStructure(completedStructureId) }).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-							removeFactsForCandidate = action.RemoveFacts.Concat(new[] { Facts.ConstructionPending }).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-						}
+					var addStatesForCandidate = action.Effects;
+					if (string.Equals(action.Id, "complete-construction", StringComparison.OrdinalIgnoreCase))
+					{
+						var completedStructureId = worldObject.Get<ConstructionSiteComponent>().TargetDefinitionId;
+						addStatesForCandidate = [.. action.Effects.Concat([Facts.HasStructure(completedStructureId)]).Distinct(StringComparer.OrdinalIgnoreCase)];
+					}
 
-						var candidate = new ActionCandidate(action, coords, destinationCell, worldObject, action.BaseCost + action.DurationTicks, BuildRequiredFacts(action), addFactsForCandidate, removeFactsForCandidate);
+					var candidate = new GoapActionCandidate(action, coords, destinationCell, worldObject, action.BaseCost + action.DurationTicks, BuildRequirements(action), addStatesForCandidate);
 						AddAccepted(candidate, targetSummary);
 					}
 				}
 				else if (string.Equals(action.TargetKind, "self", StringComparison.OrdinalIgnoreCase))
 				{
-					var candidate = new ActionCandidate(action, agentCell, agentCell, agent, action.BaseCost + action.DurationTicks, BuildRequiredFacts(action), action.AddFacts, action.RemoveFacts);
+					var candidate = new GoapActionCandidate(action, agentCell, agentCell, agent, action.BaseCost + action.DurationTicks, BuildRequirements(action), action.Effects);
 					AddAccepted(candidate, agent.GetName());
 				}
 				else if (string.Equals(action.TargetKind, "enemy", StringComparison.OrdinalIgnoreCase))
@@ -432,7 +408,7 @@ namespace DwarvenFortification.GOAP
 							}
 						}
 
-						var candidate = new ActionCandidate(action, otherCell, agentCell, other, action.BaseCost + action.DurationTicks, BuildRequiredFacts(action), action.AddFacts, action.RemoveFacts);
+						var candidate = new GoapActionCandidate(action, otherCell, agentCell, other, action.BaseCost + action.DurationTicks, BuildRequirements(action), action.Effects);
 						AddAccepted(candidate, targetSummary);
 					}
 				}
@@ -442,18 +418,18 @@ namespace DwarvenFortification.GOAP
 				}
 			}
 
-			return new CandidateQuerySnapshot(accepted, diagnostics);
+			return new GoapCandidateQuery(accepted, diagnostics);
 		}
 
-		public IEnumerable<ActionCandidate> BuildCandidates(Entity agent, IReadOnlyList<ActionDefinitionSnapshot> actions, HashSet<string> currentFacts)
-			=> InspectCandidates(agent, actions, currentFacts).Candidates;
+		public IEnumerable<GoapActionCandidate> BuildCandidates(Entity agent, IReadOnlyList<GoapAction> actions, HashSet<string> currentState)
+			=> InspectCandidates(agent, actions, currentState).Candidates;
 
-		public int GetEffectivePriority(Entity agent, Goal goal)
+		public int GetEffectivePriority(Entity agent, GoapGoal goal)
 		{
 			const float bonusRange = 100f;
 			var bonus = 0f;
 
-			foreach (var fact in goal.RequiredFacts)
+			foreach (var fact in goal.Requirements)
 			{
 				if (string.Equals(fact, "thirst.low", StringComparison.OrdinalIgnoreCase))
 				{
@@ -472,7 +448,7 @@ namespace DwarvenFortification.GOAP
 			return goal.Priority + (int)bonus;
 		}
 
-		IEnumerable<ActionCandidate> BuildKnowledgeBridgeCandidates(Entity agent, IReadOnlyList<ActionDefinitionSnapshot> actions, HashSet<string> currentFacts, Action<ActionDefinitionSnapshot, string, Point?, Point?, string> addRejected)
+		IEnumerable<GoapActionCandidate> BuildKnowledgeBridgeCandidates(Entity agent, IReadOnlyList<GoapAction> actions, HashSet<string> currentState, Action<GoapAction, string, Point?, Point?, string> addRejected)
 		{
 			var world = worldAccessor();
 			var agentCell = world.CoordsAtXY(agent.GetPosition());
@@ -483,19 +459,19 @@ namespace DwarvenFortification.GOAP
 
 			var missingItemIds = actions
 				.SelectMany(GetRequiredItemIds)
-				.Where(itemId => !string.IsNullOrWhiteSpace(itemId) && !currentFacts.Contains(Facts.HasItem(itemId)))
+				.Where(itemId => !string.IsNullOrWhiteSpace(itemId) && !currentState.Contains(Facts.HasItem(itemId)))
 				.Distinct(StringComparer.OrdinalIgnoreCase)
 				.ToArray();
 
 			var missingItemTags = actions
 				.SelectMany(GetRequiredItemTags)
-				.Where(tag => !string.IsNullOrWhiteSpace(tag) && !currentFacts.Contains(Facts.HasItemTag(tag)))
+				.Where(tag => !string.IsNullOrWhiteSpace(tag) && !currentState.Contains(Facts.HasItemTag(tag)))
 				.Distinct(StringComparer.OrdinalIgnoreCase)
 				.ToArray();
 
 			foreach (var itemId in missingItemIds)
 			{
-				if (currentFacts.Contains(Facts.KnowsItemLocation(itemId)) && !string.IsNullOrWhiteSpace(retrieveAction.Id))
+				if (currentState.Contains(Facts.KnowsItemLocation(itemId)) && !string.IsNullOrWhiteSpace(retrieveAction.Id))
 				{
 					// Prefer the agent's confirmed recalled location; fall back to the world-found
 					// cell for hypothetical planning states where KnowsItemLocation is a projected
@@ -517,7 +493,7 @@ namespace DwarvenFortification.GOAP
 					{
 						if (world.TryFindActionDestinationCell(agentCell, itemCell, retrieveAction.DestinationMode, out var retrieveDestination))
 						{
-							yield return new ActionCandidate(retrieveAction, itemCell, retrieveDestination, null, retrieveAction.BaseCost + retrieveAction.DurationTicks, BuildRequiredFacts(retrieveAction, Facts.KnowsItemLocation(itemId)), new[] { Facts.HasItem(itemId) }, Array.Empty<string>());
+							yield return new GoapActionCandidate(retrieveAction, itemCell, retrieveDestination, null, retrieveAction.BaseCost + retrieveAction.DurationTicks, BuildRequirements(retrieveAction, Facts.KnowsItemLocation(itemId)), [Facts.HasItem(itemId)]);
 						}
 						else
 						{
@@ -539,7 +515,7 @@ namespace DwarvenFortification.GOAP
 							continue;
 						}
 
-						yield return new ActionCandidate(communicateAction, allyCell, communicateDestination, ally, communicateAction.BaseCost + communicateAction.DurationTicks, BuildRequiredFacts(communicateAction), new[] { Facts.KnowsItemLocation(itemId) }, Array.Empty<string>());
+					yield return new GoapActionCandidate(communicateAction, allyCell, communicateDestination, ally, communicateAction.BaseCost + communicateAction.DurationTicks, BuildRequirements(communicateAction), [Facts.KnowsItemLocation(itemId)]);
 					}
 				}
 
@@ -547,7 +523,7 @@ namespace DwarvenFortification.GOAP
 				{
 					if (world.TryFindActionDestinationCell(agentCell, searchCell, searchAction.DestinationMode, out var searchDestination))
 					{
-						yield return new ActionCandidate(searchAction, searchCell, searchDestination, null, searchAction.BaseCost + searchAction.DurationTicks, BuildRequiredFacts(searchAction), new[] { Facts.KnowsItemLocation(itemId) }, Array.Empty<string>());
+						yield return new GoapActionCandidate(searchAction, searchCell, searchDestination, null, searchAction.BaseCost + searchAction.DurationTicks, BuildRequirements(searchAction), [Facts.KnowsItemLocation(itemId)]);
 					}
 					else
 					{
@@ -562,9 +538,9 @@ namespace DwarvenFortification.GOAP
 
 			foreach (var tag in missingItemTags)
 			{
-				if (!string.IsNullOrWhiteSpace(searchAction.Id) && world.TryFindNearestItemLocationByTag(new[] { tag }, agentCell, out var tagSearchCell, out var tagItemId))
+				if (!string.IsNullOrWhiteSpace(searchAction.Id) && world.TryFindNearestItemLocationByTag([tag], agentCell, out var tagSearchCell, out var tagItemId))
 				{
-					if (currentFacts.Contains(Facts.KnowsItemLocation(tagItemId)) && !string.IsNullOrWhiteSpace(retrieveAction.Id))
+					if (currentState.Contains(Facts.KnowsItemLocation(tagItemId)) && !string.IsNullOrWhiteSpace(retrieveAction.Id))
 					{
 						// Prefer the agent's confirmed recalled location; fall back to tagSearchCell
 						// for hypothetical planning states where KnowsItemLocation is projected.
@@ -574,7 +550,7 @@ namespace DwarvenFortification.GOAP
 
 						if (world.TryFindActionDestinationCell(agentCell, tagItemCell, retrieveAction.DestinationMode, out var tagRetrieveDestination))
 						{
-							yield return new ActionCandidate(retrieveAction, tagItemCell, tagRetrieveDestination, null, retrieveAction.BaseCost + retrieveAction.DurationTicks, BuildRequiredFacts(retrieveAction, Facts.KnowsItemLocation(tagItemId)), new[] { Facts.HasItem(tagItemId), Facts.HasItemTag(tag) }, Array.Empty<string>());
+							yield return new GoapActionCandidate(retrieveAction, tagItemCell, tagRetrieveDestination, null, retrieveAction.BaseCost + retrieveAction.DurationTicks, BuildRequirements(retrieveAction, Facts.KnowsItemLocation(tagItemId)), [Facts.HasItem(tagItemId), Facts.HasItemTag(tag)]);
 							continue;
 						}
 						else
@@ -585,7 +561,7 @@ namespace DwarvenFortification.GOAP
 
 					if (world.TryFindActionDestinationCell(agentCell, tagSearchCell, searchAction.DestinationMode, out var tagSearchDestination))
 					{
-						yield return new ActionCandidate(searchAction, tagSearchCell, tagSearchDestination, null, searchAction.BaseCost + searchAction.DurationTicks, BuildRequiredFacts(searchAction), new[] { Facts.KnowsItemLocation(tagItemId) }, Array.Empty<string>());
+						yield return new GoapActionCandidate(searchAction, tagSearchCell, tagSearchDestination, null, searchAction.BaseCost + searchAction.DurationTicks, BuildRequirements(searchAction), [Facts.KnowsItemLocation(tagItemId)]);
 					}
 					else
 					{
@@ -598,17 +574,17 @@ namespace DwarvenFortification.GOAP
 				}
 			}
 
-			var missingLearnableFacts = actions
-				.SelectMany(action => action.RequiredFacts)
-				.Where(fact => IsLearnableKnowledgeFact(fact) && !currentFacts.Contains(fact))
+			var missingLearnableStates = actions
+				.SelectMany(action => action.Requirements)
+				.Where(s => IsLearnableKnowledgeFact(s) && !currentState.Contains(s))
 				.Distinct(StringComparer.OrdinalIgnoreCase)
 				.ToArray();
 
-			foreach (var fact in missingLearnableFacts)
+			foreach (var s in missingLearnableStates)
 			{
 				if (!string.IsNullOrWhiteSpace(communicateAction.Id))
 				{
-					foreach (var ally in world.GetAgents().Where(other => !other.Equals(agent) && string.Equals(other.GetFactionId(), agent.GetFactionId(), StringComparison.OrdinalIgnoreCase) && other.KnowsFact(fact)))
+					foreach (var ally in world.GetAgents().Where(other => !other.Equals(agent) && string.Equals(other.GetFactionId(), agent.GetFactionId(), StringComparison.OrdinalIgnoreCase) && other.KnowsFact(s)))
 					{
 						var allyCell = world.CoordsAtXY(ally.GetPosition());
 						if (!world.TryFindActionDestinationCell(agentCell, allyCell, communicateAction.DestinationMode, out var communicateDestination))
@@ -617,7 +593,7 @@ namespace DwarvenFortification.GOAP
 							continue;
 						}
 
-						yield return new ActionCandidate(communicateAction, allyCell, communicateDestination, ally, communicateAction.BaseCost + communicateAction.DurationTicks, BuildRequiredFacts(communicateAction), new[] { fact }, Array.Empty<string>());
+						yield return new GoapActionCandidate(communicateAction, allyCell, communicateDestination, ally, communicateAction.BaseCost + communicateAction.DurationTicks, BuildRequirements(communicateAction), [s]);
 					}
 				}
 
@@ -626,24 +602,24 @@ namespace DwarvenFortification.GOAP
 					continue;
 				}
 
-				foreach (var readableItem in agent.GetInventory().Where(item => item.Get<ItemDefinitionComponent>().LearnedFacts.Contains(fact, StringComparer.OrdinalIgnoreCase)))
+				foreach (var readableItem in agent.GetInventory().Where(item => item.Get<ItemDefinitionComponent>().LearnedFacts.Contains(s, StringComparer.OrdinalIgnoreCase)))
 				{
-					yield return new ActionCandidate(readAction, agentCell, agentCell, readableItem, readAction.BaseCost + readAction.DurationTicks, BuildRequiredFacts(readAction, Facts.HasItem(readableItem.GetItemDefinitionId())), new[] { fact }, Array.Empty<string>());
+					yield return new GoapActionCandidate(readAction, agentCell, agentCell, readableItem, readAction.BaseCost + readAction.DurationTicks, BuildRequirements(readAction, Facts.HasItem(readableItem.GetItemDefinitionId())), [s]);
 				}
 
-				var readableDefinitionIds = definitions.GetItemDefinitionIdsGrantingFact(fact);
-				foreach (var readableDefinitionId in readableDefinitionIds.Where(itemId => !currentFacts.Contains(Facts.HasItem(itemId))))
+				var readableDefinitionIds = definitions.GetItemDefinitionIdsGrantingFact(s);
+				foreach (var readableDefinitionId in readableDefinitionIds.Where(itemId => !currentState.Contains(Facts.HasItem(itemId))))
 				{
-					if (currentFacts.Contains(Facts.KnowsItemLocation(readableDefinitionId)) && agent.TryRecallItemLocation(readableDefinitionId, out var knownReadableCell) && world.CellContainsItem(knownReadableCell, readableDefinitionId) && world.TryGetItemEntity(knownReadableCell, readableDefinitionId, out var knownReadableItem))
+					if (currentState.Contains(Facts.KnowsItemLocation(readableDefinitionId)) && agent.TryRecallItemLocation(readableDefinitionId, out var knownReadableCell) && world.CellContainsItem(knownReadableCell, readableDefinitionId) && world.TryGetItemEntity(knownReadableCell, readableDefinitionId, out var knownReadableItem))
 					{
-						yield return new ActionCandidate(readAction, knownReadableCell, knownReadableCell, knownReadableItem, readAction.BaseCost + readAction.DurationTicks, BuildRequiredFacts(readAction, Facts.KnowsItemLocation(readableDefinitionId)), new[] { fact }, Array.Empty<string>());
+						yield return new GoapActionCandidate(readAction, knownReadableCell, knownReadableCell, knownReadableItem, readAction.BaseCost + readAction.DurationTicks, BuildRequirements(readAction, Facts.KnowsItemLocation(readableDefinitionId)), [s]);
 					}
 
-					if (currentFacts.Contains(Facts.KnowsItemLocation(readableDefinitionId)) && agent.TryRecallItemLocation(readableDefinitionId, out var knownBookCell) && world.CellContainsItem(knownBookCell, readableDefinitionId) && !string.IsNullOrWhiteSpace(retrieveAction.Id))
+					if (currentState.Contains(Facts.KnowsItemLocation(readableDefinitionId)) && agent.TryRecallItemLocation(readableDefinitionId, out var knownBookCell) && world.CellContainsItem(knownBookCell, readableDefinitionId) && !string.IsNullOrWhiteSpace(retrieveAction.Id))
 					{
 						if (world.TryFindActionDestinationCell(agentCell, knownBookCell, retrieveAction.DestinationMode, out var retrieveDestination))
 						{
-							yield return new ActionCandidate(retrieveAction, knownBookCell, retrieveDestination, null, retrieveAction.BaseCost + retrieveAction.DurationTicks, BuildRequiredFacts(retrieveAction, Facts.KnowsItemLocation(readableDefinitionId)), new[] { Facts.HasItem(readableDefinitionId) }, Array.Empty<string>());
+							yield return new GoapActionCandidate(retrieveAction, knownBookCell, retrieveDestination, null, retrieveAction.BaseCost + retrieveAction.DurationTicks, BuildRequirements(retrieveAction, Facts.KnowsItemLocation(readableDefinitionId)), [Facts.HasItem(readableDefinitionId)]);
 						}
 						else
 						{
@@ -664,7 +640,7 @@ namespace DwarvenFortification.GOAP
 								continue;
 							}
 
-							yield return new ActionCandidate(communicateAction, allyCell, communicateDestination, ally, communicateAction.BaseCost + communicateAction.DurationTicks, BuildRequiredFacts(communicateAction), new[] { Facts.KnowsItemLocation(readableDefinitionId) }, Array.Empty<string>());
+							yield return new GoapActionCandidate(communicateAction, allyCell, communicateDestination, ally, communicateAction.BaseCost + communicateAction.DurationTicks, BuildRequirements(communicateAction), [Facts.KnowsItemLocation(readableDefinitionId)]);
 						}
 					}
 
@@ -672,12 +648,12 @@ namespace DwarvenFortification.GOAP
 					{
 						if (world.TryGetItemEntity(searchCell, readableDefinitionId, out var searchedReadableItem))
 						{
-							yield return new ActionCandidate(readAction, searchCell, searchCell, searchedReadableItem, readAction.BaseCost + readAction.DurationTicks, BuildRequiredFacts(readAction, Facts.KnowsItemLocation(readableDefinitionId)), new[] { fact }, Array.Empty<string>());
+							yield return new GoapActionCandidate(readAction, searchCell, searchCell, searchedReadableItem, readAction.BaseCost + readAction.DurationTicks, BuildRequirements(readAction, Facts.KnowsItemLocation(readableDefinitionId)), [s]);
 						}
 
 						if (world.TryFindActionDestinationCell(agentCell, searchCell, searchAction.DestinationMode, out var searchDestination))
 						{
-							yield return new ActionCandidate(searchAction, searchCell, searchDestination, null, searchAction.BaseCost + searchAction.DurationTicks, BuildRequiredFacts(searchAction), new[] { Facts.KnowsItemLocation(readableDefinitionId) }, Array.Empty<string>());
+							yield return new GoapActionCandidate(searchAction, searchCell, searchDestination, null, searchAction.BaseCost + searchAction.DurationTicks, BuildRequirements(searchAction), [Facts.KnowsItemLocation(readableDefinitionId)]);
 						}
 						else
 						{
@@ -697,12 +673,12 @@ namespace DwarvenFortification.GOAP
 				? entity.Value.GetName()
 				: targetCell.ToString();
 
-		string[] BuildRequiredFacts(ActionDefinitionSnapshot action, params string[] extraFacts)
-			=> action.RequiredFacts.Concat(extraFacts).Concat(action.BlockedByFacts.Select(fact => $"!{fact}")).ToArray();
+		string[] BuildRequirements(GoapAction action, params string[] extraStates)
+			=> [.. action.Requirements, .. extraStates];
 
-		static IEnumerable<string> GetRequiredItemIds(ActionDefinitionSnapshot action)
+		static IEnumerable<string> GetRequiredItemIds(GoapAction action)
 		{
-			foreach (var fact in action.RequiredFacts)
+			foreach (var fact in action.Requirements)
 			{
 				if (Facts.TryGetHasItemId(fact, out var itemId))
 				{
@@ -711,9 +687,9 @@ namespace DwarvenFortification.GOAP
 			}
 		}
 
-		static IEnumerable<string> GetRequiredItemTags(ActionDefinitionSnapshot action)
+		static IEnumerable<string> GetRequiredItemTags(GoapAction action)
 		{
-			foreach (var fact in action.RequiredFacts)
+			foreach (var fact in action.Requirements)
 			{
 				if (Facts.TryGetHasItemTag(fact, out var tag))
 				{
@@ -722,9 +698,9 @@ namespace DwarvenFortification.GOAP
 			}
 		}
 
-		static IEnumerable<Entity> GetRequiredItemsByTag(ActionDefinitionSnapshot action, System.Collections.Generic.IList<Entity> inventory)
+		static IEnumerable<Entity> GetRequiredItemsByTag(GoapAction action, System.Collections.Generic.IList<Entity> inventory)
 		{
-			foreach (var fact in action.RequiredFacts)
+			foreach (var fact in action.Requirements)
 			{
 				if (Facts.TryGetHasItemFilter(fact, out var tags))
 				{

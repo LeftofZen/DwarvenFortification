@@ -1,7 +1,6 @@
 ﻿using DwarvenFortification.Camera;
 using DwarvenFortification.ECS;
 using DwarvenFortification.GOAP;
-using DwarvenFortification.GOAP.Plans;
 using DwarvenFortification.Simulation.Composition;
 using DwarvenFortification.Simulation.World;
 using DwarvenFortification.UI;
@@ -68,7 +67,7 @@ namespace DwarvenFortification
 			GameServices.Definitions = definitions;
 			simulationUi = new ImGuiSimulationUi(definitions, GameServices.Logger);
 			var inspectorWorldQueryService = new GoapWorldQueryService(definitions, () => world);
-			var inspectorPlanner = new Planner(definitions, inspectorWorldQueryService);
+			var inspectorPlanner = new GoapPlanner(definitions, inspectorWorldQueryService);
 			simulationUi.PlanningSnapshotProvider = inspectorPlanner.Inspect;
 
 			var renderAssets = new SimulationRenderAssets(
