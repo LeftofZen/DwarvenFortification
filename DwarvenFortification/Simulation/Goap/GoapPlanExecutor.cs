@@ -5,8 +5,10 @@ using DwarvenFortification.ECS.Components;
 using DwarvenFortification.ECS.Runtime;
 using DwarvenFortification.GOAP;
 using DwarvenFortification.Simulation.Composition;
+using DwarvenFortification.Simulation.Goap;
 using DwarvenFortification.Simulation.World;
 using DwarvenFortification.UI;
+using Microsoft.Xna.Framework;
 using System;
 using System.Linq;
 
@@ -15,136 +17,165 @@ namespace DwarvenFortification.GOAP
 	public sealed class GoapPlanExecutor : IGoapPlanExecutor
 	{
 		readonly IActionRuntimeContext runtimeContext;
+		readonly IGoapWorldQueryService queryService;
 
-		public GoapPlanExecutor(IActionRuntimeContext runtimeContext)
+		public GoapPlanExecutor(IActionRuntimeContext runtimeContext, IGoapWorldQueryService queryService)
 		{
 			this.runtimeContext = runtimeContext;
+			this.queryService = queryService;
 		}
 
-		public bool Enqueue(Entity agent, GoapPlan plan)
+		public bool Enqueue(IGoapAgent agent, GoapPlan plan)
 			=> Enqueue(agent, plan, null);
 
-		public bool Enqueue(Entity agent, GoapPlan plan, AgentActionMetadata metadata)
+		public bool Enqueue(IGoapAgent agent, GoapPlan plan, AgentActionMetadata metadata)
 		{
-			if (plan == null || plan.Steps.Count == 0)
+			if (plan == null || plan.Actions.Count == 0)
 			{
 				return false;
 			}
 
 			var world = runtimeContext.World;
+			var agentEntity = ((EntityGoapAgent)agent).Entity;
 
-			foreach (var step in plan.Steps)
+				var cumulativeState = agent.GetCurrentState();
+			foreach (var step in plan.Actions)
 			{
-				Enqueue(agent, step, world, metadata);
+				Entity? targetEntity = null;
+				Point targetCell = default, destinationCell = default;
+				string actionContext = string.Empty;
+				if (queryService != null)
+				{
+					queryService.TryFindActionTarget(agentEntity, step, cumulativeState,
+						out targetEntity, out targetCell, out destinationCell, out actionContext);
+				}
+
+				if (targetCell != default && targetCell != world.CoordsAtXY(agentEntity.GetPosition()))
+				{
+					world.PlotPath(agentEntity, destinationCell, metadata);
+				}
+
+				Enqueue(agentEntity, step, targetEntity, targetCell, destinationCell, actionContext, world, metadata);
+				foreach (var effect in step.Effects ?? [])
+				{
+					cumulativeState.Add(effect);
+				}
 			}
 
 			return true;
 		}
 
-		public bool Enqueue(Entity agent, GoapActionCandidate step)
+		public bool Enqueue(IGoapAgent agent, GoapAction step)
 			=> Enqueue(agent, step, null);
 
-		public bool Enqueue(Entity agent, GoapActionCandidate step, AgentActionMetadata metadata)
+		public bool Enqueue(IGoapAgent agent, GoapAction step, AgentActionMetadata metadata)
 		{
-			Enqueue(agent, step, runtimeContext.World, metadata);
+			var agentEntity = ((EntityGoapAgent)agent).Entity;
+			var world = runtimeContext.World;
+			var state = agent.GetCurrentState();
+			Entity? targetEntity = null;
+			Point targetCell = default, destinationCell = default;
+			string actionContext = string.Empty;
+			if (queryService != null)
+			{
+				queryService.TryFindActionTarget(agentEntity, step, state,
+					out targetEntity, out targetCell, out destinationCell, out actionContext);
+			}
+
+			if (targetCell != default && targetCell != world.CoordsAtXY(agentEntity.GetPosition()))
+			{
+				world.PlotPath(agentEntity, destinationCell, null);
+			}
+
+			Enqueue(agentEntity, step, targetEntity, targetCell, destinationCell, actionContext, world, metadata);
 			return true;
 		}
 
-		void Enqueue(Entity agent, GoapActionCandidate step, ISimulationWorld world, AgentActionMetadata metadata)
+		void Enqueue(Entity agent, GoapAction step, Entity? targetEntity, Point targetCell, Point destinationCell, string actionContext, ISimulationWorld world, AgentActionMetadata metadata)
 		{
 			{
-				// Self-targeted candidates (eat, drink, sleep, scan, etc.) have the agent as their target entity
-				// and require no movement — their DestinationCell is the stale planning-time position.
-				// All other candidates (retrieve-known-item, resource nodes, world objects, etc.) need a path.
-				var agentIsTarget = step.TargetEntity.HasValue && step.TargetEntity.Value.Equals(agent);
-				if (!agentIsTarget)
-				{
-					world.PlotPath(agent, step.DestinationCell, metadata);
-				}
 
-				switch (step.Definition.Id)
+				switch (step.Id)
 				{
 					case "mine":
 					case "cut-tree":
-							EnqueueAction(agent, new TimedAction(runtimeContext, agent, step.Definition.Id, agent.ComputeEffectiveDuration(step.Definition.Skills, step.Definition.DurationTicks)), metadata);
-							EnqueueAction(agent, new ExtractResourceNodeAction(runtimeContext, agent, step.TargetCell, agent.ComputeSkillYieldMultiplier(step.Definition.Skills)), metadata);
-							EnqueueAction(agent, new CollectItemsFromCellAction(runtimeContext, agent, step.TargetCell, 1), metadata);
+						EnqueueAction(agent, new TimedAction(runtimeContext, agent, step.Id, agent.ComputeEffectiveDuration(step.Skills, step.DurationTicks)), metadata);
+						EnqueueAction(agent, new ExtractResourceNodeAction(runtimeContext, agent, targetCell, agent.ComputeSkillYieldMultiplier(step.Skills)), metadata);
+						EnqueueAction(agent, new CollectItemsFromCellAction(runtimeContext, agent, targetCell, 1), metadata);
 						break;
 
 					case "store-items":
-						if (step.TargetEntity.HasValue)
+						if (targetEntity.HasValue)
 						{
-							var storableItems = agent.GetInventory().Where(item => !item.Get<ItemDefinitionComponent>().IsTool && step.TargetEntity.Value.CanStore(item)).ToList();
-							EnqueueAction(agent, new TimedAction(runtimeContext, agent, step.Definition.Id, agent.ComputeEffectiveDuration(step.Definition.Skills, step.Definition.DurationTicks)), metadata);
-							EnqueueAction(agent, new StoreItemsInWorldObjectAction(runtimeContext, agent, step.TargetEntity.Value, storableItems), metadata);
+							var storableItems = agent.GetInventory().Where(item => !item.Get<ItemDefinitionComponent>().IsTool && targetEntity.Value.CanStore(item)).ToList();
+							EnqueueAction(agent, new TimedAction(runtimeContext, agent, step.Id, agent.ComputeEffectiveDuration(step.Skills, step.DurationTicks)), metadata);
+							EnqueueAction(agent, new StoreItemsInWorldObjectAction(runtimeContext, agent, targetEntity.Value, storableItems), metadata);
 						}
 
 						break;
 
 				case "haul-material":
-					if (step.TargetEntity.HasValue)
+					if (targetEntity.HasValue)
 					{
-						var haulItemId = string.Empty;
-						string[] haulItemFilter = null;
-						foreach (var fact in step.Requirements)
-						{
-							if (Facts.TryGetHasItemFilter(fact, out var filterTags)) { haulItemFilter = filterTags; break; }
-							if (Facts.TryGetHasItemId(fact, out var id)) { haulItemId = id; break; }
-						}
+						var missingMaterials = targetEntity.Value.IsConstructionSite()
+							? targetEntity.Value.GetMissingBuildCosts()
+							: targetEntity.Value.GetMissingOrderInputs();
+						if (missingMaterials.Length == 0)
+							{
+								break;
+							}
 
+							var missing = missingMaterials[0];
 						var itemToHaul = agent.GetInventory().FirstOrDefault(item =>
 							!item.Get<ItemDefinitionComponent>().IsTool &&
-							(haulItemFilter != null
-								? item.ItemMatchesFilter(haulItemFilter)
-								: string.Equals(item.GetItemDefinitionId(), haulItemId, StringComparison.OrdinalIgnoreCase)));
+							(missing.UsesFilter ? item.ItemMatchesFilter(missing.ItemFilter)
+								: string.Equals(item.GetItemDefinitionId(), missing.ItemId, StringComparison.OrdinalIgnoreCase)));
 						if (!itemToHaul.Equals(default(Entity)))
 						{
-							EnqueueAction(agent, new TimedAction(runtimeContext, agent, step.Definition.Id, agent.ComputeEffectiveDuration(step.Definition.Skills, step.Definition.DurationTicks)), metadata);
-							EnqueueAction(agent, new StoreItemsInWorldObjectAction(runtimeContext, agent, step.TargetEntity.Value, new System.Collections.Generic.List<Entity> { itemToHaul }), metadata);
+							EnqueueAction(agent, new TimedAction(runtimeContext, agent, step.Id, agent.ComputeEffectiveDuration(step.Skills, step.DurationTicks)), metadata);
+							EnqueueAction(agent, new StoreItemsInWorldObjectAction(runtimeContext, agent, targetEntity.Value, new System.Collections.Generic.List<Entity> { itemToHaul }), metadata);
 						}
 					}
 
 					break;
 
 				case "complete-construction":
-					if (step.TargetEntity.HasValue)
+					if (targetEntity.HasValue)
 					{
-						EnqueueAction(agent, new TimedAction(runtimeContext, agent, step.Definition.Id, agent.ComputeEffectiveDuration(step.Definition.Skills, step.Definition.DurationTicks)), metadata);
-						EnqueueAction(agent, new CompleteConstructionAction(runtimeContext, agent, step.TargetEntity.Value), metadata);
+						EnqueueAction(agent, new TimedAction(runtimeContext, agent, step.Id, agent.ComputeEffectiveDuration(step.Skills, step.DurationTicks)), metadata);
+						EnqueueAction(agent, new CompleteConstructionAction(runtimeContext, agent, targetEntity.Value), metadata);
 					}
 
 					break;
 
 				case "process-recipe":
-					if (step.TargetEntity.HasValue)
+					if (targetEntity.HasValue)
 					{
-						var outputItemId = GetCraftedOutputItemId(step);
-						if (string.IsNullOrWhiteSpace(outputItemId))
-						{
-							break;
-						}
+						var recipe = targetEntity.Value.GetRecipes()
+							.FirstOrDefault(r => targetEntity.Value.HasStoredMaterials(r.Inputs));
+						if (recipe == null)
+							{
+								break;
+							}
 
-						EnqueueAction(agent, new TimedAction(runtimeContext, agent, step.Definition.Id, agent.ComputeEffectiveDuration(step.Definition.Skills, step.Definition.DurationTicks)), metadata);
-						EnqueueAction(agent, new ProcessWorldObjectRecipeAction(runtimeContext, agent, step.TargetEntity.Value, outputItemId), metadata);
+							EnqueueAction(agent, new TimedAction(runtimeContext, agent, step.Id, agent.ComputeEffectiveDuration(step.Skills, step.DurationTicks)), metadata);
+						EnqueueAction(agent, new ProcessWorldObjectRecipeAction(runtimeContext, agent, targetEntity.Value, recipe.OutputItemId), metadata);
 					}
 
 					break;
-
-				case "eat":
-					EnqueueAction(agent, new TimedAction(runtimeContext, agent, step.Definition.Id, agent.ComputeEffectiveDuration(step.Definition.Skills, step.Definition.DurationTicks)), metadata);
-					EnqueueAction(agent, new ConsumeInventoryItemAction(runtimeContext, agent, SimulationEntityExtensions.ConsumableKind.Food), metadata);
-					break;
-
-					case "drink":
-					EnqueueAction(agent, new TimedAction(runtimeContext, agent, step.Definition.Id, agent.ComputeEffectiveDuration(step.Definition.Skills, step.Definition.DurationTicks)), metadata);
-					EnqueueAction(agent, new ConsumeInventoryItemAction(runtimeContext, agent, SimulationEntityExtensions.ConsumableKind.Drink), metadata);
-					break;
-
-				case "scan-area":
-						EnqueueAction(agent, new TimedAction(runtimeContext, agent, step.Definition.Id, agent.ComputeEffectiveDuration(step.Definition.Skills, step.Definition.DurationTicks)), metadata);
-						EnqueueAction(agent, new ScanAreaAction(runtimeContext, agent, 8, 180), metadata);
+						EnqueueAction(agent, new TimedAction(runtimeContext, agent, step.Id, agent.ComputeEffectiveDuration(step.Skills, step.DurationTicks)), metadata);
+						EnqueueAction(agent, new ConsumeInventoryItemAction(runtimeContext, agent, SimulationEntityExtensions.ConsumableKind.Food), metadata);
 						break;
 
+					case "drink":
+						EnqueueAction(agent, new TimedAction(runtimeContext, agent, step.Id, agent.ComputeEffectiveDuration(step.Skills, step.DurationTicks)), metadata);
+						EnqueueAction(agent, new ConsumeInventoryItemAction(runtimeContext, agent, SimulationEntityExtensions.ConsumableKind.Drink), metadata);
+						break;
+
+					case "scan-area":
+						EnqueueAction(agent, new TimedAction(runtimeContext, agent, step.Id, agent.ComputeEffectiveDuration(step.Skills, step.DurationTicks)), metadata);
+						EnqueueAction(agent, new ScanAreaAction(runtimeContext, agent, 8, 180), metadata);
+						break;
 					case "hide":
 						var currentCell = world.CoordsAtXY(agent.GetPosition());
 						var dangerCell = agent.Has<PerceptionComponent>()
@@ -173,54 +204,52 @@ namespace DwarvenFortification.GOAP
 						break;
 
 					case "throw-item":
-						if (step.TargetEntity.HasValue)
+						if (targetEntity.HasValue)
 						{
-							var throwItemId = GetRequiredItemId(step.Definition);
+							var throwItemId = GetRequiredItemId(step);
 							if (string.IsNullOrWhiteSpace(throwItemId))
 							{
 								break;
 							}
 
-							EnqueueAction(agent, new TimedAction(runtimeContext, agent, step.Definition.Id, agent.ComputeEffectiveDuration(step.Definition.Skills, step.Definition.DurationTicks)), metadata);
-							EnqueueAction(agent, new ThrowItemAction(runtimeContext, agent, step.TargetEntity.Value, throwItemId), metadata);
+							EnqueueAction(agent, new TimedAction(runtimeContext, agent, step.Id, agent.ComputeEffectiveDuration(step.Skills, step.DurationTicks)), metadata);
+							EnqueueAction(agent, new ThrowItemAction(runtimeContext, agent, targetEntity.Value, throwItemId), metadata);
 						}
 
 						break;
 
 					case "search-for-item":
-						var searchedItemId = GetItemIdFromKnowledgeFact(step.Effects.FirstOrDefault());
-						if (!string.IsNullOrWhiteSpace(searchedItemId))
+						if (!string.IsNullOrWhiteSpace(actionContext))
 						{
-							EnqueueAction(agent, new TimedAction(runtimeContext, agent, step.Definition.Id, agent.ComputeEffectiveDuration(step.Definition.Skills, step.Definition.DurationTicks)), metadata);
-							EnqueueAction(agent, new SearchForItemAction(runtimeContext, agent, searchedItemId, step.TargetCell), metadata);
+							EnqueueAction(agent, new TimedAction(runtimeContext, agent, step.Id, agent.ComputeEffectiveDuration(step.Skills, step.DurationTicks)), metadata);
+							EnqueueAction(agent, new SearchForItemAction(runtimeContext, agent, actionContext, targetCell), metadata);
 						}
 
 						break;
 
 					case "retrieve-known-item":
-						var retrievedItemId = GetItemIdFromHasItemFact(step.Effects.FirstOrDefault());
-						if (!string.IsNullOrWhiteSpace(retrievedItemId))
+						if (!string.IsNullOrWhiteSpace(actionContext))
 						{
-							EnqueueAction(agent, new TimedAction(runtimeContext, agent, step.Definition.Id, agent.ComputeEffectiveDuration(step.Definition.Skills, step.Definition.DurationTicks)), metadata);
-							EnqueueAction(agent, new RetrieveRememberedItemAction(runtimeContext, agent, retrievedItemId, step.TargetCell), metadata);
+							EnqueueAction(agent, new TimedAction(runtimeContext, agent, step.Id, agent.ComputeEffectiveDuration(step.Skills, step.DurationTicks)), metadata);
+							EnqueueAction(agent, new RetrieveRememberedItemAction(runtimeContext, agent, actionContext, targetCell), metadata);
 						}
 
 						break;
 
 					case "communicate":
-						if (step.TargetEntity.HasValue && step.Effects.Length > 0)
+						if (targetEntity.HasValue && !string.IsNullOrWhiteSpace(actionContext))
 						{
-							EnqueueAction(agent, new TimedAction(runtimeContext, agent, step.Definition.Id, agent.ComputeEffectiveDuration(step.Definition.Skills, step.Definition.DurationTicks)), metadata);
-							EnqueueAction(agent, new CommunicateAction(runtimeContext, agent, step.TargetEntity.Value, step.Effects.First()), metadata);
+							EnqueueAction(agent, new TimedAction(runtimeContext, agent, step.Id, agent.ComputeEffectiveDuration(step.Skills, step.DurationTicks)), metadata);
+							EnqueueAction(agent, new CommunicateAction(runtimeContext, agent, targetEntity.Value, actionContext), metadata);
 						}
 
 						break;
 
 					case "read-cookbook":
-						if (step.TargetEntity.HasValue)
+						if (targetEntity.HasValue)
 						{
-							EnqueueAction(agent, new TimedAction(runtimeContext, agent, step.Definition.Id, agent.ComputeEffectiveDuration(step.Definition.Skills, step.Definition.DurationTicks)), metadata);
-							EnqueueAction(agent, new ReadKnowledgeItemAction(runtimeContext, agent, step.TargetEntity.Value, step.TargetCell), metadata);
+							EnqueueAction(agent, new TimedAction(runtimeContext, agent, step.Id, agent.ComputeEffectiveDuration(step.Skills, step.DurationTicks)), metadata);
+							EnqueueAction(agent, new ReadKnowledgeItemAction(runtimeContext, agent, targetEntity.Value, targetCell), metadata);
 						}
 
 						break;
@@ -247,20 +276,5 @@ namespace DwarvenFortification.GOAP
 			return string.Empty;
 		}
 
-		static string GetItemIdFromKnowledgeFact(string fact)
-			=> Facts.TryGetKnownItemLocationId(fact, out var itemId)
-				? itemId
-				: string.Empty;
-
-		static string GetItemIdFromHasItemFact(string fact)
-			=> Facts.TryGetHasItemId(fact, out var itemId)
-				? itemId
-				: string.Empty;
-
-		static string GetCraftedOutputItemId(GoapActionCandidate step)
-			=> step.Effects.FirstOrDefault(fact => Facts.TryGetHasItemId(fact, out _)) is string fact
-				&& Facts.TryGetHasItemId(fact, out var itemId)
-					? itemId
-					: string.Empty;
 	}
 }

@@ -13,10 +13,7 @@ namespace DwarvenFortification.Logging
 	{
 		public IReadOnlyList<LogLine> Logs => logs;
 
-		public void Log(LogLevel level, string message)
-		{
-			logs.Add(new LogLine(level, message, DateTime.Now));
-		}
+		public void Log(LogLevel level, string message) => logs.Add(new LogLine(level, message, DateTime.Now));
 
 		readonly List<LogLine> logs = [];
 	}

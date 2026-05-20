@@ -9,10 +9,10 @@ namespace DwarvenFortification.ECS.Runtime.Agents
 	{
 		public static IAgentRuntime CreateDefault(SimulationDefinitionRegistry definitions, ILogger logger, IActionRuntimeContext taskRuntimeContext)
 		{
-			var planner = new GoapPlanner(definitions, new GoapWorldQueryService(definitions, () => taskRuntimeContext.World));
-			var planSelector = new GoapPlanSelector();
-			var planExecutor = new GoapPlanExecutor(taskRuntimeContext);
-			var planningService = new GoapAgentPlanningService(planner, planSelector, planExecutor, taskRuntimeContext);
+			var queryService = new GoapWorldQueryService(definitions, () => taskRuntimeContext.World);
+			var planner = new GoapPlanner(definitions);
+		var planExecutor = new GoapPlanExecutor(taskRuntimeContext, queryService);
+		var planningService = new GoapAgentPlanningService(planner, planExecutor, taskRuntimeContext, queryService);
 			var updateStages = new List<IAgentUpdateStage>
 			{
 				new NeedStateUpdateStage(),

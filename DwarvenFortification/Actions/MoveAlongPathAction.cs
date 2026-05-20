@@ -46,7 +46,9 @@ namespace DwarvenFortification.Actions
 		protected override AgentActionStatus OnTick()
 		{
 			if (currentGoal == Point.Zero)
+			{
 				currentGoal = Path.Peek();
+			}
 
 			var direction = (currentGoal - owner.GetPosition()).ToVector2();
 			var distance = direction.Length();

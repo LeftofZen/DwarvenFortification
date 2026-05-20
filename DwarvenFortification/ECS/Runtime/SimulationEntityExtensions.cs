@@ -42,10 +42,22 @@ namespace DwarvenFortification.ECS.Runtime
 
 		public static float ComputeSkillAverageLevel(this Entity entity, string[] actionSkills)
 		{
-			if (actionSkills == null || actionSkills.Length == 0) return 10f;
-			if (!entity.Has<AgentSkillsComponent>()) return 10f;
+			if (actionSkills == null || actionSkills.Length == 0)
+			{
+				return 10f;
+			}
+
+			if (!entity.Has<AgentSkillsComponent>())
+			{
+				return 10f;
+			}
+
 			var total = 0;
-			foreach (var skill in actionSkills) total += entity.GetSkillLevel(skill);
+			foreach (var skill in actionSkills)
+			{
+				total += entity.GetSkillLevel(skill);
+			}
+
 			return (float)total / actionSkills.Length;
 		}
 

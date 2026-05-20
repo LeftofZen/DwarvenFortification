@@ -28,9 +28,6 @@ namespace DwarvenFortification.ECS.Runtime.Agents
 			}
 		}
 
-		public void Draw(SpriteBatch spriteBatch, ISimulationWorld world, Entity agent)
-		{
-			renderer.Draw(spriteBatch, new AgentRuntimeContext(world, logger), agent);
-		}
+		public void Draw(SpriteBatch spriteBatch, ISimulationWorld world, Entity agent) => renderer.Draw(spriteBatch, new AgentRuntimeContext(world, logger), agent);
 	}
 }

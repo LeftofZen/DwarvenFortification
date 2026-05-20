@@ -48,6 +48,6 @@ namespace DwarvenFortification.UI
 		int DurationTicks,
 		bool ReplaceQueuedActions,
 		Entity SelectedItem,
-		GoapActionCandidate Candidate,
+		GoapAction Action,
 		AgentActionMetadata Metadata);
 }

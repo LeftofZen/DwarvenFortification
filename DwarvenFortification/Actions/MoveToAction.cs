@@ -11,10 +11,7 @@ namespace DwarvenFortification.Actions
 	{
 		const string _actionId = "move-to";
 
-		public MoveToAction(IActionRuntimeContext runtimeContext, Entity owner, Point goal) : base(runtimeContext, owner, _actionId)
-		{
-			this.Goal = goal;
-		}
+		public MoveToAction(IActionRuntimeContext runtimeContext, Entity owner, Point goal) : base(runtimeContext, owner, _actionId) => this.Goal = goal;
 
 		public Point Goal;
 

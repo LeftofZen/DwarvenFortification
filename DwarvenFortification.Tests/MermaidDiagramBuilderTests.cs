@@ -14,7 +14,7 @@ public sealed class MermaidDiagramBuilderTests
 	public void BuildTreemapDiagram()
 	{
 		var plan = CreatePlannedSecureFoodPlan();
-		var usedActionIds = plan.Steps.Select(step => step.Definition.Id).ToArray();
+		var usedActionIds = plan.Actions.Select(step => step.Id).ToArray();
 
 		var diagram = GoapPlanDiagram.BuildTreemapDiagram(plan);
 
@@ -48,7 +48,7 @@ public sealed class MermaidDiagramBuilderTests
 	public void BuildGanttDiagram()
 	{
 		var plan = CreatePlannedSecureFoodPlan();
-		var usedActionIds = plan.Steps.Select(step => step.Definition.Id).ToArray();
+		var usedActionIds = plan.Actions.Select(step => step.Id).ToArray();
 
 		var diagram = GoapPlanDiagram.BuildGanttDiagram(plan);
 
@@ -76,7 +76,7 @@ public sealed class MermaidDiagramBuilderTests
 	[Test]
 	public void BuildFullStateDiagram()
 	{
-		var (planner, agent, queryService) = CreatePlannerWithQueryService(
+		var (planner, agent) = CreatePlanner(
 			[
 				new GoalDefinition { Id = "secure-food", Name = "Secure Food", Priority = 10, Effects = ["food.available"] },
 			],
@@ -89,8 +89,7 @@ public sealed class MermaidDiagramBuilderTests
 				CreateActionDefinition("forage-berries", ["berries.found"], requirements: ["basket.ready"], durationTicks: 9),
 				CreateActionDefinition("cook-feast", ["food.available"], requirements: ["berries.found", "seasoning.ready"], durationTicks: 10),
 			],
-			[],
-			_ => ["quarry-salt", "gather-herbs", "grind-seasoning", "collect-fiber", "weave-basket", "forage-berries", "cook-feast"]);
+			[]);
 
 		var snapshot = planner.Inspect(agent);
 		var diagram = GoapPlanDiagram.BuildFullStateDiagram(snapshot);
@@ -119,10 +118,62 @@ public sealed class MermaidDiagramBuilderTests
 
 	[Test]
 	public void BuildStateDiagram()
-	{		var plan = CreatePlannedSecureFoodPlan();
-
+	{
+		var plan = CreatePlannedSecureFoodPlan();
 		var diagram = GoapPlanDiagram.BuildStateDiagram(plan);
 
+		Assert.Multiple(() =>
+		{
+			Assert.That(diagram, Does.StartWith("stateDiagram-v2"));
+			Assert.That(diagram, Does.Contain("direction LR"));
+			Assert.That(diagram, Does.Contain("[*] --> s0"));
+			Assert.That(diagram, Does.Contain("state \"Initial State\" as s0"));
+			Assert.That(diagram, Does.Contain("s0 --> s1 : quarry-salt (cost 1)"));
+			Assert.That(diagram, Does.Contain("state \"+seasoning.salt\" as s1"));
+			Assert.That(diagram, Does.Contain("s1 --> s2 : gather-herbs (cost 2)"));
+			Assert.That(diagram, Does.Contain("state \"+seasoning.herbs\" as s2"));
+			Assert.That(diagram, Does.Contain("s5 --> s6 : forage-berries (cost 9)"));
+			Assert.That(diagram, Does.Contain("s6 --> s7 : cook-feast (cost 10)"));
+			Assert.That(diagram, Does.Contain("state \"Goal- Secure Food\" as s7"));
+			Assert.That(diagram, Does.Contain("s7 --> [*]"));
+		});
+	}
+
+
+	[Test]
+	public void BuildCustomStateDiagram()
+	{
+		// arrange
+		var goals = new[]
+		{
+			new GoalDefinition
+			{
+				Id = "secure-food",
+				Name = "Secure Food",
+				Priority = 10,
+				Effects = ["food.available"],
+			},
+		};
+
+		var actions = new[]
+		{
+			CreateActionDefinition("quarry-salt", ["seasoning.salt"], durationTicks: 1, baseCost: 1),
+			CreateActionDefinition("gather-herbs", ["seasoning.herbs"], durationTicks: 1, baseCost: 1),
+			CreateActionDefinition("grind-seasoning", ["seasoning.ready"], requirements: ["seasoning.salt", "seasoning.herbs"], durationTicks: 1, baseCost: 1),
+			CreateActionDefinition("forage-berries", ["berries.found"], requirements: ["basket.ready"], durationTicks: 1, baseCost: 1),
+			CreateActionDefinition("cook-feast", ["food.feast.available"], requirements: ["berries.found", "seasoning.ready"], durationTicks: 1, baseCost: 1),
+		};
+
+		// act
+		var (planner, agent) = CreatePlanner(
+			goals,
+			actions,
+			["food.unavailable"]);
+
+		var plan = planner.CreatePlan(agent)!;
+		var diagram = GoapPlanDiagram.BuildStateDiagram(plan);
+
+		// assert
 		Assert.Multiple(() =>
 		{
 			Assert.That(diagram, Does.StartWith("stateDiagram-v2"));
@@ -221,36 +272,18 @@ public sealed class MermaidDiagramBuilderTests
 		var (planner, agent) = CreatePlanner(
 			goals,
 			actions,
-			[],
-			_ =>
-			[
-				.. ExpectedSecureFoodPlanActionIds,
-				.. UnrelatedSecureFoodWorldActionIds,
-			]);
-		return planner.BuildCandidatePlans(agent).Single();
+			[]);
+		return planner.CreatePlan(agent)!;
 	}
 
-	static (GoapPlanner Planner, Entity Agent) CreatePlanner(
+	static (GoapPlanner Planner, IGoapAgent Agent) CreatePlanner(
 		GoalDefinition[] goals,
 		ActionDefinition[] actions,
-		IEnumerable<string> currentState,
-		Func<HashSet<string>, IReadOnlyList<string>> availableActionIdsFactory)
-	{
-		var (planner, agent, _) = CreatePlannerWithQueryService(goals, actions, currentState, availableActionIdsFactory);
-		return (planner, agent);
-	}
-
-	static (GoapPlanner Planner, Entity Agent, StubGoapWorldQueryService QueryService) CreatePlannerWithQueryService(
-		GoalDefinition[] goals,
-		ActionDefinition[] actions,
-		IEnumerable<string> currentState,
-		Func<HashSet<string>, IReadOnlyList<string>> availableActionIdsFactory)
+		IEnumerable<string> currentState)
 	{
 		var definitions = TestSimulationDefinitions.CreateRegistry(actions, goals);
-		var world = World.Create();
-		var agent = world.Create();
-		var queryService = new StubGoapWorldQueryService(currentState, availableActionIdsFactory);
-		return (new GoapPlanner(definitions, queryService), agent, queryService);
+		var agent = new TestGoapAgent(currentState);
+		return (new GoapPlanner(definitions), agent);
 	}
 
 	static ActionDefinition CreateActionDefinition(string id, string[] effects, string[]? requirements = null, int durationTicks = 0, int baseCost = 1)
@@ -266,39 +299,10 @@ public sealed class MermaidDiagramBuilderTests
 			Effects = effects,
 		};
 
-	sealed class StubGoapWorldQueryService : IGoapWorldQueryService
+	sealed class TestGoapAgent(IEnumerable<string> state) : IGoapAgent
 	{
-		readonly HashSet<string> currentState;
-		readonly Func<HashSet<string>, IReadOnlyList<string>> availableActionIdsFactory;
-
-		public StubGoapWorldQueryService(IEnumerable<string> currentState, Func<HashSet<string>, IReadOnlyList<string>> availableActionIdsFactory)
-		{
-			this.currentState = new HashSet<string>(currentState, StringComparer.OrdinalIgnoreCase);
-			this.availableActionIdsFactory = availableActionIdsFactory;
-		}
-
-		public HashSet<string> BuildCurrentState(Entity agent)
-			=> new(currentState, StringComparer.OrdinalIgnoreCase);
-
-		public GoapCandidateQuery InspectCandidates(Entity agent, IReadOnlyList<GoapAction> actions, HashSet<string> currentState)
-			=> new([.. BuildCandidates(agent, actions, currentState)], Array.Empty<GoapActionDiagnostic>());
-
-		public IEnumerable<GoapActionCandidate> BuildCandidates(Entity agent, IReadOnlyList<GoapAction> actions, HashSet<string> currentState)
-		{
-			var availableActionIds = availableActionIdsFactory(new HashSet<string>(currentState, StringComparer.OrdinalIgnoreCase));
-			foreach (var actionId in availableActionIds)
-			{
-				var action = actions.First(definition => string.Equals(definition.Id, actionId, StringComparison.OrdinalIgnoreCase));
-				yield return new GoapActionCandidate(
-					action,
-					Point.Zero,
-					Point.Zero,
-					null,
-					action.BaseCost + action.DurationTicks,
-					action.Requirements,
-					action.Effects);
-			}
-		}
+		readonly HashSet<string> initialState = new(state, StringComparer.OrdinalIgnoreCase);
+		public HashSet<string> GetCurrentState() => new(initialState, StringComparer.OrdinalIgnoreCase);
 	}
 
 	static class TestSimulationDefinitions

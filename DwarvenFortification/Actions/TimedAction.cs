@@ -17,9 +17,6 @@ namespace DwarvenFortification.Actions
 			return Progress >= Cost ? CompleteAction() : AgentActionStatus.Running;
 		}
 
-		public override void Draw(SpriteBatch sb)
-		{
-			Draw(sb, new Point(1, 1));
-		}
+		public override void Draw(SpriteBatch sb) => Draw(sb, new Point(1, 1));
 	}
 }

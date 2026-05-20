@@ -32,7 +32,6 @@ namespace DwarvenFortification.UI
 		bool replaceQueuedActions = true;
 		string lastIssuedActionMessage = string.Empty;
 		string lastPlanDiagramExportMessage = string.Empty;
-		readonly Dictionary<string, int> selectedActionManifestationIndices = new(StringComparer.OrdinalIgnoreCase);
 		int selectedDropInventoryItemIndex;
 		NumericsVector2 goapGraphPan = new(24f, 24f);
 		float goapGraphZoom = 1f;
@@ -152,7 +151,9 @@ namespace DwarvenFortification.UI
 			foreach (var groupName in paletteGroupOrder)
 			{
 				if (!paletteByGroup.TryGetValue(groupName, out var groupEntries))
+				{
 					continue;
+				}
 
 				if (ImGui.CollapsingHeader(groupName, ImGuiTreeNodeFlags.DefaultOpen))
 				{
@@ -205,7 +206,9 @@ namespace DwarvenFortification.UI
 			foreach (var groupName in itemGroupOrder)
 			{
 				if (!itemsByGroup.TryGetValue(groupName, out var itemEntries))
+				{
 					continue;
+				}
 
 				if (ImGui.CollapsingHeader($"{groupName}##item", ImGuiTreeNodeFlags.DefaultOpen))
 				{
@@ -399,9 +402,14 @@ namespace DwarvenFortification.UI
 					ImGui.PopStyleColor();
 					ImGui.TextUnformatted($"Id: {goal.Goal.Id}");
 					if (goal.EffectivePriority != goal.Goal.Priority)
+					{
 						ImGui.TextUnformatted($"Priority: {goal.EffectivePriority} (base: {goal.Goal.Priority})");
+					}
 					else
+					{
 						ImGui.TextUnformatted($"Priority: {goal.Goal.Priority}");
+					}
+
 					ImGui.TextWrapped($"Desired facts: {FormatList(goal.Goal.Effects)}");
 
 					if (goal.MissingRequiredStates.Count > 0)
@@ -422,7 +430,8 @@ namespace DwarvenFortification.UI
 						ImGui.TextUnformatted("Flattened execution order:");
 						for (var i = 0; i < goal.CandidatePlan.Steps.Count; ++i)
 						{
-							ImGui.BulletText(FormatCandidate(goal.CandidatePlan.Steps[i], i + 1));
+							var step = goal.CandidatePlan.Steps[i];
+							ImGui.BulletText($"{i + 1}. {step.Name} (cost {step.Cost})");
 						}
 					}
 
@@ -581,12 +590,35 @@ namespace DwarvenFortification.UI
 			if (hasNutrition)
 			{
 				ImGui.TextUnformatted("Nutrition on consume:");
-				if (n.CarbohydratesGrams > 0f) ImGui.BulletText($"Carbohydrates: +{n.CarbohydratesGrams:0.##}g");
-				if (n.ProteinGrams > 0f) ImGui.BulletText($"Protein: +{n.ProteinGrams:0.##}g");
-				if (n.FatGrams > 0f) ImGui.BulletText($"Fat: +{n.FatGrams:0.##}g");
-				if (n.SugarGrams > 0f) ImGui.BulletText($"Sugar: +{n.SugarGrams:0.##}g");
-				if (n.FiberGrams > 0f) ImGui.BulletText($"Fibre: +{n.FiberGrams:0.##}g");
-				if (n.FluidLiters > 0f) ImGui.BulletText($"Hydration: +{n.FluidLiters:0.##}L");
+				if (n.CarbohydratesGrams > 0f)
+				{
+					ImGui.BulletText($"Carbohydrates: +{n.CarbohydratesGrams:0.##}g");
+				}
+
+				if (n.ProteinGrams > 0f)
+				{
+					ImGui.BulletText($"Protein: +{n.ProteinGrams:0.##}g");
+				}
+
+				if (n.FatGrams > 0f)
+				{
+					ImGui.BulletText($"Fat: +{n.FatGrams:0.##}g");
+				}
+
+				if (n.SugarGrams > 0f)
+				{
+					ImGui.BulletText($"Sugar: +{n.SugarGrams:0.##}g");
+				}
+
+				if (n.FiberGrams > 0f)
+				{
+					ImGui.BulletText($"Fibre: +{n.FiberGrams:0.##}g");
+				}
+
+				if (n.FluidLiters > 0f)
+				{
+					ImGui.BulletText($"Hydration: +{n.FluidLiters:0.##}L");
+				}
 			}
 
 			var enabledActions = definitions.GetActionDefinitions()
@@ -637,10 +669,7 @@ namespace DwarvenFortification.UI
 			var plannerFacts = planningSnapshot?.CurrentState != null
 				? new HashSet<string>(planningSnapshot.CurrentState, StringComparer.OrdinalIgnoreCase)
 				: new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-			var candidatesByAction = planningSnapshot?.ActionManifestations
-				.GroupBy(candidate => candidate.Definition.Id, StringComparer.OrdinalIgnoreCase)
-				.ToDictionary(group => group.Key, group => group.Count(), StringComparer.OrdinalIgnoreCase)
-				?? new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+			var candidatesByAction = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
 			ImGui.TextUnformatted("Direct actions");
 			ImGui.BulletText("Move To Cell");
@@ -1187,10 +1216,6 @@ namespace DwarvenFortification.UI
 			var plannerFacts = planningSnapshot?.CurrentState != null
 				? new HashSet<string>(planningSnapshot.CurrentState, StringComparer.OrdinalIgnoreCase)
 				: new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-			var candidatesByAction = planningSnapshot?.ActionManifestations
-				.GroupBy(candidate => candidate.Definition.Id, StringComparer.OrdinalIgnoreCase)
-				.ToDictionary(group => group.Key, group => group.ToList(), StringComparer.OrdinalIgnoreCase)
-				?? new Dictionary<string, List<GoapActionCandidate>>(StringComparer.OrdinalIgnoreCase);
 
 			DrawDirectActions(entity);
 
@@ -1199,12 +1224,7 @@ namespace DwarvenFortification.UI
 				var missingPrerequisiteFacts = GetMissingRequirements(definition, plannerFacts);
 				var isAvailableAction = missingPrerequisiteFacts.Count == 0;
 				var actionColor = isAvailableAction ? ColorOk : ColorBlocked;
-				var manifestations = candidatesByAction.TryGetValue(definition.Id, out var actionCandidates)
-					? actionCandidates
-					: null;
-				var manifestationOptions = manifestations ?? [];
-				var manifestationCount = manifestationOptions.Count;
-				var header = $"{definition.Name} [{(isAvailableAction ? "Available" : "Unavailable")}] - {manifestationCount} manifestations";
+				var header = $"{definition.Name} [{(isAvailableAction ? "Available" : "Unavailable")}]";
 
 				ImGui.PushID($"action-{definition.Id}");
 				ImGui.PushStyleColor(ImGuiCol.Text, actionColor);
@@ -1222,19 +1242,7 @@ namespace DwarvenFortification.UI
 						ImGui.TextUnformatted("Prerequisite facts satisfied.");
 					}
 
-					if (manifestationCount == 0)
-					{
-						ImGui.TextUnformatted("No current action manifestations in the world.");
-					}
-					else
-					{
-						for (var i = 0; i < manifestationOptions.Count; ++i)
-						{
-							ImGui.BulletText(FormatCandidate(manifestationOptions[i], i + 1));
-						}
-
-						DrawManualActionControls(entity, definition, manifestationOptions);
-					}
+					DrawManualActionControls(entity, definition);
 
 					ImGui.TreePop();
 				}
@@ -1375,59 +1383,14 @@ namespace DwarvenFortification.UI
 			ImGui.TreePop();
 		}
 
-		void DrawManualActionControls(Entity entity, GoapAction definition, List<GoapActionCandidate> manifestations)
+		void DrawManualActionControls(Entity entity, GoapAction definition)
 		{
 			ImGui.Separator();
 			ImGui.TextUnformatted("Issue action manually");
-
-			if (ActionRequestHandler == null)
-			{
-				ImGui.TextUnformatted("Action request handler is not configured.");
-				return;
-			}
-
-			if (manifestations.Count == 0)
-			{
-				ImGui.TextUnformatted("No queueable manifestations are currently available.");
-				return;
-			}
-
-			selectedActionManifestationIndices.TryGetValue(definition.Id, out var selectedIndex);
-			selectedIndex = Math.Clamp(selectedIndex, 0, manifestations.Count - 1);
-
-			if (manifestations.Count == 1)
-			{
-				ImGui.TextWrapped($"Target: {FormatActionManifestationLabel(manifestations[0])}");
-			}
-			else
-			{
-				var preview = FormatActionManifestationLabel(manifestations[selectedIndex]);
-				if (ImGui.BeginCombo("Action Target", preview))
-				{
-					for (var i = 0; i < manifestations.Count; ++i)
-					{
-						var isSelected = i == selectedIndex;
-						if (ImGui.Selectable(FormatActionManifestationLabel(manifestations[i]), isSelected))
-						{
-							selectedIndex = i;
-						}
-
-						if (isSelected)
-						{
-							ImGui.SetItemDefaultFocus();
-						}
-					}
-
-					ImGui.EndCombo();
-				}
-			}
-
-			selectedActionManifestationIndices[definition.Id] = selectedIndex;
-			var selectedCandidate = manifestations[selectedIndex];
-			ImGui.TextWrapped($"Selected manifestation: {FormatActionManifestationLabel(selectedCandidate)}");
+			if (ActionRequestHandler == null) { ImGui.TextUnformatted("Action request handler is not configured."); return; }
 			if (ImGui.Button($"Queue Action##{definition.Id}"))
 			{
-				lastIssuedActionMessage = RequestAction(entity, AgentActionIds.ExecuteAction, selectedCandidate: selectedCandidate, tags: ["manual", "goap-action"]);
+				lastIssuedActionMessage = RequestAction(entity, AgentActionIds.ExecuteAction, action: definition, tags: ["manual", "goap-action"]);
 			}
 		}
 
@@ -1455,13 +1418,18 @@ namespace DwarvenFortification.UI
 				ImGui.TreePop();
 			}
 
-			if (planningSnapshot.CandidatePlans.Count == 0)
+			var candidatePlans = planningSnapshot.Goals
+				.Select(g => g.CandidatePlan)
+				.Where(p => p != null)
+				.ToList();
+
+			if (candidatePlans.Count == 0)
 			{
 				ImGui.TextColored(ColorBlocked, "No candidate plans built.");
 			}
 			else
 			{
-				ImGui.TextColored(ColorPlanned, $"Candidate plans: {planningSnapshot.CandidatePlans.Count}");
+				ImGui.TextColored(ColorPlanned, $"Candidate plans: {candidatePlans.Count}");
 				if (!string.IsNullOrWhiteSpace(lastPlanDiagramExportMessage))
 				{
 					ImGui.TextWrapped(lastPlanDiagramExportMessage);
@@ -1469,9 +1437,9 @@ namespace DwarvenFortification.UI
 
 				if (ImGui.TreeNode("Candidate plan trees"))
 				{
-					for (var i = 0; i < planningSnapshot.CandidatePlans.Count; ++i)
+					for (var i = 0; i < candidatePlans.Count; ++i)
 					{
-						var candidatePlan = planningSnapshot.CandidatePlans[i];
+						var candidatePlan = candidatePlans[i];
 						if (ImGui.TreeNode($"{i + 1}. {candidatePlan.Goal.Name} (cost {candidatePlan.Cost})"))
 						{
 							DrawPlanDiagramExportButtons(candidatePlan, $"candidate-{i}");
@@ -1484,50 +1452,31 @@ namespace DwarvenFortification.UI
 			}
 
 			var plannerFacts = new HashSet<string>(planningSnapshot.CurrentState, StringComparer.OrdinalIgnoreCase);
-			var immediatelyAvailable = planningSnapshot.ActionManifestations
-				.Where(candidate => GetCurrentStateBlockers(candidate, plannerFacts).Count == 0)
-				.ToList();
-			var deferredCandidates = planningSnapshot.ActionManifestations
-				.Select(candidate => new CandidateBlockersView(candidate, GetCurrentStateBlockers(candidate, plannerFacts)))
-				.Where(view => view.Blockers.Count > 0)
-				.ToList();
-			var rejectedDiagnostics = planningSnapshot.ActionDiagnostics
-				.Where(diagnostic => diagnostic.Status == GoapActionDiagnosticStatus.Rejected)
-				.ToList();
+			var allActions = planningSnapshot.AllActions;
+			var availableActions = allActions.Where(a => GetMissingRequirements(a, plannerFacts).Count == 0).ToList();
+			var unavailableActions = allActions.Where(a => GetMissingRequirements(a, plannerFacts).Count > 0).ToList();
 
-			ImGui.TextUnformatted($"Available now: {immediatelyAvailable.Count}");
-			ImGui.TextUnformatted($"Deferred by planner facts: {deferredCandidates.Count}");
-			ImGui.TextUnformatted($"Rejected by world query: {rejectedDiagnostics.Count}");
+			ImGui.TextUnformatted($"Available now: {availableActions.Count}");
+			ImGui.TextUnformatted($"Unavailable (missing requirements): {unavailableActions.Count}");
 
-			if (ImGui.TreeNode($"Available manifestations ({immediatelyAvailable.Count})"))
+			if (ImGui.TreeNode($"Available actions ({availableActions.Count})"))
 			{
-				for (var i = 0; i < immediatelyAvailable.Count; ++i)
+				for (var i = 0; i < availableActions.Count; ++i)
 				{
-					ImGui.TextColored(ColorOk, FormatCandidate(immediatelyAvailable[i], i + 1));
+					ImGui.TextColored(ColorOk, $"{i + 1}. {availableActions[i].Name}");
 				}
 
 				ImGui.TreePop();
 			}
 
-			if (ImGui.TreeNode($"Deferred by planner facts ({deferredCandidates.Count})"))
+			if (ImGui.TreeNode($"Unavailable actions ({unavailableActions.Count})"))
 			{
-				for (var i = 0; i < deferredCandidates.Count; ++i)
+				for (var i = 0; i < unavailableActions.Count; ++i)
 				{
-					var view = deferredCandidates[i];
-					ImGui.TextColored(ColorDeferred, FormatCandidate(view.Candidate, i + 1));
-					ImGui.TextWrapped($"Blocked by: {FormatList(view.Blockers)}");
+					var action = unavailableActions[i];
+					ImGui.TextColored(ColorDeferred, $"{i + 1}. {action.Name}");
+					ImGui.TextWrapped($"  Missing: {FormatList(GetMissingRequirements(action, plannerFacts))}");
 				}
-
-				ImGui.TreePop();
-			}
-
-			if (ImGui.TreeNode($"Rejected during world query ({rejectedDiagnostics.Count})"))
-			{
-				for (var i = 0; i < rejectedDiagnostics.Count; ++i)
-				{
-					ImGui.TextColored(ColorBlocked, FormatDiagnostic(rejectedDiagnostics[i], i + 1));
-				}
-
 				ImGui.TreePop();
 			}
 		}
@@ -1722,7 +1671,7 @@ namespace DwarvenFortification.UI
 			Point? targetCell = null,
 			int? durationTicks = null,
 			Entity selectedItem = default,
-			GoapActionCandidate selectedCandidate = default,
+			GoapAction action = default,
 			string[] tags = null)
 		{
 			if (ActionRequestHandler == null)
@@ -1737,7 +1686,7 @@ namespace DwarvenFortification.UI
 				durationTicks ?? taskDurationTicks,
 				replaceQueuedActions,
 				selectedItem,
-				selectedCandidate,
+				action,
 				metadata);
 
 			return ActionRequestHandler(entity, actionRequest);
@@ -1827,22 +1776,6 @@ namespace DwarvenFortification.UI
 			return materialized.Length == 0 ? "none" : string.Join(", ", materialized);
 		}
 
-		static string FormatCandidate(GoapActionCandidate candidate, int index)
-		{
-			var targetName = candidate.TargetEntity.HasValue && !candidate.TargetEntity.Value.Equals(default(Entity))
-				? candidate.TargetEntity.Value.GetName()
-				: "none";
-			return $"{index}. action={candidate.Definition.Name} actionId={candidate.Definition.Id} cost={candidate.Cost} targetCell={candidate.TargetCell} destination={candidate.DestinationCell} target={targetName}";
-		}
-
-		static string FormatActionManifestationLabel(GoapActionCandidate candidate)
-		{
-			var targetName = candidate.TargetEntity.HasValue && !candidate.TargetEntity.Value.Equals(default(Entity))
-				? candidate.TargetEntity.Value.GetName()
-				: candidate.Definition.TargetKind;
-			return $"{targetName} at {candidate.TargetCell} -> {candidate.DestinationCell}";
-		}
-
 		void DrawPlanDiagramExportButtons(GoapPlan plan, string exportId)
 		{
 			ImGui.PushID(exportId);
@@ -1893,13 +1826,6 @@ namespace DwarvenFortification.UI
 		static string FormatInventoryItemLabel(Entity item)
 			=> $"{item.GetName()} [{item.GetItemDefinitionId()}]";
 
-		static string FormatDiagnostic(GoapActionDiagnostic diagnostic, int index)
-		{
-			var targetCell = diagnostic.TargetCell?.ToString() ?? "n/a";
-			var destinationCell = diagnostic.DestinationCell?.ToString() ?? "n/a";
-			return $"{index}. action={diagnostic.Definition.Name} actionId={diagnostic.Definition.Id} target={diagnostic.TargetSummary} targetCell={targetCell} destination={destinationCell} reason={diagnostic.Reason}";
-		}
-
 		static NumericsVector4 GetGoalStatusColor(GoapGoalView goal)
 			=> goal.IsSatisfied
 				? ColorOk
@@ -1908,28 +1834,6 @@ namespace DwarvenFortification.UI
 					: goal.IsEligible
 						? ColorDeferred
 						: ColorBlocked;
-
-		static List<string> GetCurrentStateBlockers(GoapActionCandidate candidate, HashSet<string> plannerFacts)
-		{
-			var blockers = new List<string>();
-			foreach (var requiredFact in candidate.Requirements)
-			{
-				if (requiredFact.StartsWith('!'))
-				{
-					var blockedFact = requiredFact[1..];
-					if (plannerFacts.Contains(blockedFact))
-					{
-						blockers.Add($"blocked by active fact {blockedFact}");
-					}
-				}
-				else if (!plannerFacts.Contains(requiredFact))
-				{
-					blockers.Add($"missing fact {requiredFact}");
-				}
-			}
-
-			return blockers;
-		}
 
 		static List<string> GetMissingRequirements(GoapAction definition, HashSet<string> plannerFacts)
 		{
@@ -1966,7 +1870,6 @@ namespace DwarvenFortification.UI
 			}
 		}
 
-		readonly record struct CandidateBlockersView(GoapActionCandidate Candidate, List<string> Blockers);
 		readonly record struct ActionGraphLayout(IReadOnlyList<ActionGraphNode> Nodes, IReadOnlyList<ActionGraphEdge> Edges, NumericsVector2 CanvasSize);
 		readonly record struct GraphBounds(NumericsVector2 Min, NumericsVector2 Max);
 		readonly record struct ActionGraphNode(string Id, GraphBounds Bounds, string Title, string Subtitle, string Detail, uint FillColor, uint BorderColor, uint TextColor, uint SubtitleColor, uint DetailColor, float ProgressRatio = 0f, uint ProgressBarColor = 0u);

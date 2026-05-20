@@ -10,10 +10,7 @@ namespace DwarvenFortification.Actions
 	{
 		readonly int durationTicks;
 
-		public SetHiddenAction(IActionRuntimeContext runtimeContext, Entity owner, int durationTicks) : base(runtimeContext, owner, "set-hidden", 1)
-		{
-			this.durationTicks = durationTicks;
-		}
+		public SetHiddenAction(IActionRuntimeContext runtimeContext, Entity owner, int durationTicks) : base(runtimeContext, owner, "set-hidden", 1) => this.durationTicks = durationTicks;
 
 		protected override AgentActionStatus OnTick()
 		{
@@ -22,9 +19,6 @@ namespace DwarvenFortification.Actions
 			return CompleteAction();
 		}
 
-		public override void Draw(SpriteBatch sb)
-		{
-			Draw(sb, new Point(5, 0));
-		}
+		public override void Draw(SpriteBatch sb) => Draw(sb, new Point(5, 0));
 	}
 }

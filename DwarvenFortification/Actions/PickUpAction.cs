@@ -12,10 +12,7 @@ namespace DwarvenFortification.Actions
 		const int _cost = 100;
 		const string _actionId = "pick-up";
 
-		public PickUpAction(IActionRuntimeContext runtimeContext, Entity owner, Entity item) : base(runtimeContext, owner, _actionId, (int)(_cost * (1 - owner.GetStrength())))
-		{
-			this.item = item;
-		}
+		public PickUpAction(IActionRuntimeContext runtimeContext, Entity owner, Entity item) : base(runtimeContext, owner, _actionId, (int)(_cost * (1 - owner.GetStrength()))) => this.item = item;
 
 		Entity item;
 

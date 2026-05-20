@@ -11,9 +11,6 @@ namespace DFCore
 
 		public static IEnumerable<T> TakeRandom<T>(this IEnumerable<T> source, int count) => source.Shuffle().Take(count);
 
-		public static IEnumerable<T> Shuffle<T>(this IEnumerable<T> source)
-		{
-			return source.OrderBy(x => Guid.NewGuid());
-		}
+		public static IEnumerable<T> Shuffle<T>(this IEnumerable<T> source) => source.OrderBy(x => Guid.NewGuid());
 	}
 }

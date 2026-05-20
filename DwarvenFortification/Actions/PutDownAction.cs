@@ -18,10 +18,7 @@ namespace DwarvenFortification.Actions
 			this.items.Add(item);
 		}
 
-		public PutDownAction(IActionRuntimeContext runtimeContext, Entity owner, IEnumerable<Entity> items) : base(runtimeContext, owner, _actionId, _cost)
-		{
-			this.items = new List<Entity>(items);
-		}
+		public PutDownAction(IActionRuntimeContext runtimeContext, Entity owner, IEnumerable<Entity> items) : base(runtimeContext, owner, _actionId, _cost) => this.items = new List<Entity>(items);
 
 		List<Entity> items = [];
 

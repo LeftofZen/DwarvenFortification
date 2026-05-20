@@ -64,9 +64,6 @@ namespace DwarvenFortification.Actions
 			return CompleteAction();
 		}
 
-		public override void Draw(SpriteBatch sb)
-		{
-			Draw(sb, new Point(2, 0));
-		}
+		public override void Draw(SpriteBatch sb) => Draw(sb, new Point(2, 0));
 	}
 }

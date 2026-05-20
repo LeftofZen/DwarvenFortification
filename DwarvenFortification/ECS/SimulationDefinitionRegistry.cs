@@ -86,10 +86,9 @@ namespace DwarvenFortification.ECS
 				goapActions.Add(new GoapAction(
 					action.Id,
 					action.Name,
+					action.BaseCost,
 					action.TargetKind,
 					action.DestinationMode,
-					action.BaseCost,
-					action.DurationTicks,
 					action.Requirements ?? [],
 					action.Effects ?? [],
 					action.Skills ?? []));
@@ -106,7 +105,10 @@ namespace DwarvenFortification.ECS
 						if (filter.Length > 0)
 						{
 							if (!knownItemFilters.Any(f => Facts.HasItemFilter(f) == Facts.HasItemFilter(filter)))
+							{
 								knownItemFilters.Add(filter);
+							}
+
 							return new MaterialCostComponent(filter, cost.Quantity);
 						}
 						return new MaterialCostComponent(cost.ItemId, cost.Quantity);
@@ -125,9 +127,7 @@ namespace DwarvenFortification.ECS
 								var filter = cost.ItemFilter ?? [];
 								if (filter.Length > 0)
 								{
-									if (!knownItemFilters.Any(f => Facts.HasItemFilter(f) == Facts.HasItemFilter(filter)))
-										knownItemFilters.Add(filter);
-									return new MaterialCostComponent(filter, cost.Quantity);
+									if (!knownItemFilters.Any(f => Facts.HasItemFilter(f) == Facts.HasItemFilter(filter))) { knownItemFilters.Add(filter); } return new MaterialCostComponent(filter, cost.Quantity);
 								}
 								return new MaterialCostComponent(cost.ItemId, cost.Quantity);
 							})],
@@ -169,7 +169,9 @@ namespace DwarvenFortification.ECS
 				if (agent.Skills != null)
 				{
 					foreach (var kvp in agent.Skills)
+					{
 						agentStartingSkills[kvp.Key] = kvp.Value;
+					}
 				}
 
 				agentArchetypeEntities[agent.Id] = World.Create(
@@ -437,28 +439,53 @@ namespace DwarvenFortification.ECS
 		public IReadOnlyList<GoapGoal> GetGoalDefinitions()
 			=> [.. goapGoals.OrderByDescending(goal => goal.Priority)];
 
-		public bool IsCellTypeWalkable(CellType cellType)
-		{
-			return cellType != CellType.Water;
-		}
+		public bool IsCellTypeWalkable(CellType cellType) => cellType != CellType.Water;
 
 		static string DetermineOccupantGroup(string[] tags, OccupantPaletteKind kind)
 		{
 			if (tags == null || tags.Length == 0)
+			{
 				return "Misc";
+			}
 
 			if (kind == OccupantPaletteKind.ResourceNode)
 			{
-				if (Array.Exists(tags, t => string.Equals(t, "tree", StringComparison.OrdinalIgnoreCase))) return "Trees";
-				if (Array.Exists(tags, t => string.Equals(t, "ore", StringComparison.OrdinalIgnoreCase))) return "Ore Veins";
-				if (Array.Exists(tags, t => string.Equals(t, "mineable", StringComparison.OrdinalIgnoreCase))) return "Minerals";
+				if (Array.Exists(tags, t => string.Equals(t, "tree", StringComparison.OrdinalIgnoreCase)))
+				{
+					return "Trees";
+				}
+
+				if (Array.Exists(tags, t => string.Equals(t, "ore", StringComparison.OrdinalIgnoreCase)))
+				{
+					return "Ore Veins";
+				}
+
+				if (Array.Exists(tags, t => string.Equals(t, "mineable", StringComparison.OrdinalIgnoreCase)))
+				{
+					return "Minerals";
+				}
 			}
 			else
 			{
-				if (Array.Exists(tags, t => string.Equals(t, "workstation", StringComparison.OrdinalIgnoreCase))) return "Workstations";
-				if (Array.Exists(tags, t => string.Equals(t, "structure", StringComparison.OrdinalIgnoreCase))) return "Structures";
-				if (Array.Exists(tags, t => string.Equals(t, "bed", StringComparison.OrdinalIgnoreCase) || string.Equals(t, "furniture", StringComparison.OrdinalIgnoreCase))) return "Furniture";
-				if (Array.Exists(tags, t => string.Equals(t, "storage", StringComparison.OrdinalIgnoreCase))) return "Storage";
+				if (Array.Exists(tags, t => string.Equals(t, "workstation", StringComparison.OrdinalIgnoreCase)))
+				{
+					return "Workstations";
+				}
+
+				if (Array.Exists(tags, t => string.Equals(t, "structure", StringComparison.OrdinalIgnoreCase)))
+				{
+					return "Structures";
+				}
+
+				if (Array.Exists(tags, t => string.Equals(t, "bed", StringComparison.OrdinalIgnoreCase) || string.Equals(t, "furniture", StringComparison.OrdinalIgnoreCase)))
+				{
+					return "Furniture";
+				}
+
+				if (Array.Exists(tags, t => string.Equals(t, "storage", StringComparison.OrdinalIgnoreCase)))
+				{
+					return "Storage";
+				}
 			}
 
 			return "Misc";
@@ -467,18 +494,65 @@ namespace DwarvenFortification.ECS
 		static string DetermineItemGroup(string[] tags)
 		{
 			if (tags == null || tags.Length == 0)
+			{
 				return "Misc";
-			if (Array.Exists(tags, t => string.Equals(t, "tool", StringComparison.OrdinalIgnoreCase))) return "Tools";
-			if (Array.Exists(tags, t => string.Equals(t, "food", StringComparison.OrdinalIgnoreCase) || string.Equals(t, "drink", StringComparison.OrdinalIgnoreCase))) return "Food & Drink";
-			if (Array.Exists(tags, t => string.Equals(t, "ore", StringComparison.OrdinalIgnoreCase))) return "Ores";
-			if (Array.Exists(tags, t => string.Equals(t, "fuel", StringComparison.OrdinalIgnoreCase))) return "Fuel";
-			if (Array.Exists(tags, t => string.Equals(t, "ingot", StringComparison.OrdinalIgnoreCase))) return "Ingots";
-			if (Array.Exists(tags, t => string.Equals(t, "plank", StringComparison.OrdinalIgnoreCase))) return "Planks";
-			if (Array.Exists(tags, t => string.Equals(t, "weapon", StringComparison.OrdinalIgnoreCase))) return "Weapons";
-			if (Array.Exists(tags, t => string.Equals(t, "book", StringComparison.OrdinalIgnoreCase) || string.Equals(t, "knowledge", StringComparison.OrdinalIgnoreCase))) return "Knowledge";
-			if (Array.Exists(tags, t => string.Equals(t, "crafted", StringComparison.OrdinalIgnoreCase))) return "Parts & Components";
-			if (Array.Exists(tags, t => string.Equals(t, "wood", StringComparison.OrdinalIgnoreCase))) return "Logs";
-			if (Array.Exists(tags, t => string.Equals(t, "resource", StringComparison.OrdinalIgnoreCase))) return "Resources";
+			}
+
+			if (Array.Exists(tags, t => string.Equals(t, "tool", StringComparison.OrdinalIgnoreCase)))
+			{
+				return "Tools";
+			}
+
+			if (Array.Exists(tags, t => string.Equals(t, "food", StringComparison.OrdinalIgnoreCase) || string.Equals(t, "drink", StringComparison.OrdinalIgnoreCase)))
+			{
+				return "Food & Drink";
+			}
+
+			if (Array.Exists(tags, t => string.Equals(t, "ore", StringComparison.OrdinalIgnoreCase)))
+			{
+				return "Ores";
+			}
+
+			if (Array.Exists(tags, t => string.Equals(t, "fuel", StringComparison.OrdinalIgnoreCase)))
+			{
+				return "Fuel";
+			}
+
+			if (Array.Exists(tags, t => string.Equals(t, "ingot", StringComparison.OrdinalIgnoreCase)))
+			{
+				return "Ingots";
+			}
+
+			if (Array.Exists(tags, t => string.Equals(t, "plank", StringComparison.OrdinalIgnoreCase)))
+			{
+				return "Planks";
+			}
+
+			if (Array.Exists(tags, t => string.Equals(t, "weapon", StringComparison.OrdinalIgnoreCase)))
+			{
+				return "Weapons";
+			}
+
+			if (Array.Exists(tags, t => string.Equals(t, "book", StringComparison.OrdinalIgnoreCase) || string.Equals(t, "knowledge", StringComparison.OrdinalIgnoreCase)))
+			{
+				return "Knowledge";
+			}
+
+			if (Array.Exists(tags, t => string.Equals(t, "crafted", StringComparison.OrdinalIgnoreCase)))
+			{
+				return "Parts & Components";
+			}
+
+			if (Array.Exists(tags, t => string.Equals(t, "wood", StringComparison.OrdinalIgnoreCase)))
+			{
+				return "Logs";
+			}
+
+			if (Array.Exists(tags, t => string.Equals(t, "resource", StringComparison.OrdinalIgnoreCase)))
+			{
+				return "Resources";
+			}
+
 			return "Misc";
 		}
 
@@ -617,7 +691,10 @@ namespace DwarvenFortification.ECS
 		{
 			skills = null;
 			if (!agentArchetypeEntities.TryGetValue(agentId, out var entity))
+			{
 				return false;
+			}
+
 			skills = entity.Get<AgentSkillsComponent>().Skills;
 			return true;
 		}

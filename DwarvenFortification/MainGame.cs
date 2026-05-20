@@ -67,8 +67,11 @@ namespace DwarvenFortification
 			GameServices.Definitions = definitions;
 			simulationUi = new ImGuiSimulationUi(definitions, GameServices.Logger);
 			var inspectorWorldQueryService = new GoapWorldQueryService(definitions, () => world);
-			var inspectorPlanner = new GoapPlanner(definitions, inspectorWorldQueryService);
-			simulationUi.PlanningSnapshotProvider = inspectorPlanner.Inspect;
+			var inspectorPlanner = new GoapPlanner(definitions);
+			simulationUi.PlanningSnapshotProvider = entity => {
+				var state = inspectorWorldQueryService.BuildCurrentState(entity);
+				return inspectorPlanner.Inspect(new DwarvenFortification.Simulation.Goap.EntityGoapAgent(entity, state));
+			};
 
 			var renderAssets = new SimulationRenderAssets(
 				GameServices.Fonts["Calibri"]);
@@ -81,7 +84,10 @@ namespace DwarvenFortification
 				_camera);
 			world = simulationRuntime.World;
 			_camera.Position = world.WorldCenter;
-			world.PlanningSnapshotProvider = inspectorPlanner.Inspect;
+			world.PlanningSnapshotProvider = entity => {
+				var state = inspectorWorldQueryService.BuildCurrentState(entity);
+				return inspectorPlanner.Inspect(new DwarvenFortification.Simulation.Goap.EntityGoapAgent(entity, state));
+			};
 			GameServices.GridWorld = world;
 
 			_spriteBatch = new SpriteBatch(GraphicsDevice);

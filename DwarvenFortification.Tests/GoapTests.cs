@@ -30,16 +30,16 @@ public sealed class GoapPlannerTests
 			CreateActionDefinition("buy-rations", requirements: [], effects: ["food.available"], baseCost: 5),
 		};
 
-		var (planner, agent, _) = CreatePlanner(goals, actions, [], _ => ["forage", "harvest-berries", "buy-rations"]);
+		var (planner, agent) = CreatePlanner(goals, actions, []);
 
-		var plan = planner.BuildCandidatePlans(agent).SingleOrDefault();
+		var plan = planner.CreatePlan(agent);
 
 		Assert.That(plan, Is.Not.Null);
 		Assert.Multiple(() =>
 		{
 			Assert.That(plan!.Goal.Id, Is.EqualTo("secure-food"));
 			Assert.That(plan.Cost, Is.EqualTo(2));
-			Assert.That(plan.Steps.Select(step => step.Definition.Id), Is.EqualTo(new[] { "forage", "harvest-berries" }));
+			Assert.That(plan.Steps.Select(step => step.Id), Is.EqualTo(new[] { "forage", "harvest-berries" }));
 		});
 	}
 
@@ -62,11 +62,10 @@ public sealed class GoapPlannerTests
 			CreateActionDefinition("sleep", requirements: [], effects: ["restored"]),
 		};
 
-		var (planner, agent, _) = CreatePlanner(goals, actions, [], _ => []);
+		var (planner, agent) = CreatePlanner(goals, actions, []);
 
 		var snapshot = planner.Inspect(agent);
 
-		Assert.That(snapshot.CandidatePlans, Is.Empty);
 		Assert.That(snapshot.Goals, Has.Count.EqualTo(1));
 		Assert.Multiple(() =>
 		{
@@ -94,11 +93,11 @@ public sealed class GoapPlannerTests
 			CreateActionDefinition("hide", requirements: ["!enemy.visible"], effects: ["self.hidden"]),
 		};
 
-		var (planner, safeAgent, _) = CreatePlanner(goals, actions, [], _ => ["hide"]);
-		var safePlan = planner.BuildCandidatePlans(safeAgent).SingleOrDefault();
+		var (planner, safeAgent) = CreatePlanner(goals, actions, []);
+		var safePlan = planner.CreatePlan(safeAgent);
 
-		var (blockedPlanner, threatenedAgent, _) = CreatePlanner(goals, actions, ["enemy.visible"], _ => ["hide"]);
-		var blockedPlan = blockedPlanner.BuildCandidatePlans(threatenedAgent).SingleOrDefault();
+		var (blockedPlanner, threatenedAgent) = CreatePlanner(goals, actions, ["enemy.visible"]);
+		var blockedPlan = blockedPlanner.CreatePlan(threatenedAgent);
 
 		Assert.Multiple(() =>
 		{
@@ -126,13 +125,12 @@ public sealed class GoapPlannerTests
 			CreateActionDefinition("harvest-berries", requirements: ["berries.found"], effects: ["food.available"], durationTicks: 6),
 		};
 
-		var (planner, agent, _) = CreatePlanner(
+		var (planner, agent) = CreatePlanner(
 			goals,
 			actions,
-			[],
-			_ => ["forage", "harvest-berries"]);
+			[]);
 
-		var plan = planner.BuildCandidatePlans(agent).SingleOrDefault();
+		var plan = planner.CreatePlan(agent);
 
 		Assert.That(plan, Is.Not.Null);
 		Assert.Multiple(() =>
@@ -141,14 +139,14 @@ public sealed class GoapPlannerTests
 			Assert.That(plan.Root.Children, Has.Count.EqualTo(1));
 			Assert.That(plan.Root.Children[0].Kind, Is.EqualTo(GoapPlanNodeKind.Requirement));
 			Assert.That(plan.Root.Children[0].Children[0].Kind, Is.EqualTo(GoapPlanNodeKind.Requirement));
-			Assert.That(plan.Root.Children[0].Children[0].Children[0].Candidate?.Definition.Id, Is.EqualTo("forage"));
-			Assert.That(plan.Root.Children[0].Children[1].Candidate?.Definition.Id, Is.EqualTo("harvest-berries"));
-			Assert.That(plan.Steps.Select(step => step.Definition.Id), Is.EqualTo(new[] { "forage", "harvest-berries" }));
+			Assert.That(plan!.Root.Children[0].Children[0].Children[0].Action?.Id, Is.EqualTo("forage"));
+			Assert.That(plan.Root.Children[0].Children[1].Action?.Id, Is.EqualTo("harvest-berries"));
+			Assert.That(plan.Steps.Select(step => step.Id), Is.EqualTo(new[] { "forage", "harvest-berries" }));
 		});
 	}
 
 	[Test]
-	public void Plan_QueriesCandidatesAgainstSimulatedPlanningState()
+	public void Plan_FindsCorrectSequenceWithRequirementFiltering()
 	{
 		var goals = new[]
 		{
@@ -166,22 +164,12 @@ public sealed class GoapPlannerTests
 			CreateActionDefinition("harvest-berries", requirements: ["berries.found"], effects: ["food.available"]),
 		};
 
-		var (planner, agent, queryService) = CreatePlanner(
-			goals,
-			actions,
-			[],
-			currentState => currentState.Contains("berries.found")
-				? ["harvest-berries"]
-				: ["forage"]);
+		var (planner, agent) = CreatePlanner(goals, actions, []);
 
-		var plan = planner.BuildCandidatePlans(agent).SingleOrDefault();
+		var plan = planner.CreatePlan(agent);
 
 		Assert.That(plan, Is.Not.Null);
-		Assert.Multiple(() =>
-		{
-			Assert.That(plan!.Steps.Select(step => step.Definition.Id), Is.EqualTo(new[] { "forage", "harvest-berries" }));
-			Assert.That(queryService.ObservedStates, Has.Some.Matches<string[]>(state => state.Contains("berries.found", StringComparer.OrdinalIgnoreCase)));
-		});
+		Assert.That(plan!.Steps.Select(step => step.Id), Is.EqualTo(new[] { "forage", "harvest-berries" }));
 	}
 
 	[Test]
@@ -189,7 +177,7 @@ public sealed class GoapPlannerTests
 	{
 		var plan = CreatePlannedSecureFoodMermaidPlan();
 		var diagram = GoapPlanDiagram.BuildTreemapDiagram(plan);
-		var usedActionIds = plan.Steps.Select(step => step.Definition.Id).ToArray();
+		var usedActionIds = plan.Actions.Select(step => step.Id).ToArray();
 
 		Assert.Multiple(() =>
 		{
@@ -222,7 +210,7 @@ public sealed class GoapPlannerTests
 	{
 		var plan = CreatePlannedSecureFoodMermaidPlan();
 		var diagram = GoapPlanDiagram.BuildGanttDiagram(plan);
-		var usedActionIds = plan.Steps.Select(step => step.Definition.Id).ToArray();
+		var usedActionIds = plan.Actions.Select(step => step.Id).ToArray();
 
 		Assert.Multiple(() =>
 		{
@@ -306,30 +294,22 @@ public sealed class GoapPlannerTests
 			CreateActionDefinition("weave-cloak", requirements: ["yarn.spun"], effects: ["clothing.warm"], durationTicks: 6, baseCost: 0),
 		};
 
-		var (planner, agent, _) = CreatePlanner(
+		var (planner, agent) = CreatePlanner(
 			goals,
 			actions,
-			[],
-			_ =>
-			[
-				.. ExpectedSecureFoodPlanActionIds,
-				.. UnrelatedSecureFoodWorldActionIds,
-			]);
+			[]);
 
-		return planner.BuildCandidatePlans(agent).Single();
+		return planner.CreatePlan(agent)!;
 	}
 
-	static (GoapPlanner Planner, Entity Agent, StubGoapWorldQueryService QueryService) CreatePlanner(
+	static (GoapPlanner Planner, IGoapAgent Agent) CreatePlanner(
 		GoalDefinition[] goals,
 		ActionDefinition[] actions,
-		IEnumerable<string> currentState,
-		Func<HashSet<string>, IReadOnlyList<string>> availableActionIdsFactory)
+		IEnumerable<string> currentState)
 	{
 		var definitions = TestSimulationDefinitions.CreateRegistry(actions, goals);
-		var world = World.Create();
-		var agent = world.Create();
-		var queryService = new StubGoapWorldQueryService(currentState, availableActionIdsFactory);
-		return (new GoapPlanner(definitions, queryService), agent, queryService);
+		var agent = new TestGoapAgent(currentState);
+		return (new GoapPlanner(definitions), agent);
 	}
 
 	static ActionDefinition CreateActionDefinition(string id, string[] requirements, string[] effects, int durationTicks = 0, int baseCost = 1)
@@ -345,45 +325,10 @@ public sealed class GoapPlannerTests
 			Effects = effects,
 		};
 
-	sealed class StubGoapWorldQueryService : IGoapWorldQueryService
+	sealed class TestGoapAgent(IEnumerable<string> state) : IGoapAgent
 	{
-		readonly HashSet<string> currentState;
-		readonly Func<HashSet<string>, IReadOnlyList<string>> availableActionIdsFactory;
-
-		public StubGoapWorldQueryService(IEnumerable<string> currentState, Func<HashSet<string>, IReadOnlyList<string>> availableActionIdsFactory)
-		{
-			this.currentState = new HashSet<string>(currentState, StringComparer.OrdinalIgnoreCase);
-			this.availableActionIdsFactory = availableActionIdsFactory;
-		}
-
-		public List<string[]> ObservedStates { get; } = new();
-
-		public HashSet<string> BuildCurrentState(Entity agent)
-			=> new(currentState, StringComparer.OrdinalIgnoreCase);
-
-		public GoapCandidateQuery InspectCandidates(Entity agent, IReadOnlyList<GoapAction> actions, HashSet<string> currentState)
-		{
-			var snapshotStates = currentState.OrderBy(s => s, StringComparer.OrdinalIgnoreCase).ToArray();
-			ObservedStates.Add(snapshotStates);
-			return new([.. BuildCandidates(agent, actions, currentState)], Array.Empty<GoapActionDiagnostic>());
-		}
-
-		public IEnumerable<GoapActionCandidate> BuildCandidates(Entity agent, IReadOnlyList<GoapAction> actions, HashSet<string> currentState)
-		{
-			var availableActionIds = availableActionIdsFactory(new HashSet<string>(currentState, StringComparer.OrdinalIgnoreCase));
-			foreach (var actionId in availableActionIds)
-			{
-				var action = actions.First(definition => string.Equals(definition.Id, actionId, StringComparison.OrdinalIgnoreCase));
-				yield return new GoapActionCandidate(
-					action,
-					Point.Zero,
-					Point.Zero,
-					null,
-					action.BaseCost + action.DurationTicks,
-					action.Requirements,
-					action.Effects);
-			}
-		}
+		readonly HashSet<string> initialState = new(state, StringComparer.OrdinalIgnoreCase);
+		public HashSet<string> GetCurrentState() => new(initialState, StringComparer.OrdinalIgnoreCase);
 	}
 
 	static class TestSimulationDefinitions

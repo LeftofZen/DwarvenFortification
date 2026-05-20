@@ -18,10 +18,7 @@ namespace DwarvenFortification.Camera
 		const float MinZoom = 0.1f;
 		const float MaxZoom = 16f;
 
-		public Camera2D(Viewport viewport)
-		{
-			this.viewport = viewport;
-		}
+		public Camera2D(Viewport viewport) => this.viewport = viewport;
 
 		/// <summary>World-space position the camera is centred on.</summary>
 		public Vector2 Position

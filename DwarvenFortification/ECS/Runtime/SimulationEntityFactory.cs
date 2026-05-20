@@ -26,7 +26,9 @@ namespace DwarvenFortification.ECS.Runtime
 			if (definitions.TryGetAgentSkills(archetypeId, out var archetypeSkills) && archetypeSkills != null)
 			{
 				foreach (var kvp in archetypeSkills)
+				{
 					startingSkills[kvp.Key] = kvp.Value;
+				}
 			}
 
 			var world = definitions.RuntimeWorld;

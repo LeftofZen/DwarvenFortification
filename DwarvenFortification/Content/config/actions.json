@@ -9,12 +9,7 @@
       "targetKind": "resourceNode",
       "destinationMode": "adjacent",
       "outputs": [],
-      "requirements": [
-        "has.item-tag.mining",
-        "bodyPart.hands",
-        "system.musculoskeletal",
-        "system.respiratory"
-      ],
+      "requirements": ["tool.mining.equipped"],
       "effects": ["inventory.has-resource-items"]
     },
     {
@@ -26,12 +21,7 @@
       "targetKind": "resourceNode",
       "destinationMode": "adjacent",
       "outputs": [],
-      "requirements": [
-        "has.item-tag.woodcutting",
-        "bodyPart.hands",
-        "system.musculoskeletal",
-        "system.respiratory"
-      ],
+      "requirements": ["tool.woodcutting.equipped"],
       "effects": ["inventory.has-resource-items"]
     },
     {
@@ -43,7 +33,7 @@
       "targetKind": "worldObject",
       "destinationMode": "adjacent",
       "outputs": [],
-      "requirements": ["bodyPart.hands"],
+      "requirements": ["capability.physical-labor"],
       "effects": []
     },
     {
@@ -56,10 +46,9 @@
       "destinationMode": "adjacent",
       "outputs": [],
       "requirements": [
-        "bodyPart.legs",
-        "bodyPart.feet",
-        "organ.brain",
-        "organ.lungs"
+        "capability.locomotion",
+        "body.organs.brain",
+        "body.organs.lungs"
       ],
       "effects": ["rest.ok"]
     },
@@ -72,12 +61,7 @@
       "targetKind": "worldObject",
       "destinationMode": "adjacent",
       "outputs": [],
-      "requirements": [
-        "construction.pending",
-        "bodyPart.hands",
-        "organ.brain",
-        "system.musculoskeletal"
-      ],
+      "requirements": ["construction.pending", "capability.manual-work"],
       "effects": []
     },
     {
@@ -89,12 +73,7 @@
       "targetKind": "worldObject",
       "destinationMode": "adjacent",
       "outputs": [],
-      "requirements": [
-        "bodyPart.hands",
-        "organ.brain",
-        "system.musculoskeletal",
-        "system.nervous"
-      ],
+      "requirements": ["capability.manual-work"],
       "effects": []
     },
     {
@@ -109,10 +88,7 @@
       "requirements": [
         "hunger.low",
         "has.item-tag.food",
-        "bodyPart.hands",
-        "organ.mouth",
-        "organ.stomach",
-        "system.digestion"
+        "capability.consumption"
       ],
       "effects": ["hunger.ok"]
     },
@@ -128,10 +104,7 @@
       "requirements": [
         "thirst.low",
         "has.item-tag.drink",
-        "bodyPart.hands",
-        "organ.mouth",
-        "organ.stomach",
-        "system.digestion"
+        "capability.consumption"
       ],
       "effects": ["thirst.ok"]
     },
@@ -144,7 +117,7 @@
       "targetKind": "self",
       "destinationMode": "current",
       "outputs": [],
-      "requirements": ["organ.brain", "system.nervous"],
+      "requirements": ["capability.perception"],
       "effects": ["area.scanned"]
     },
     {
@@ -156,14 +129,7 @@
       "targetKind": "self",
       "destinationMode": "current",
       "outputs": [],
-      "requirements": [
-        "enemy.visible",
-        "bodyPart.legs",
-        "bodyPart.feet",
-        "organ.brain",
-        "organ.lungs",
-        "system.musculoskeletal"
-      ],
+      "requirements": ["enemy.visible", "capability.locomotion"],
       "effects": ["self.hidden"]
     },
     {
@@ -175,14 +141,7 @@
       "targetKind": "self",
       "destinationMode": "current",
       "outputs": [],
-      "requirements": [
-        "bodyPart.legs",
-        "bodyPart.feet",
-        "organ.brain",
-        "organ.lungs",
-        "system.musculoskeletal",
-        "system.respiratory"
-      ],
+      "requirements": ["capability.locomotion"],
       "effects": ["area.patrolled", "area.scanned"]
     },
     {
@@ -196,11 +155,8 @@
       "outputs": [],
       "requirements": [
         "enemy.visible",
-        "has.item-tag.throwable",
-        "bodyPart.hands",
-        "bodyPart.arms",
-        "organ.brain",
-        "system.musculoskeletal"
+        "tool.throwable.equipped",
+        "capability.perception"
       ],
       "effects": ["enemy.suppressed"]
     },
@@ -261,8 +217,131 @@
       "targetKind": "worldObject",
       "destinationMode": "adjacent",
       "outputs": [],
-      "requirements": ["bodyPart.hands", "system.musculoskeletal"],
+      "requirements": ["capability.physical-labor"],
       "effects": []
+    },
+    {
+      "id": "equip-mining-tool",
+      "name": "Equip Mining Tool",
+      "baseCost": 1,
+      "durationTicks": 15,
+      "skills": [],
+      "targetKind": "self",
+      "destinationMode": "current",
+      "outputs": [],
+      "requirements": [
+        "has.item-tag.mining",
+        "body.limbs.hands",
+        "body.systems.musculoskeletal"
+      ],
+      "effects": ["tool.mining.equipped"]
+    },
+    {
+      "id": "equip-woodcutting-tool",
+      "name": "Equip Woodcutting Tool",
+      "baseCost": 1,
+      "durationTicks": 15,
+      "skills": [],
+      "targetKind": "self",
+      "destinationMode": "current",
+      "outputs": [],
+      "requirements": [
+        "has.item-tag.woodcutting",
+        "body.limbs.hands",
+        "body.systems.musculoskeletal"
+      ],
+      "effects": ["tool.woodcutting.equipped"]
+    },
+    {
+      "id": "equip-throwable",
+      "name": "Ready Throwable",
+      "baseCost": 1,
+      "durationTicks": 10,
+      "skills": ["precision"],
+      "targetKind": "self",
+      "destinationMode": "current",
+      "outputs": [],
+      "requirements": [
+        "has.item-tag.throwable",
+        "body.limbs.hands",
+        "body.limbs.arms",
+        "body.systems.musculoskeletal"
+      ],
+      "effects": ["tool.throwable.equipped"]
+    },
+    {
+      "id": "ready-physical-labor",
+      "name": "Ready For Physical Labor",
+      "baseCost": 1,
+      "durationTicks": 5,
+      "skills": [],
+      "targetKind": "self",
+      "destinationMode": "current",
+      "outputs": [],
+      "requirements": ["body.limbs.hands", "body.systems.musculoskeletal"],
+      "effects": ["capability.physical-labor"]
+    },
+    {
+      "id": "ready-manual-work",
+      "name": "Ready For Manual Work",
+      "baseCost": 1,
+      "durationTicks": 10,
+      "skills": [],
+      "targetKind": "self",
+      "destinationMode": "current",
+      "outputs": [],
+      "requirements": [
+        "body.limbs.hands",
+        "body.organs.brain",
+        "body.systems.musculoskeletal",
+        "body.systems.nervous"
+      ],
+      "effects": ["capability.manual-work"]
+    },
+    {
+      "id": "mobilize",
+      "name": "Mobilize",
+      "baseCost": 1,
+      "durationTicks": 5,
+      "skills": [],
+      "targetKind": "self",
+      "destinationMode": "current",
+      "outputs": [],
+      "requirements": [
+        "body.limbs.legs",
+        "body.limbs.feet",
+        "body.systems.musculoskeletal"
+      ],
+      "effects": ["capability.locomotion"]
+    },
+    {
+      "id": "focus-senses",
+      "name": "Focus Senses",
+      "baseCost": 1,
+      "durationTicks": 5,
+      "skills": ["perception"],
+      "targetKind": "self",
+      "destinationMode": "current",
+      "outputs": [],
+      "requirements": ["body.organs.brain", "body.systems.nervous"],
+      "effects": ["capability.perception"]
+    },
+    {
+      "id": "ready-consumption",
+      "name": "Ready For Consumption",
+      "baseCost": 1,
+      "durationTicks": 5,
+      "skills": [],
+      "targetKind": "self",
+      "destinationMode": "current",
+      "outputs": [],
+      "requirements": [
+        "body.limbs.hands",
+        "body.organs.mouth",
+        "body.organs.stomach",
+        "body.systems.digestion"
+      ],
+      "effects": ["capability.consumption"]
     }
   ]
 }

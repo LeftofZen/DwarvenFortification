@@ -3,6 +3,7 @@ using DwarvenFortification.Actions;
 using DwarvenFortification.GOAP;
 using DwarvenFortification.Logging;
 using DwarvenFortification.Simulation.Composition;
+using DwarvenFortification.Simulation.Goap;
 using System.Linq;
 
 namespace DwarvenFortification.ECS.Runtime.Agents
@@ -12,38 +13,32 @@ namespace DwarvenFortification.ECS.Runtime.Agents
 		const int IdleDurationTicks = 60;
 
 		readonly GoapPlanner planner;
-		readonly IGoapPlanSelector planSelector;
 		readonly IGoapPlanExecutor planExecutor;
 		readonly IActionRuntimeContext runtimeContext;
+		readonly IGoapWorldQueryService queryService;
 
-		public GoapAgentPlanningService(GoapPlanner planner, IGoapPlanSelector planSelector, IGoapPlanExecutor planExecutor, IActionRuntimeContext runtimeContext)
+		public GoapAgentPlanningService(GoapPlanner planner, IGoapPlanExecutor planExecutor, IActionRuntimeContext runtimeContext, IGoapWorldQueryService queryService)
 		{
 			this.planner = planner;
-			this.planSelector = planSelector;
 			this.planExecutor = planExecutor;
 			this.runtimeContext = runtimeContext;
+			this.queryService = queryService;
 		}
 
 		public bool TryEnqueuePlan(AgentRuntimeContext context, Entity agent)
 		{
-			var planningSnapshot = planner.Inspect(agent);
-			var plan = planSelector.SelectCandidatePlan(agent, planningSnapshot);
+			var currentState = queryService.BuildCurrentState(agent);
+			var goapAgent = new EntityGoapAgent(agent, currentState);
+			var plan = planner.CreatePlan(goapAgent);
 			if (plan == null)
 			{
-				// Log why no plan was found (once per N ticks to avoid spam).
-				var eligibleGoals = planningSnapshot.Goals.Where(g => g.IsEligible && !g.IsSatisfied).ToArray();
-				if (eligibleGoals.Length > 0)
-				{
-					var goalSummary = string.Join(", ", eligibleGoals.Select(g => g.Goal.Id));
-					context.Logger.Log(LogLevel.Warning, $"{agent.GetName()} idle: eligible unsatisfied goals [{goalSummary}] but no plan found. Facts: [{string.Join(", ", planningSnapshot.CurrentState.Take(20))}]");
-				}
 				agent.EnqueueAction(new TimedAction(runtimeContext, agent, "idle", IdleDurationTicks));
 				return false;
 			}
 
-			context.Logger.Log(LogLevel.Info, $"{agent.GetName()} enqueuing plan for goal '{plan.Goal.Id}' with {plan.Steps.Count} steps: [{string.Join(" -> ", plan.Steps.Select(s => s.Definition.Id))}]");
+			context.Logger.Log(LogLevel.Info, $"{agent.GetName()} enqueuing plan for goal '{plan.Goal.Id}' with {plan.Actions.Count} steps: [{string.Join(" -> ", plan.Actions.Select(s => s.Id))}]");
 
-			if (planExecutor.Enqueue(agent, plan))
+			if (planExecutor.Enqueue(goapAgent, plan))
 			{
 				return true;
 			}

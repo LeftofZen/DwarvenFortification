@@ -13,6 +13,7 @@ using DwarvenFortification.ECS.Components;
 using DwarvenFortification.Actions;
 using DwarvenFortification.GOAP;
 using DwarvenFortification.ECS;
+using DwarvenFortification.Simulation.Goap;
 using DwarvenFortification.Simulation.Pathfinding;
 using DwarvenFortification.ECS.Runtime;
 using DwarvenFortification.UI;
@@ -41,6 +42,7 @@ namespace DwarvenFortification.Simulation.World
 		readonly IActionRuntimeContext taskRuntimeContext;
 		readonly ImGuiSimulationUi ui;
 		readonly GoapPlanExecutor manualActionExecutor;
+		readonly IGoapWorldQueryService queryService;
 		readonly Camera2D camera;
 
 		public Func<Entity, GoapSnapshot> PlanningSnapshotProvider { get; set; }
@@ -58,7 +60,8 @@ namespace DwarvenFortification.Simulation.World
 			this.taskRuntimeContext = taskRuntimeContext;
 			this.ui = ui;
 			this.camera = camera;
-			manualActionExecutor = new GoapPlanExecutor(taskRuntimeContext);
+			queryService = new GoapWorldQueryService(definitions, () => this);
+			manualActionExecutor = new GoapPlanExecutor(taskRuntimeContext, queryService);
 			ui.ActionRequestHandler = HandleActionRequest;
 			agents = [];
 
@@ -138,9 +141,13 @@ namespace DwarvenFortification.Simulation.World
 		{
 			var cell = CellAtXY(x, y);
 			if (cell != null)
+			{
 				return cell.CellType;
+			}
 			else
+			{
 				return CellType.Null;
+			}
 		}
 
 		public IEnumerable<(GridCell cell, Point point)> ClosestNCellsXYOfType(int X, int Y, Func<GridCell, bool> func, int count = 1)
@@ -160,19 +167,10 @@ namespace DwarvenFortification.Simulation.World
 			return matching.OrderBy(cell => (cell.xy.ToVector2() - new Vector2(X, Y)).LengthSquared()).Take(count);
 		}
 
-		public Point CentreOfCellWithCoords(int x, int y)
-		{
-			return new Point((x * cellSize) + (cellSize / 2), (y * cellSize) + (cellSize / 2));
-		}
+		public Point CentreOfCellWithCoords(int x, int y) => new Point((x * cellSize) + (cellSize / 2), (y * cellSize) + (cellSize / 2));
 
-		public Point CentreOfCellWithCoords(Point p)
-		{
-			return CentreOfCellWithCoords(p.X, p.Y);
-		}
-		public Point CentreOfCellWithXY(Point p)
-		{
-			return CentreOfCellWithCoords(CoordsAtXY(p));
-		}
+		public Point CentreOfCellWithCoords(Point p) => CentreOfCellWithCoords(p.X, p.Y);
+		public Point CentreOfCellWithXY(Point p) => CentreOfCellWithCoords(CoordsAtXY(p));
 
 		internal Entity CreateItem(string itemId)
 			=> entityFactory.CreateItem(itemId);
@@ -587,7 +585,7 @@ namespace DwarvenFortification.Simulation.World
 				AgentActionIds.PickUpFirstItemAtCell => QueuePickUpAction(agent, request.TargetCell, request.Metadata),
 				AgentActionIds.PutDownInventoryAtCell => QueuePutDownAction(agent, request.TargetCell, request.Metadata),
 				AgentActionIds.DropInventoryItem => QueueDropInventoryItemAction(agent, request.SelectedItem, request.Metadata),
-				AgentActionIds.ExecuteAction => QueueWorldAction(agent, request.Candidate, request.Metadata),
+				AgentActionIds.ExecuteAction => QueueWorldAction(agent, request.Action, request.Metadata),
 				_ => $"Unsupported action request '{request.ActionId}'.",
 			};
 		}
@@ -608,10 +606,17 @@ namespace DwarvenFortification.Simulation.World
 			return $"Queued drop item '{item.GetName()}'.";
 		}
 
-		string QueueWorldAction(Entity agent, GoapActionCandidate candidate, AgentActionMetadata metadata)
+		string QueueWorldAction(Entity agent, GoapAction action, AgentActionMetadata metadata)
 		{
-			manualActionExecutor.Enqueue(agent, candidate, metadata);
-			return $"Queued action '{candidate.Definition.Name}' targeting {candidate.TargetCell}.";
+			if (string.IsNullOrWhiteSpace(action.Id))
+			{
+				return "No action specified.";
+			}
+
+			var state = queryService.BuildCurrentState(agent);
+			var agentProxy = new EntityGoapAgent(agent, state);
+			manualActionExecutor.Enqueue(agentProxy, action, metadata);
+			return $"Queued action '{action.Name}'.";
 		}
 
 		string QueueMoveToCellAction(Entity agent, Point targetCell, AgentActionMetadata metadata)
@@ -775,17 +780,26 @@ namespace DwarvenFortification.Simulation.World
 			// Grid lines
 			var gridColor = new Color(0, 0, 0, 35);
 			for (var x = 0; x <= Width; x++)
+			{
 				sb.DrawLine(x * cellSize, 0, x * cellSize, Height * cellSize, gridColor, 1f);
+			}
+
 			for (var y = 0; y <= Height; y++)
+			{
 				sb.DrawLine(0, y * cellSize, Width * cellSize, y * cellSize, gridColor, 1f);
+			}
 
 			// Hover tile shading
 			if (!ui.WantsMouseCapture && hoverCell.X >= 0 && hoverCell.Y >= 0)
+			{
 				sb.FillRectangle(hoverCell.X * cellSize, hoverCell.Y * cellSize, cellSize, cellSize, new Color(255, 255, 255, 45));
+			}
 
 			// Selected tile border
 			if (selectedCell.X >= 0 && selectedCell.Y >= 0)
+			{
 				sb.DrawRectangle(selectedCell.X * cellSize, selectedCell.Y * cellSize, cellSize, cellSize, new Color(0, 220, 220, 200), 2f);
+			}
 		}
 
 		public void Draw(SpriteBatch sb)
@@ -810,10 +824,7 @@ namespace DwarvenFortification.Simulation.World
 		/// Draws screen-space overlays (e.g. tooltips) that must be rendered without the
 		/// camera transform applied — call this in a separate <c>SpriteBatch.Begin/End</c> block.
 		/// </summary>
-		public void DrawScreenOverlays(SpriteBatch sb)
-		{
-			DrawHoveredAgentTooltip(sb);
-		}
+		public void DrawScreenOverlays(SpriteBatch sb) => DrawHoveredAgentTooltip(sb);
 
 		void DrawHoveredAgentTooltip(SpriteBatch sb)
 		{

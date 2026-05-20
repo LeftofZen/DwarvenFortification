@@ -6,10 +6,7 @@ namespace DwarvenFortification.ECS.Runtime.Agents
 	{
 		readonly IAgentPlanningService planningService;
 
-		public PlanningStage(IAgentPlanningService planningService)
-		{
-			this.planningService = planningService;
-		}
+		public PlanningStage(IAgentPlanningService planningService) => this.planningService = planningService;
 
 		public void Update(AgentRuntimeContext context, Entity agent)
 		{

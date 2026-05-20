@@ -80,9 +80,6 @@ namespace DwarvenFortification.Actions
 			return FailAction($"The remembered location no longer contains '{itemDefinitionId}'.");
 		}
 
-		public override void Draw(SpriteBatch sb)
-		{
-			Draw(sb, new Point(5, 1));
-		}
+		public override void Draw(SpriteBatch sb) => Draw(sb, new Point(5, 1));
 	}
 }

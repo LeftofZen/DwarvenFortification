@@ -4,11 +4,5 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>disable</Nullable>
   </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="Arch" Version="2.1.0" />
-    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.4.1" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\DwarvenFortification.Pathfinding\DwarvenFortification.Pathfinding.csproj" />
-  </ItemGroup>
+
 </Project>
