@@ -78,7 +78,7 @@ public class GoapPlan
 						Previous = CurrentStep,
 						Action = Action,
 						PredictedStates = Action.PredictStates(CurrentStep.PredictedStates),
-						TotalCost = Action.Cost(Agent) + (CurrentStep.Previous?.TotalCost ?? 0),
+						TotalCost = Action.Cost(Agent) + CurrentStep.TotalCost,
 						TotalSteps = CurrentStep.TotalSteps + 1,
 					};
 

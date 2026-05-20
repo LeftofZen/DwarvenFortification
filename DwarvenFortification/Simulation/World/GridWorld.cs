@@ -13,7 +13,6 @@ using DwarvenFortification.ECS.Components;
 using DwarvenFortification.Actions;
 using DwarvenFortification.GOAP;
 using DwarvenFortification.ECS;
-using DwarvenFortification.Simulation.Goap;
 using DwarvenFortification.Simulation.Pathfinding;
 using DwarvenFortification.ECS.Runtime;
 using DwarvenFortification.UI;
@@ -45,7 +44,7 @@ namespace DwarvenFortification.Simulation.World
 		readonly IGoapWorldQueryService queryService;
 		readonly Camera2D camera;
 
-		public Func<Entity, GoapSnapshot> PlanningSnapshotProvider { get; set; }
+		public Func<Entity, GoapAgent> PlanningAgentProvider { get; set; }
 
 		/// <summary>World-space centre of the grid. Useful for initially focusing the camera.</summary>
 		public Vector2 WorldCenter => new(Width * cellSize * 0.5f, Height * cellSize * 0.5f);
@@ -608,14 +607,14 @@ namespace DwarvenFortification.Simulation.World
 
 		string QueueWorldAction(Entity agent, GoapAction action, AgentActionMetadata metadata)
 		{
-			if (string.IsNullOrWhiteSpace(action.Id))
+			if (action == null || string.IsNullOrWhiteSpace(action.GetId()))
 			{
 				return "No action specified.";
 			}
 
 			var state = queryService.BuildCurrentState(agent);
-			var agentProxy = new EntityGoapAgent(agent, state);
-			manualActionExecutor.Enqueue(agentProxy, action, metadata);
+			var goapAgent = SimulationGoapAgentFactory.CreateAgent(definitions, agent.GetName(), state);
+			manualActionExecutor.Enqueue(agent, action, goapAgent, metadata);
 			return $"Queued action '{action.Name}'.";
 		}
 
@@ -886,13 +885,13 @@ namespace DwarvenFortification.Simulation.World
 
 		string GetHoveredAgentGoal(Entity agent)
 		{
-			if (PlanningSnapshotProvider == null)
+			if (PlanningAgentProvider == null)
 			{
 				return string.Empty;
 			}
 
-			var planningSnapshot = PlanningSnapshotProvider(agent);
-			return planningSnapshot?.Goals.FirstOrDefault(goal => goal.CandidatePlan != null)?.Goal.Name ?? string.Empty;
+			var goapAgent = PlanningAgentProvider(agent);
+			return goapAgent?.FindPlan()?.Goal.Name ?? string.Empty;
 
 		}
 	}

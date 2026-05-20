@@ -1,285 +1,278 @@
-//namespace DwarvenFortification.GOAP
-//{
-//	public readonly record struct GoapPlanDiagrams(
-//		string Treemap,
-//		string Gantt,
-//		string StateDiagram);
+using System.Text;
 
-//	public static class GoapPlanDiagram
-//	{
-//		const int MaxSearchDepth = 8;
-//		const int MaxStateNodes = 64;
+namespace DwarvenFortification.GOAP;
 
-//		public static GoapPlanDiagrams BuildDiagrams(GoapPlan plan)
-//			=> new(BuildTreemapDiagram(plan), BuildGanttDiagram(plan), BuildStateDiagram(plan));
+public readonly record struct GoapPlanDiagrams(
+	string Treemap,
+	string Gantt,
+	string StateDiagram);
 
-//		public static string BuildTreemapDiagram(GoapPlan plan)
-//		{
-//			ArgumentNullException.ThrowIfNull(plan);
+public static class GoapPlanDiagram
+{
+	const int MaxSearchDepth = 8;
+	const int MaxStateNodes = 64;
 
-//			var builder = new System.Text.StringBuilder();
-//			builder.AppendLine("treemap-beta");
-//			AppendTreemapNode(builder, plan.Root, 0);
-//			return builder.ToString().TrimEnd();
-//		}
+	public static GoapPlanDiagrams BuildDiagrams(GoapPlan plan)
+		=> new(BuildTreemapDiagram(plan), BuildGanttDiagram(plan), BuildStateDiagram(plan));
 
-//		public static string BuildGanttDiagram(GoapPlan plan)
-//		{
-//			ArgumentNullException.ThrowIfNull(plan);
+	public static string BuildTreemapDiagram(GoapPlan plan)
+	{
+		ArgumentNullException.ThrowIfNull(plan);
 
-//			var builder = new System.Text.StringBuilder();
-//			builder.AppendLine("gantt");
-//			builder.Append("    title ").AppendLine(SanitizeGanttText($"Plan: {plan.Goal.Name}"));
-//			builder.AppendLine("    dateFormat X");
-//			builder.AppendLine("    axisFormat %s");
-//			builder.AppendLine("    section Actions");
+		var builder = new StringBuilder();
+		builder.AppendLine("treemap-beta");
+		builder.Append('"').Append(EscapeTreemapLabel($"Goal: {plan.Goal.Name} (cost {CalculatePlanCost(plan):0.##})")).Append('"').AppendLine();
 
-//			if (plan.Actions.Count == 0)
-//			{
-//				builder.AppendLine("        No actions : milestone, empty, 0, 1s");
-//				return builder.ToString().TrimEnd();
-//			}
+		if (plan.Actions.Count == 0)
+		{
+			builder.AppendLine("    \"Already satisfied\": 1");
+			return builder.ToString().TrimEnd();
+		}
 
-//			string previousTaskId = null;
-//			for (var index = 0; index < plan.Actions.Count; ++index)
-//			{
-//				var step = plan.Actions[index];
-//				var taskId = $"task{index + 1}";
-//				var label = SanitizeGanttText($"{index + 1}. {step.Name}");
+		foreach (var action in plan.Actions)
+		{
+			var cost = Math.Max(1, action.Cost(plan.Agent));
+			builder.Append("    \"")
+				.Append(EscapeTreemapLabel($"Action: {action.Name} (cost {cost:0.##})"))
+				.Append("\": ")
+				.Append(cost.ToString("0.##"))
+				.AppendLine();
+		}
 
-//				builder.Append("        ").Append(label).Append(" :").Append(taskId).Append(", ");
-//				if (previousTaskId == null)
-//				{
-//					builder.Append("0, ");
-//				}
-//				else
-//				{
-//					builder.Append("after ").Append(previousTaskId).Append(", ");
-//				}
+		return builder.ToString().TrimEnd();
+	}
 
-//				builder.AppendLine($"{step.Cost}s");
-//				previousTaskId = taskId;
-//			}
+	public static string BuildGanttDiagram(GoapPlan plan)
+	{
+		ArgumentNullException.ThrowIfNull(plan);
 
-//			return builder.ToString().TrimEnd();
-//		}
+		var builder = new StringBuilder();
+		builder.AppendLine("gantt");
+		builder.Append("    title ").AppendLine(SanitizeGanttText($"Plan: {plan.Goal.Name}"));
+		builder.AppendLine("    dateFormat X");
+		builder.AppendLine("    axisFormat %s");
+		builder.AppendLine("    section Actions");
 
-//		static void AppendTreemapNode(System.Text.StringBuilder builder, GoapPlanNode root, int depth)
-//		{
-//			var indent = new string(' ', depth * 4);
-//			var label = EscapeTreemapLabel(FormatTreemapLabel(root));
+		if (plan.Actions.Count == 0)
+		{
+			builder.AppendLine("        No actions : milestone, empty, 0, 1s");
+			return builder.ToString().TrimEnd();
+		}
 
-//			if (root.Children.Count == 0)
-//			{
-//				builder.Append(indent).Append('"').Append(label).Append('"').Append(": ").Append(Math.Max(root.Cost, 1)).AppendLine();
-//				return;
-//			}
+		string previousTaskId = null;
+		for (var index = 0; index < plan.Actions.Count; ++index)
+		{
+			var action = plan.Actions[index];
+			var taskId = $"task{index + 1}";
+			var label = SanitizeGanttText($"{index + 1}. {action.Name}");
+			var cost = Math.Max(1, action.Cost(plan.Agent));
 
-//			builder.Append(indent).Append('"').Append(label).Append('"').AppendLine();
-//			foreach (var child in root.Children)
-//			{
-//				AppendTreemapNode(builder, child, depth + 1);
-//			}
-//		}
+			builder.Append("        ").Append(label).Append(" :").Append(taskId).Append(", ");
+			builder.Append(previousTaskId == null ? "0" : $"after {previousTaskId}").Append(", ");
+			builder.Append(cost.ToString("0.##")).AppendLine("s");
+			previousTaskId = taskId;
+		}
 
-//		static string FormatTreemapLabel(GoapPlanNode node)
-//			=> $"{node.Kind}: {node.Label} (cost {node.Cost})";
+		return builder.ToString().TrimEnd();
+	}
 
-//		static string EscapeTreemapLabel(string value)
-//			=> value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal);
+	public static string BuildFullStateDiagram(GoapAgent agent)
+	{
+		ArgumentNullException.ThrowIfNull(agent);
+		return BuildFullStateDiagram(agent.States, agent.Actions);
+	}
 
-//		public static string BuildFullStateDiagram(GoapSnapshot snapshot)
-//		{
-//			ArgumentNullException.ThrowIfNull(snapshot);
-//			return BuildFullStateDiagram(snapshot.CurrentState, snapshot.AllActions);
-//		}
+	public static string BuildFullStateDiagram(
+		IReadOnlyDictionary<object, object?> initialStates,
+		IReadOnlyList<GoapAction> actions)
+	{
+		ArgumentNullException.ThrowIfNull(initialStates);
+		ArgumentNullException.ThrowIfNull(actions);
 
-//		public static string BuildFullStateDiagram(
-//			IReadOnlyList<string> initialState,
-//			IReadOnlyList<GoapAction> actions)
-//		{
-//			ArgumentNullException.ThrowIfNull(initialState);
-//			ArgumentNullException.ThrowIfNull(actions);
+		var keyToId = new Dictionary<string, string>(StringComparer.Ordinal);
+		var idToStates = new Dictionary<string, Dictionary<object, object?>>(StringComparer.Ordinal);
 
-//			// Deduplicate by action ID.
-//			var uniqueCandidates = actions
-//				.GroupBy(a => a.Id, StringComparer.OrdinalIgnoreCase)
-//				.Select(g => g.First())
-//				.ToList();
+		string GetOrAddState(Dictionary<object, object?> states)
+		{
+			var key = StateKey(states);
+			if (!keyToId.TryGetValue(key, out var id))
+			{
+				id = $"s{keyToId.Count}";
+				keyToId[key] = id;
+				idToStates[id] = states;
+			}
 
-//			var initial = new HashSet<string>(initialState, StringComparer.OrdinalIgnoreCase);
+			return id;
+		}
 
-//			// State registry: canonical key → (id, fact-set)
-//			var keyToId = new Dictionary<string, string>(StringComparer.Ordinal);
-//			var idToFacts = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+		var initial = new Dictionary<object, object?>(initialStates);
+		var transitions = new List<(string From, string Label, string To)>();
+		var visited = new HashSet<string>(StringComparer.Ordinal);
+		var queue = new Queue<(Dictionary<object, object?> States, int Depth)>();
 
-//			string GetOrAddState(HashSet<string> state)
-//			{
-//				var key = StateKey(state);
-//				if (!keyToId.TryGetValue(key, out var id))
-//				{
-//					id = $"s{keyToId.Count}";
-//					keyToId[key] = id;
-//					idToFacts[id] = state;
-//				}
-//				return id;
-//			}
+		queue.Enqueue((initial, 0));
+		GetOrAddState(initial);
 
-//			var transitions = new List<(string From, string Label, string To)>();
-//			var visited = new HashSet<string>(StringComparer.Ordinal);
-//			var queue = new Queue<(HashSet<string> State, int Depth)>();
+		while (queue.Count > 0)
+		{
+			var (current, depth) = queue.Dequeue();
+			var currentKey = StateKey(current);
 
-//			queue.Enqueue((initial, 0));
-//			GetOrAddState(initial);
+			if (!visited.Add(currentKey) || depth >= MaxSearchDepth || keyToId.Count >= MaxStateNodes)
+			{
+				continue;
+			}
 
-//			while (queue.Count > 0)
-//			{
-//				var (current, depth) = queue.Dequeue();
-//				var currentKey = StateKey(current);
+			var currentId = keyToId[currentKey];
+			foreach (var action in actions)
+			{
+				if (!action.Requirements.All(requirement => requirement.IsMet(current)))
+				{
+					continue;
+				}
 
-//				if (!visited.Add(currentKey))
-//				{
-//					continue;
-//				}
+				var next = action.PredictStates(current);
+				var nextKey = StateKey(next);
+				if (string.Equals(nextKey, currentKey, StringComparison.Ordinal))
+				{
+					continue;
+				}
 
-//				if (depth >= MaxSearchDepth || keyToId.Count >= MaxStateNodes)
-//				{
-//					continue;
-//				}
+				var nextId = GetOrAddState(next);
+				transitions.Add((currentId, SanitizeStateTransitionText(action.Name), nextId));
 
-//				var currentId = keyToId[currentKey];
+				if (!visited.Contains(nextKey))
+				{
+					queue.Enqueue((next, depth + 1));
+				}
+			}
+		}
 
-//				foreach (var candidate in uniqueCandidates)
-//				{
-//					if (!(candidate.Requirements ?? []).All(r => !r.StartsWith('!') && current.Contains(r, StringComparer.OrdinalIgnoreCase)))
-//					{
-//						continue;
-//					}
+		var builder = new StringBuilder();
+		builder.AppendLine("stateDiagram-v2");
+		builder.AppendLine("    direction LR");
+		var initialId = keyToId[StateKey(initial)];
+		builder.AppendLine($"    [*] --> {initialId}");
 
-//					var next = new HashSet<string>(current, StringComparer.OrdinalIgnoreCase);
-//					foreach (var s in candidate.Effects ?? [])
-//					{
-//						next.Add(s);
-//					}
+		foreach (var (id, states) in idToStates)
+		{
+			var label = string.Equals(id, initialId, StringComparison.Ordinal)
+				? "Initial State"
+				: BuildDeltaLabel(initial, states);
+			builder.AppendLine($"    state \"{SanitizeStateLabelText(label)}\" as {id}");
+		}
 
-//					var nextKey = StateKey(next);
-//					if (string.Equals(nextKey, currentKey, StringComparison.Ordinal))
-//					{
-//						continue;
-//					}
+		foreach (var (from, label, to) in transitions)
+		{
+			builder.AppendLine($"    {from} --> {to} : {label}");
+		}
 
-//					var nextId = GetOrAddState(next);
-//					transitions.Add((currentId, SanitizeStateTransitionText(candidate.Name), nextId));
+		return builder.ToString().TrimEnd();
+	}
 
-//					if (!visited.Contains(nextKey))
-//					{
-//						queue.Enqueue((next, depth + 1));
-//					}
-//				}
-//			}
+	public static string BuildStateDiagram(GoapPlan plan)
+	{
+		ArgumentNullException.ThrowIfNull(plan);
 
-//			var sb = new System.Text.StringBuilder();
-//			sb.AppendLine("stateDiagram-v2");
-//			sb.AppendLine("    direction LR");
+		var builder = new StringBuilder();
+		builder.AppendLine("stateDiagram-v2");
+		builder.AppendLine("    direction LR");
 
-//			var initialId = keyToId[StateKey(initial)];
-//			sb.AppendLine($"    [*] --> {initialId}");
+		if (plan.Actions.Count == 0)
+		{
+			builder.AppendLine("    [*] --> goalSatisfied");
+			builder.AppendLine("    state \"Goal already satisfied\" as goalSatisfied");
+			builder.AppendLine("    goalSatisfied --> [*]");
+			return builder.ToString().TrimEnd();
+		}
 
-//			foreach (var (id, facts) in idToFacts)
-//			{
-//				var added = facts.Except(initial, StringComparer.OrdinalIgnoreCase).OrderBy(s => s).ToArray();
-//				var removed = initial.Except(facts, StringComparer.OrdinalIgnoreCase).OrderBy(s => s).ToArray();
+		var states = new Dictionary<object, object?>(plan.Agent.States);
+		builder.AppendLine("    [*] --> s0");
+		builder.AppendLine("    state \"Initial State\" as s0");
 
-//				var label = string.Equals(id, initialId, StringComparison.Ordinal)
-//					? "Initial State"
-//					: BuildDeltaLabel(added, removed);
+		for (var index = 0; index < plan.Actions.Count; ++index)
+		{
+			var action = plan.Actions[index];
+			var previous = new Dictionary<object, object?>(states);
+			action.UpdateStates(states);
 
-//				sb.AppendLine($"    state \"{SanitizeStateLabelText(label)}\" as {id}");
-//			}
+			var fromId = $"s{index}";
+			var toId = $"s{index + 1}";
+			var cost = Math.Max(1, action.Cost(plan.Agent));
+			builder.AppendLine($"    {fromId} --> {toId} : {SanitizeStateTransitionText($"{action.Name} (cost {cost:0.##})")}");
 
-//			foreach (var (from, label, to) in transitions)
-//			{
-//				sb.AppendLine($"    {from} --> {to} : {label}");
-//			}
+			var nodeLabel = index == plan.Actions.Count - 1
+				? $"Goal- {plan.Goal.Name}"
+				: BuildDeltaLabel(previous, states);
+			builder.AppendLine($"    state \"{SanitizeStateLabelText(nodeLabel)}\" as {toId}");
+		}
 
-//			return sb.ToString().TrimEnd();
-//		}
+		builder.AppendLine($"    s{plan.Actions.Count} --> [*]");
+		return builder.ToString().TrimEnd();
+	}
 
-//		static string StateKey(HashSet<string> state)
-//			=> string.Join("\0", state.OrderBy(s => s, StringComparer.OrdinalIgnoreCase));
+	static double CalculatePlanCost(GoapPlan plan)
+		=> plan.Actions.Sum(action => action.Cost(plan.Agent));
 
-//		static string BuildDeltaLabel(string[] added, string[] removed)
-//		{
-//			var parts = added.Select(s => $"+{s}").Concat(removed.Select(s => $"-{s}")).ToArray();
-//			return parts.Length > 0 ? string.Join(", ", parts) : "unchanged";
-//		}
+	static string StateKey(IReadOnlyDictionary<object, object?> states)
+		=> string.Join("\0", states
+			.OrderBy(pair => FormatStateKey(pair.Key), StringComparer.Ordinal)
+			.Select(pair => $"{FormatStateKey(pair.Key)}={FormatValue(pair.Value)}"));
 
-//		public static string BuildStateDiagram(GoapPlan plan)
-//		{
-//			ArgumentNullException.ThrowIfNull(plan);
+	static string BuildDeltaLabel(IReadOnlyDictionary<object, object?> previous, IReadOnlyDictionary<object, object?> current)
+	{
+		var keys = previous.Keys.Concat(current.Keys)
+			.Select(FormatStateKey)
+			.Distinct(StringComparer.Ordinal)
+			.OrderBy(key => key, StringComparer.Ordinal)
+			.ToArray();
 
-//			var builder = new System.Text.StringBuilder();
-//			builder.AppendLine("stateDiagram-v2");
-//			builder.AppendLine("    direction LR");
+		var previousByKey = previous.ToDictionary(pair => FormatStateKey(pair.Key), pair => pair.Value, StringComparer.Ordinal);
+		var currentByKey = current.ToDictionary(pair => FormatStateKey(pair.Key), pair => pair.Value, StringComparer.Ordinal);
+		var parts = new List<string>();
 
-//			var actions = plan.Actions;
-//			if (actions.Count == 0)
-//			{
-//				builder.AppendLine("    [*] --> goalSatisfied");
-//				builder.AppendLine($"    state \"Goal already satisfied\" as goalSatisfied");
-//				builder.AppendLine("    goalSatisfied --> [*]");
-//				return builder.ToString().TrimEnd();
-//			}
+		foreach (var key in keys)
+		{
+			previousByKey.TryGetValue(key, out var previousValue);
+			currentByKey.TryGetValue(key, out var currentValue);
+			if (Equals(previousValue, currentValue))
+			{
+				continue;
+			}
 
-//			builder.AppendLine("    [*] --> s0");
-//			builder.AppendLine("    state \"Initial State\" as s0");
+			parts.Add($"{key}: {FormatValue(previousValue)} -> {FormatValue(currentValue)}");
+		}
 
-//			for (var i = 0; i < actions.Count; i++)
-//			{
-//				var action = actions[i];
-//				var fromId = $"s{i}";
-//				var toId = $"s{i + 1}";
+		return parts.Count > 0 ? string.Join(", ", parts) : "unchanged";
+	}
 
-//				var transitionLabel = SanitizeStateTransitionText($"{action.Name} (cost {action.Cost})");
-//				builder.AppendLine($"    {fromId} --> {toId} : {transitionLabel}");
+	static string FormatStateKey(object key)
+		=> key?.ToString() ?? "null";
 
-//				string nodeLabel;
-//				if (i == actions.Count - 1)
-//				{
-//					nodeLabel = $"Goal- {plan.Goal.Name}";
-//				}
-//				else
-//				{
-//					var deltaLines = action.Effects
-//						.Where(s => !string.IsNullOrWhiteSpace(s))
-//						.Select(s => $"+{s}")
-//						.ToArray();
-//					nodeLabel = deltaLines.Length > 0 ? string.Join(", ", deltaLines) : $"State {i + 1}";
-//				}
+	static string FormatValue(object? value)
+		=> value switch
+		{
+			null => "null",
+			bool boolean => boolean ? "true" : "false",
+			_ => value.ToString() ?? string.Empty,
+		};
 
-//				builder.AppendLine($"    state \"{SanitizeStateLabelText(nodeLabel)}\" as {toId}");
-//			}
+	static string EscapeTreemapLabel(string value)
+		=> value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal);
 
-//			builder.AppendLine($"    s{actions.Count} --> [*]");
-//			return builder.ToString().TrimEnd();
-//		}
+	static string SanitizeStateTransitionText(string value)
+		=> string.Join(" ", value
+			.Replace(':', '-')
+			.Split(['\r', '\n', '\t', ' '], StringSplitOptions.RemoveEmptyEntries));
 
-//		// State transition labels: Mermaid uses ':' as a separator so it must be replaced.
-//		static string SanitizeStateTransitionText(string value)
-//			=> string.Join(" ", value
-//				.Replace(':', '-')
-//				.Split(['\r', '\n', '\t', ' '], StringSplitOptions.RemoveEmptyEntries));
+	static string SanitizeStateLabelText(string value)
+		=> value.Replace('"', '\'')
+			.Replace('\r', ' ')
+			.Replace('\n', ' ');
 
-//		// State node labels appear inside double-quotes; double-quotes themselves must be avoided.
-//		static string SanitizeStateLabelText(string value)
-//			=> value.Replace('"', '\'')
-//				     .Replace('\r', ' ')
-//				     .Replace('\n', ' ');
-
-//		static string SanitizeGanttText(string value)
-//			=> string.Join(" ", value
-//				.Replace(':', '-')
-//				.Replace(',', ' ')
-//				.Split(['\r', '\n', '\t', ' '], StringSplitOptions.RemoveEmptyEntries));
-//	}
-//}
+	static string SanitizeGanttText(string value)
+		=> string.Join(" ", value
+			.Replace(':', '-')
+			.Replace(',', ' ')
+			.Split(['\r', '\n', '\t', ' '], StringSplitOptions.RemoveEmptyEntries));
+}

@@ -27,8 +27,8 @@ namespace DwarvenFortification.ECS
 		readonly List<string[]> knownItemFilters;
 		readonly List<FactDefinition> factDefinitions;
 		readonly List<SkillDefinition> skillDefinitions;
-		readonly List<GoapAction> goapActions;
-		readonly List<GoapGoal> goapGoals;
+		readonly List<SimulationGoapAction> goapActions;
+		readonly List<SimulationGoapGoal> goapGoals;
 
 		SimulationDefinitionRegistry(
 			World world,
@@ -83,10 +83,11 @@ namespace DwarvenFortification.ECS
 
 			foreach (var action in actions.Where(def => !string.IsNullOrWhiteSpace(def.Id)))
 			{
-				goapActions.Add(new GoapAction(
+				goapActions.Add(new SimulationGoapAction(
 					action.Id,
 					action.Name,
 					action.BaseCost,
+					action.DurationTicks,
 					action.TargetKind,
 					action.DestinationMode,
 					action.Requirements ?? [],
@@ -214,7 +215,7 @@ namespace DwarvenFortification.ECS
 
 			foreach (var goal in goals.Where(def => !string.IsNullOrWhiteSpace(def.Id)))
 			{
-				goapGoals.Add(new GoapGoal(
+				goapGoals.Add(new SimulationGoapGoal(
 					goal.Id,
 					goal.Name,
 					goal.Priority,
@@ -409,7 +410,10 @@ namespace DwarvenFortification.ECS
 			return true;
 		}
 
-		public IReadOnlyList<GoapAction> GetActionDefinitions()
+		public IReadOnlyList<SimulationGoapAction> GetActionDefinitions()
+			=> goapActions;
+
+		IReadOnlyList<GoapAction> IGoapDefinitionSource.GetActionDefinitions()
 			=> goapActions;
 
 		public bool TryGetResourceNodeDefinition(string resourceNodeId, out ResourceNodeDefinitionSnapshot snapshot)
@@ -436,8 +440,11 @@ namespace DwarvenFortification.ECS
 			return true;
 		}
 
-		public IReadOnlyList<GoapGoal> GetGoalDefinitions()
-			=> [.. goapGoals.OrderByDescending(goal => goal.Priority)];
+		public IReadOnlyList<SimulationGoapGoal> GetGoalDefinitions()
+			=> [.. goapGoals.OrderByDescending(goal => goal.PriorityValue)];
+
+		IReadOnlyList<GoapGoal> IGoapDefinitionSource.GetGoalDefinitions()
+			=> [.. goapGoals.OrderByDescending(goal => goal.PriorityValue)];
 
 		public bool IsCellTypeWalkable(CellType cellType) => cellType != CellType.Water;
 

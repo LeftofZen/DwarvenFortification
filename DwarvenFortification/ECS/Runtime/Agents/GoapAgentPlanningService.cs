@@ -1,9 +1,9 @@
 using Arch.Core;
 using DwarvenFortification.Actions;
+using DwarvenFortification.ECS;
 using DwarvenFortification.GOAP;
 using DwarvenFortification.Logging;
 using DwarvenFortification.Simulation.Composition;
-using DwarvenFortification.Simulation.Goap;
 using System.Linq;
 
 namespace DwarvenFortification.ECS.Runtime.Agents
@@ -12,14 +12,15 @@ namespace DwarvenFortification.ECS.Runtime.Agents
 	{
 		const int IdleDurationTicks = 60;
 
-		readonly GoapPlanner planner;
+		readonly SimulationDefinitionRegistry definitions;
 		readonly IGoapPlanExecutor planExecutor;
 		readonly IActionRuntimeContext runtimeContext;
 		readonly IGoapWorldQueryService queryService;
+		readonly GoapPlanSettings planSettings = new() { MaxActions = 12, MaxIterations = 2048 };
 
-		public GoapAgentPlanningService(GoapPlanner planner, IGoapPlanExecutor planExecutor, IActionRuntimeContext runtimeContext, IGoapWorldQueryService queryService)
+		public GoapAgentPlanningService(SimulationDefinitionRegistry definitions, IGoapPlanExecutor planExecutor, IActionRuntimeContext runtimeContext, IGoapWorldQueryService queryService)
 		{
-			this.planner = planner;
+			this.definitions = definitions;
 			this.planExecutor = planExecutor;
 			this.runtimeContext = runtimeContext;
 			this.queryService = queryService;
@@ -28,17 +29,17 @@ namespace DwarvenFortification.ECS.Runtime.Agents
 		public bool TryEnqueuePlan(AgentRuntimeContext context, Entity agent)
 		{
 			var currentState = queryService.BuildCurrentState(agent);
-			var goapAgent = new EntityGoapAgent(agent, currentState);
-			var plan = planner.CreatePlan(goapAgent);
+			var goapAgent = SimulationGoapAgentFactory.CreateAgent(definitions, agent.GetName(), currentState);
+			var plan = goapAgent.FindPlan(planSettings);
 			if (plan == null)
 			{
 				agent.EnqueueAction(new TimedAction(runtimeContext, agent, "idle", IdleDurationTicks));
 				return false;
 			}
 
-			context.Logger.Log(LogLevel.Info, $"{agent.GetName()} enqueuing plan for goal '{plan.Goal.Id}' with {plan.Actions.Count} steps: [{string.Join(" -> ", plan.Actions.Select(s => s.Id))}]");
+			context.Logger.Log(LogLevel.Info, $"{agent.GetName()} enqueuing plan for goal '{plan.Goal.Id}' with {plan.Actions.Count} steps: [{string.Join(" -> ", plan.Actions.Select(s => s.GetId()))}]");
 
-			if (planExecutor.Enqueue(goapAgent, plan))
+			if (planExecutor.Enqueue(agent, plan))
 			{
 				return true;
 			}

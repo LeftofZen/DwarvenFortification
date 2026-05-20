@@ -1,5 +1,6 @@
 ﻿using DwarvenFortification.Camera;
 using DwarvenFortification.ECS;
+using DwarvenFortification.ECS.Runtime;
 using DwarvenFortification.GOAP;
 using DwarvenFortification.Simulation.Composition;
 using DwarvenFortification.Simulation.World;
@@ -67,10 +68,9 @@ namespace DwarvenFortification
 			GameServices.Definitions = definitions;
 			simulationUi = new ImGuiSimulationUi(definitions, GameServices.Logger);
 			var inspectorWorldQueryService = new GoapWorldQueryService(definitions, () => world);
-			var inspectorPlanner = new GoapPlanner(definitions);
-			simulationUi.PlanningSnapshotProvider = entity => {
+			simulationUi.PlanningAgentProvider = entity => {
 				var state = inspectorWorldQueryService.BuildCurrentState(entity);
-				return inspectorPlanner.Inspect(new DwarvenFortification.Simulation.Goap.EntityGoapAgent(entity, state));
+				return SimulationGoapAgentFactory.CreateAgent(definitions, entity.GetName(), state);
 			};
 
 			var renderAssets = new SimulationRenderAssets(
@@ -84,9 +84,9 @@ namespace DwarvenFortification
 				_camera);
 			world = simulationRuntime.World;
 			_camera.Position = world.WorldCenter;
-			world.PlanningSnapshotProvider = entity => {
+			world.PlanningAgentProvider = entity => {
 				var state = inspectorWorldQueryService.BuildCurrentState(entity);
-				return inspectorPlanner.Inspect(new DwarvenFortification.Simulation.Goap.EntityGoapAgent(entity, state));
+				return SimulationGoapAgentFactory.CreateAgent(definitions, entity.GetName(), state);
 			};
 			GameServices.GridWorld = world;
 

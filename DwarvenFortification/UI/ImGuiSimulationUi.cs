@@ -31,7 +31,6 @@ namespace DwarvenFortification.UI
 		int taskDurationTicks = 60;
 		bool replaceQueuedActions = true;
 		string lastIssuedActionMessage = string.Empty;
-		string lastPlanDiagramExportMessage = string.Empty;
 		int selectedDropInventoryItemIndex;
 		NumericsVector2 goapGraphPan = new(24f, 24f);
 		float goapGraphZoom = 1f;
@@ -54,7 +53,7 @@ namespace DwarvenFortification.UI
 		public string SelectedItemId { get; set; } = string.Empty;
 		public bool WantsMouseCapture { get; private set; }
 		public Func<Entity, AgentActionRequest, string> ActionRequestHandler { get; set; }
-		public Func<Entity, GoapSnapshot> PlanningSnapshotProvider { get; set; }
+		public Func<Entity, GoapAgent> PlanningAgentProvider { get; set; }
 
 		public void BindObject(object obj)
 		{
@@ -336,8 +335,8 @@ namespace DwarvenFortification.UI
 
 		void DrawEntityInspector(Entity entity)
 		{
-			var planningSnapshot = entity.IsAgent() && PlanningSnapshotProvider != null
-				? PlanningSnapshotProvider(entity)
+			var goapAgent = entity.IsAgent() && PlanningAgentProvider != null
+				? PlanningAgentProvider(entity)
 				: null;
 
 			if (!entity.IsAgent())
@@ -351,12 +350,12 @@ namespace DwarvenFortification.UI
 			DrawBodyNutritionSection(entity);
 			DrawInventorySection(entity);
 			DrawAgentActionControls(entity);
-			DrawGoalSection(entity, planningSnapshot);
-			DrawPlanningSection(planningSnapshot);
+			DrawGoalSection(entity, goapAgent);
+			DrawPlanningSection(goapAgent);
 			DrawActivePlanSection(entity);
-			DrawActionSection(entity, planningSnapshot);
+			DrawActionSection(entity, goapAgent);
 			DrawAgentSkillsSection(entity);
-			DrawSkillCatalogSection(entity, planningSnapshot);
+			DrawSkillCatalogSection(entity, goapAgent);
 			DrawEntityReflectionSection(entity);
 		}
 
@@ -370,68 +369,54 @@ namespace DwarvenFortification.UI
 			ImGui.Separator();
 		}
 
-		void DrawGoalSection(Entity entity, GoapSnapshot planningSnapshot)
+		void DrawGoalSection(Entity entity, GoapAgent goapAgent)
 		{
 			if (!ImGui.CollapsingHeader("Current Goals", ImGuiTreeNodeFlags.DefaultOpen))
 			{
 				return;
 			}
 
-			if (planningSnapshot == null || planningSnapshot.Goals.Count == 0)
+			if (goapAgent == null || goapAgent.Goals.Count == 0)
 			{
 				ImGui.TextUnformatted("No goals available.");
 				return;
 			}
 
-			// planningSnapshot.Goals is already sorted descending by effective priority by the Planner
-			foreach (var goal in planningSnapshot.Goals)
+			foreach (var goal in BuildGoalInspections(goapAgent))
 			{
-				var status = goal.IsSatisfied
+				var status = goal.IsReached
 					? "Satisfied"
-					: goal.CandidatePlan != null
+					: goal.Plan != null
 						? "Candidate"
-						: goal.IsEligible
+						: goal.IsValid
 							? "Eligible"
 							: "Blocked";
 				var statusColor = GetGoalStatusColor(goal);
-				var hasCandidatePlan = goal.CandidatePlan != null;
+				var hasCandidatePlan = goal.Plan != null;
 				ImGui.PushID($"goal-{goal.Goal.Id}");
 				ImGui.PushStyleColor(ImGuiCol.Text, statusColor);
-				if (ImGui.TreeNodeEx($"[{goal.EffectivePriority}] {goal.Goal.Name} [{status}]##goal", hasCandidatePlan ? ImGuiTreeNodeFlags.DefaultOpen : ImGuiTreeNodeFlags.None))
+				if (ImGui.TreeNodeEx($"[{goal.Priority:0.##}] {goal.Goal.Name} [{status}]##goal", hasCandidatePlan ? ImGuiTreeNodeFlags.DefaultOpen : ImGuiTreeNodeFlags.None))
 				{
 					ImGui.PopStyleColor();
 					ImGui.TextUnformatted($"Id: {goal.Goal.Id}");
-					if (goal.EffectivePriority != goal.Goal.Priority)
-					{
-						ImGui.TextUnformatted($"Priority: {goal.EffectivePriority} (base: {goal.Goal.Priority})");
-					}
-					else
-					{
-						ImGui.TextUnformatted($"Priority: {goal.Goal.Priority}");
-					}
+					ImGui.TextUnformatted($"Priority: {goal.Priority:0.##}");
 
-					ImGui.TextWrapped($"Desired facts: {FormatList(goal.Goal.Effects)}");
+					ImGui.TextWrapped($"Desired facts: {FormatList(goal.Goal.DesiredFacts)}");
 
-					if (goal.MissingRequiredStates.Count > 0)
+					if (goal.MissingRequiredFacts.Count > 0)
 					{
-						ImGui.TextWrapped($"Missing required facts: {FormatList(goal.MissingRequiredStates)}");
+						ImGui.TextWrapped($"Missing required facts: {FormatList(goal.MissingRequiredFacts)}");
 					}
 
-					if (goal.CandidatePlan != null)
+					if (goal.Plan != null)
 					{
-						ImGui.TextUnformatted($"Candidate plan cost: {goal.CandidatePlan.Cost}");
-						DrawPlanDiagramExportButtons(goal.CandidatePlan, $"goal-{goal.Goal.Id}");
-						if (ImGui.TreeNode("Plan tree"))
-						{
-							DrawPlanNode(goal.CandidatePlan.Root);
-							ImGui.TreePop();
-						}
+						ImGui.TextUnformatted($"Candidate plan cost: {CalculatePlanCost(goal.Plan):0.##}");
 
 						ImGui.TextUnformatted("Flattened execution order:");
-						for (var i = 0; i < goal.CandidatePlan.Steps.Count; ++i)
+						for (var i = 0; i < goal.Plan.Actions.Count; ++i)
 						{
-							var step = goal.CandidatePlan.Steps[i];
-							ImGui.BulletText($"{i + 1}. {step.Name} (cost {step.Cost})");
+							var step = goal.Plan.Actions[i];
+							ImGui.BulletText($"{i + 1}. {step.Name} (cost {step.Cost(goal.Plan.Agent):0.##})");
 						}
 					}
 
@@ -622,7 +607,7 @@ namespace DwarvenFortification.UI
 			}
 
 			var enabledActions = definitions.GetActionDefinitions()
-				.Where(action => action.Requirements.Any(fact =>
+				.Where(action => action.RequiredFacts.Any(fact =>
 					Facts.TryGetHasItemTag(fact, out var tag)
 					&& tags.Contains(tag, StringComparer.OrdinalIgnoreCase)))
 				.Select(a => a.Name)
@@ -659,16 +644,14 @@ namespace DwarvenFortification.UI
 			ImGui.PopStyleColor();
 		}
 
-		void DrawSkillCatalogSection(Entity entity, GoapSnapshot planningSnapshot)
+		void DrawSkillCatalogSection(Entity entity, GoapAgent goapAgent)
 		{
 			if (!ImGui.CollapsingHeader("Skills / Action Catalog", ImGuiTreeNodeFlags.DefaultOpen))
 			{
 				return;
 			}
 
-			var plannerFacts = planningSnapshot?.CurrentState != null
-				? new HashSet<string>(planningSnapshot.CurrentState, StringComparer.OrdinalIgnoreCase)
-				: new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			var plannerFacts = GetCurrentFacts(goapAgent);
 			var candidatesByAction = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
 			ImGui.TextUnformatted("Direct actions");
@@ -684,7 +667,7 @@ namespace DwarvenFortification.UI
 		}
 
 		void DrawGoapActionGraph(
-			IReadOnlyList<GoapAction> definitions,
+			IReadOnlyList<SimulationGoapAction> definitions,
 			HashSet<string> plannerFacts,
 			Dictionary<string, int> candidatesByAction)
 		{
@@ -820,7 +803,7 @@ namespace DwarvenFortification.UI
 		}
 
 		ActionGraphLayout BuildActionGraphLayout(
-			IReadOnlyList<GoapAction> definitions,
+			IReadOnlyList<SimulationGoapAction> definitions,
 			HashSet<string> plannerFacts,
 			Dictionary<string, int> candidatesByAction)
 		{
@@ -834,7 +817,7 @@ namespace DwarvenFortification.UI
 			var dependencyFactsByPair = new Dictionary<(string SourceId, string TargetId), HashSet<string>>();
 			foreach (var definition in definitions)
 			{
-				foreach (var fact in definition.Effects.Where(fact => !string.IsNullOrWhiteSpace(fact)))
+				foreach (var fact in definition.EffectFacts.Where(fact => !string.IsNullOrWhiteSpace(fact)))
 				{
 					if (!producersByFact.TryGetValue(fact, out var producers))
 					{
@@ -850,7 +833,7 @@ namespace DwarvenFortification.UI
 			foreach (var definition in definitions)
 			{
 				var dependencies = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-				foreach (var fact in definition.Requirements.Where(fact => !string.IsNullOrWhiteSpace(fact) && !fact.StartsWith('!')))
+				foreach (var fact in definition.RequiredFacts.Where(fact => !string.IsNullOrWhiteSpace(fact) && !fact.StartsWith('!')))
 				{
 					if (!producersByFact.TryGetValue(fact, out var producers))
 					{
@@ -941,7 +924,7 @@ namespace DwarvenFortification.UI
 						$"{state} | targets {manifestationCount}",
 						missingRequirements.Count > 0
 							? $"Requires {TrimGraphText(FormatList(missingRequirements), 24)}"
-							: $"Adds {TrimGraphText(FormatList(definition.Effects), 24)}",
+							: $"Adds {TrimGraphText(FormatList(definition.EffectFacts), 24)}",
 						ToU32(WithAlpha(stateColor, 0.22f)),
 						ToU32(WithAlpha(stateColor, 0.95f)),
 						ToU32(new NumericsVector4(0.96f, 0.97f, 0.98f, 1f)),
@@ -1088,7 +1071,7 @@ namespace DwarvenFortification.UI
 		}
 
 		void DrawSelectedGoapActionDetails(
-			GoapAction definition,
+			SimulationGoapAction definition,
 			HashSet<string> plannerFacts,
 			Dictionary<string, int> candidatesByAction)
 		{
@@ -1096,8 +1079,8 @@ namespace DwarvenFortification.UI
 			ImGui.TextUnformatted($"Selected action: {definition.Name}");
 			ImGui.TextUnformatted($"Id: {definition.Id}");
 			ImGui.TextWrapped($"Target kind: {definition.TargetKind}; destination mode: {definition.DestinationMode}");
-			ImGui.TextWrapped($"Requirements: {FormatList(definition.Requirements)}");
-			ImGui.TextWrapped($"Effects {FormatList(definition.Effects)}");
+			ImGui.TextWrapped($"Requirements: {FormatList(definition.RequiredFacts)}");
+			ImGui.TextWrapped($"Effects {FormatList(definition.EffectFacts)}");
 			ImGui.TextUnformatted($"Base cost: {definition.BaseCost}; duration ticks: {definition.DurationTicks}");
 			var manifestations = candidatesByAction.TryGetValue(definition.Id, out var count) ? count : 0;
 			ImGui.TextUnformatted($"Current manifestations: {manifestations}");
@@ -1206,16 +1189,14 @@ namespace DwarvenFortification.UI
 			}
 		}
 
-		void DrawActionSection(Entity entity, GoapSnapshot planningSnapshot)
+		void DrawActionSection(Entity entity, GoapAgent goapAgent)
 		{
 			if (!ImGui.CollapsingHeader("Actions", ImGuiTreeNodeFlags.DefaultOpen))
 			{
 				return;
 			}
 
-			var plannerFacts = planningSnapshot?.CurrentState != null
-				? new HashSet<string>(planningSnapshot.CurrentState, StringComparer.OrdinalIgnoreCase)
-				: new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			var plannerFacts = GetCurrentFacts(goapAgent);
 
 			DrawDirectActions(entity);
 
@@ -1383,7 +1364,7 @@ namespace DwarvenFortification.UI
 			ImGui.TreePop();
 		}
 
-		void DrawManualActionControls(Entity entity, GoapAction definition)
+		void DrawManualActionControls(Entity entity, SimulationGoapAction definition)
 		{
 			ImGui.Separator();
 			ImGui.TextUnformatted("Issue action manually");
@@ -1394,23 +1375,24 @@ namespace DwarvenFortification.UI
 			}
 		}
 
-		void DrawPlanningSection(GoapSnapshot planningSnapshot)
+		void DrawPlanningSection(GoapAgent goapAgent)
 		{
 			if (!ImGui.CollapsingHeader("Goal Planning", ImGuiTreeNodeFlags.DefaultOpen))
 			{
 				return;
 			}
 
-			if (planningSnapshot == null)
+			if (goapAgent == null)
 			{
-				ImGui.TextUnformatted("Planning snapshot unavailable.");
+				ImGui.TextUnformatted("GOAP agent unavailable.");
 				return;
 			}
 
-			ImGui.TextUnformatted($"Planner facts: {planningSnapshot.CurrentState.Count}");
-			if (planningSnapshot.CurrentState.Count > 0 && ImGui.TreeNode("Planner facts"))
+			var plannerFacts = GetCurrentFacts(goapAgent);
+			ImGui.TextUnformatted($"Planner facts: {plannerFacts.Count}");
+			if (plannerFacts.Count > 0 && ImGui.TreeNode("Planner facts"))
 			{
-				foreach (var fact in planningSnapshot.CurrentState)
+				foreach (var fact in plannerFacts.OrderBy(fact => fact, StringComparer.OrdinalIgnoreCase))
 				{
 					ImGui.BulletText(fact);
 				}
@@ -1418,9 +1400,9 @@ namespace DwarvenFortification.UI
 				ImGui.TreePop();
 			}
 
-			var candidatePlans = planningSnapshot.Goals
-				.Select(g => g.CandidatePlan)
-				.Where(p => p != null)
+			var candidatePlans = BuildGoalInspections(goapAgent)
+				.Select(goal => goal.Plan)
+				.Where(plan => plan != null)
 				.ToList();
 
 			if (candidatePlans.Count == 0)
@@ -1430,20 +1412,14 @@ namespace DwarvenFortification.UI
 			else
 			{
 				ImGui.TextColored(ColorPlanned, $"Candidate plans: {candidatePlans.Count}");
-				if (!string.IsNullOrWhiteSpace(lastPlanDiagramExportMessage))
-				{
-					ImGui.TextWrapped(lastPlanDiagramExportMessage);
-				}
-
-				if (ImGui.TreeNode("Candidate plan trees"))
+				if (ImGui.TreeNode("Candidate plans"))
 				{
 					for (var i = 0; i < candidatePlans.Count; ++i)
 					{
 						var candidatePlan = candidatePlans[i];
-						if (ImGui.TreeNode($"{i + 1}. {candidatePlan.Goal.Name} (cost {candidatePlan.Cost})"))
+						if (ImGui.TreeNode($"{i + 1}. {candidatePlan.Goal.Name} (cost {CalculatePlanCost(candidatePlan):0.##})"))
 						{
-							DrawPlanDiagramExportButtons(candidatePlan, $"candidate-{i}");
-							DrawPlanNode(candidatePlan.Root);
+							DrawPlanActions(candidatePlan);
 							ImGui.TreePop();
 						}
 					}
@@ -1451,8 +1427,7 @@ namespace DwarvenFortification.UI
 				}
 			}
 
-			var plannerFacts = new HashSet<string>(planningSnapshot.CurrentState, StringComparer.OrdinalIgnoreCase);
-			var allActions = planningSnapshot.AllActions;
+			var allActions = goapAgent.Actions.OfType<SimulationGoapAction>().ToList();
 			var availableActions = allActions.Where(a => GetMissingRequirements(a, plannerFacts).Count == 0).ToList();
 			var unavailableActions = allActions.Where(a => GetMissingRequirements(a, plannerFacts).Count > 0).ToList();
 
@@ -1776,73 +1751,66 @@ namespace DwarvenFortification.UI
 			return materialized.Length == 0 ? "none" : string.Join(", ", materialized);
 		}
 
-		void DrawPlanDiagramExportButtons(GoapPlan plan, string exportId)
+		static void DrawPlanActions(GoapPlan plan)
 		{
-			ImGui.PushID(exportId);
-			if (ImGui.Button("Copy Treemap Mermaid"))
+			if (plan.Actions.Count == 0)
 			{
-				CopyPlanDiagramToClipboard(plan, isTreemap: true);
-			}
-
-			ImGui.SameLine();
-			if (ImGui.Button("Copy Gantt Mermaid"))
-			{
-				CopyPlanDiagramToClipboard(plan, isTreemap: false);
-			}
-
-			ImGui.PopID();
-		}
-
-		void CopyPlanDiagramToClipboard(GoapPlan plan, bool isTreemap)
-		{
-			var diagramText = isTreemap
-				? GoapPlanDiagram.BuildTreemapDiagram(plan)
-				: GoapPlanDiagram.BuildGanttDiagram(plan);
-
-			ImGui.SetClipboardText(diagramText);
-			lastPlanDiagramExportMessage = $"Copied {(isTreemap ? "treemap" : "gantt")} Mermaid for plan '{plan.Goal.Name}' to clipboard.";
-		}
-
-		static void DrawPlanNode(GoapPlanNode node)
-		{
-			var header = $"{node.Kind}: {node.Label} (cost {node.Cost})";
-			if (node.Children.Count == 0)
-			{
-				ImGui.BulletText(header);
+				ImGui.TextUnformatted("Plan has no actions.");
 				return;
 			}
 
-			if (ImGui.TreeNode(header))
+			for (var i = 0; i < plan.Actions.Count; ++i)
 			{
-				foreach (var child in node.Children)
-				{
-					DrawPlanNode(child);
-				}
-
-				ImGui.TreePop();
+				var action = plan.Actions[i];
+				ImGui.BulletText($"{i + 1}. {action.Name} (cost {action.Cost(plan.Agent):0.##})");
 			}
 		}
 
 		static string FormatInventoryItemLabel(Entity item)
 			=> $"{item.GetName()} [{item.GetItemDefinitionId()}]";
 
-		static NumericsVector4 GetGoalStatusColor(GoapGoalView goal)
-			=> goal.IsSatisfied
+		static NumericsVector4 GetGoalStatusColor(GoalInspection goal)
+			=> goal.IsReached
 				? ColorOk
-				: goal.CandidatePlan != null
+				: goal.Plan != null
 					? ColorPlanned
-					: goal.IsEligible
+					: goal.IsValid
 						? ColorDeferred
 						: ColorBlocked;
 
-		static List<string> GetMissingRequirements(GoapAction definition, HashSet<string> plannerFacts)
+		static IReadOnlyList<GoalInspection> BuildGoalInspections(GoapAgent goapAgent)
+			=> [.. goapAgent.Goals
+				.OfType<SimulationGoapGoal>()
+				.Select(goal =>
+				{
+					var priority = goal.Priority(goapAgent);
+					var isValid = goapAgent.IsGoalValid(goal, goapAgent.States);
+					var isReached = goal.IsReached(goapAgent.States);
+					var plan = isValid && !isReached ? goapAgent.FindPlan(goal) : null;
+					var missingFacts = goal.RequiredFacts.Where(fact => !GoapFactState.IsSatisfied(goapAgent.States, fact)).ToArray();
+					return new GoalInspection(goal, priority, isValid, isReached, missingFacts, plan);
+				})
+				.OrderByDescending(goal => goal.Priority)];
+
+		static HashSet<string> GetCurrentFacts(GoapAgent goapAgent)
+			=> goapAgent == null
+				? new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+				: new HashSet<string>(goapAgent.States
+					.Where(pair => pair.Value is bool value && value)
+					.Select(pair => pair.Key.ToString())
+					.Where(fact => !string.IsNullOrWhiteSpace(fact)), StringComparer.OrdinalIgnoreCase);
+
+		static double CalculatePlanCost(GoapPlan plan)
+			=> plan.Actions.Sum(action => action.Cost(plan.Agent));
+
+		static List<string> GetMissingRequirements(SimulationGoapAction definition, HashSet<string> plannerFacts)
 		{
 			var missingRequirements = new List<string>();
-			AddMissingRequirements(missingRequirements, plannerFacts, definition.Requirements);
+			AddMissingRequirements(missingRequirements, plannerFacts, definition.RequiredFacts);
 
-			foreach (var blockedFact in definition.Requirements.Where(plannerFacts.Contains))
+			foreach (var blockedFact in definition.RequiredFacts.Where(fact => fact.StartsWith('!') && plannerFacts.Contains(fact[1..])))
 			{
-				missingRequirements.Add($"blocked:{blockedFact}");
+				missingRequirements.Add($"blocked:{blockedFact[1..]}");
 			}
 
 			return missingRequirements;
@@ -1874,6 +1842,7 @@ namespace DwarvenFortification.UI
 		readonly record struct GraphBounds(NumericsVector2 Min, NumericsVector2 Max);
 		readonly record struct ActionGraphNode(string Id, GraphBounds Bounds, string Title, string Subtitle, string Detail, uint FillColor, uint BorderColor, uint TextColor, uint SubtitleColor, uint DetailColor, float ProgressRatio = 0f, uint ProgressBarColor = 0u);
 		readonly record struct ActionGraphEdge(NumericsVector2 From, NumericsVector2 To, uint Color, string Label);
+		readonly record struct GoalInspection(SimulationGoapGoal Goal, double Priority, bool IsValid, bool IsReached, IReadOnlyList<string> MissingRequiredFacts, GoapPlan Plan);
 
 		IEnumerable<string> ReflectObject(object obj)
 		{

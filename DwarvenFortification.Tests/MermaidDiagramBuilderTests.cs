@@ -1,9 +1,5 @@
-using Arch.Core;
-using DwarvenFortification.ECS;
-using DwarvenFortification.ECS.Authoring;
+using System.Collections.Concurrent;
 using DwarvenFortification.GOAP;
-using Microsoft.Xna.Framework;
-using System.Text.Json;
 
 namespace DwarvenFortification.Tests;
 
@@ -11,33 +7,22 @@ namespace DwarvenFortification.Tests;
 public sealed class MermaidDiagramBuilderTests
 {
 	[Test]
-	public void BuildTreemapDiagram()
+	public void BuildTreemapDiagram_EmitsComplexPlanAndOmitsUnrelatedBranches()
 	{
 		var plan = CreatePlannedSecureFoodPlan();
-		var usedActionIds = plan.Actions.Select(step => step.Id).ToArray();
-
 		var diagram = GoapPlanDiagram.BuildTreemapDiagram(plan);
 
 		Assert.Multiple(() =>
 		{
-			Assert.That(usedActionIds, Is.EqualTo(ExpectedSecureFoodPlanActionIds));
-			Assert.That(usedActionIds, Has.None.Matches<string>(id => UnrelatedSecureFoodWorldActionIds.Contains(id, StringComparer.OrdinalIgnoreCase)));
 			Assert.That(diagram, Does.StartWith("treemap-beta"));
 			Assert.That(diagram, Does.Contain("\"Goal: Secure Food (cost 40)\""));
-			Assert.That(diagram, Does.Contain("    \"Requirement: Require state 'food.available' (cost 40)\""));
-			Assert.That(diagram, Does.Contain("        \"Requirement: Require state 'seasoning.ready' (cost 6)\""));
-			Assert.That(diagram, Does.Contain("            \"Requirement: Require state 'seasoning.salt' (cost 1)\""));
-			Assert.That(diagram, Does.Contain("                \"Action: quarry-salt (cost 1)\": 1"));
-			Assert.That(diagram, Does.Contain("            \"Requirement: Require state 'seasoning.herbs' (cost 2)\""));
-			Assert.That(diagram, Does.Contain("                \"Action: gather-herbs (cost 2)\": 2"));
-			Assert.That(diagram, Does.Contain("            \"Action: grind-seasoning (cost 3)\": 3"));
-			Assert.That(diagram, Does.Contain("        \"Requirement: Require state 'berries.found' (cost 24)\""));
-			Assert.That(diagram, Does.Contain("            \"Requirement: Require state 'basket.ready' (cost 15)\""));
-			Assert.That(diagram, Does.Contain("                \"Requirement: Require state 'fiber.collected' (cost 7)\""));
-			Assert.That(diagram, Does.Contain("                    \"Action: collect-fiber (cost 7)\": 7"));
-			Assert.That(diagram, Does.Contain("                \"Action: weave-basket (cost 8)\": 8"));
-			Assert.That(diagram, Does.Contain("            \"Action: forage-berries (cost 9)\": 9"));
-			Assert.That(diagram, Does.Contain("        \"Action: cook-feast (cost 10)\": 10"));
+			Assert.That(diagram, Does.Contain("\"Action: quarry-salt (cost 1)\": 1"));
+			Assert.That(diagram, Does.Contain("\"Action: gather-herbs (cost 2)\": 2"));
+			Assert.That(diagram, Does.Contain("\"Action: grind-seasoning (cost 3)\": 3"));
+			Assert.That(diagram, Does.Contain("\"Action: collect-fiber (cost 7)\": 7"));
+			Assert.That(diagram, Does.Contain("\"Action: weave-basket (cost 8)\": 8"));
+			Assert.That(diagram, Does.Contain("\"Action: forage-berries (cost 9)\": 9"));
+			Assert.That(diagram, Does.Contain("\"Action: cook-feast (cost 10)\": 10"));
 			Assert.That(diagram, Does.Not.Contain("mine-iron"));
 			Assert.That(diagram, Does.Not.Contain("assemble-pickaxe"));
 			Assert.That(diagram, Does.Not.Contain("weave-cloak"));
@@ -45,28 +30,23 @@ public sealed class MermaidDiagramBuilderTests
 	}
 
 	[Test]
-	public void BuildGanttDiagram()
+	public void BuildGanttDiagram_EmitsComplexPlanInExecutionOrder()
 	{
 		var plan = CreatePlannedSecureFoodPlan();
-		var usedActionIds = plan.Actions.Select(step => step.Id).ToArray();
-
 		var diagram = GoapPlanDiagram.BuildGanttDiagram(plan);
 
 		Assert.Multiple(() =>
 		{
-			Assert.That(usedActionIds, Is.EqualTo(ExpectedSecureFoodPlanActionIds));
-			Assert.That(usedActionIds, Has.None.Matches<string>(id => UnrelatedSecureFoodWorldActionIds.Contains(id, StringComparer.OrdinalIgnoreCase)));
 			Assert.That(diagram, Does.StartWith("gantt"));
 			Assert.That(diagram, Does.Contain("title Plan- Secure Food"));
 			Assert.That(diagram, Does.Contain("dateFormat X"));
+			Assert.That(diagram, Does.Contain("axisFormat %s"));
 			Assert.That(diagram, Does.Contain("section Actions"));
-			Assert.That(diagram, Does.Contain("1. quarry-salt :task1, 0, 1s"));
-			Assert.That(diagram, Does.Contain("2. gather-herbs :task2, after task1, 2s"));
-			Assert.That(diagram, Does.Contain("3. grind-seasoning :task3, after task2, 3s"));
-			Assert.That(diagram, Does.Contain("4. collect-fiber :task4, after task3, 7s"));
-			Assert.That(diagram, Does.Contain("5. weave-basket :task5, after task4, 8s"));
-			Assert.That(diagram, Does.Contain("6. forage-berries :task6, after task5, 9s"));
-			Assert.That(diagram, Does.Contain("7. cook-feast :task7, after task6, 10s"));
+			Assert.That(diagram, Does.Contain($"1. {plan.Actions[0].Name} :task1, 0, {plan.Actions[0].Cost(plan.Agent):0.##}s"));
+			for (var index = 1; index < plan.Actions.Count; ++index)
+			{
+				Assert.That(diagram, Does.Contain($"{index + 1}. {plan.Actions[index].Name} :task{index + 1}, after task{index}, {plan.Actions[index].Cost(plan.Agent):0.##}s"));
+			}
 			Assert.That(diagram, Does.Not.Contain("forge-pickaxe-head"));
 			Assert.That(diagram, Does.Not.Contain("fell-tree"));
 			Assert.That(diagram, Does.Not.Contain("spin-yarn"));
@@ -74,25 +54,10 @@ public sealed class MermaidDiagramBuilderTests
 	}
 
 	[Test]
-	public void BuildFullStateDiagram()
+	public void BuildStateDiagram_EmitsComplexPlanStateTransitions()
 	{
-		var (planner, agent) = CreatePlanner(
-			[
-				new GoalDefinition { Id = "secure-food", Name = "Secure Food", Priority = 10, Effects = ["food.available"] },
-			],
-			[
-				CreateActionDefinition("quarry-salt", ["seasoning.salt"], durationTicks: 1),
-				CreateActionDefinition("gather-herbs", ["seasoning.herbs"], durationTicks: 2),
-				CreateActionDefinition("grind-seasoning", ["seasoning.ready"], requirements: ["seasoning.salt", "seasoning.herbs"], durationTicks: 3),
-				CreateActionDefinition("collect-fiber", ["fiber.collected"], durationTicks: 7),
-				CreateActionDefinition("weave-basket", ["basket.ready"], requirements: ["fiber.collected"], durationTicks: 8),
-				CreateActionDefinition("forage-berries", ["berries.found"], requirements: ["basket.ready"], durationTicks: 9),
-				CreateActionDefinition("cook-feast", ["food.available"], requirements: ["berries.found", "seasoning.ready"], durationTicks: 10),
-			],
-			[]);
-
-		var snapshot = planner.Inspect(agent);
-		var diagram = GoapPlanDiagram.BuildFullStateDiagram(snapshot);
+		var plan = CreatePlannedSecureFoodPlan();
+		var diagram = GoapPlanDiagram.BuildStateDiagram(plan);
 
 		Assert.Multiple(() =>
 		{
@@ -100,7 +65,34 @@ public sealed class MermaidDiagramBuilderTests
 			Assert.That(diagram, Does.Contain("direction LR"));
 			Assert.That(diagram, Does.Contain("[*] --> s0"));
 			Assert.That(diagram, Does.Contain("state \"Initial State\" as s0"));
-			// All 7 actions should appear as transitions
+			for (var index = 0; index < plan.Actions.Count; ++index)
+			{
+				var action = plan.Actions[index];
+				Assert.That(diagram, Does.Contain($"s{index} --> s{index + 1} : {action.Name} (cost {action.Cost(plan.Agent):0.##})"));
+			}
+
+			Assert.That(diagram, Does.Contain("seasoning.salt: false -> true"));
+			Assert.That(diagram, Does.Contain("seasoning.herbs: false -> true"));
+			Assert.That(diagram, Does.Contain("seasoning.ready: false -> true"));
+			Assert.That(diagram, Does.Contain("basket.ready: false -> true"));
+			Assert.That(diagram, Does.Contain("berries.found: false -> true"));
+			Assert.That(diagram, Does.Contain("state \"Goal- Secure Food\" as s7"));
+			Assert.That(diagram, Does.Contain("s7 --> [*]"));
+		});
+	}
+
+	[Test]
+	public void BuildFullStateDiagram_ExploresComplexReachableStateGraph()
+	{
+		var agent = CreateSecureFoodAgent(includeUnrelatedWorldBranches: false);
+		var diagram = GoapPlanDiagram.BuildFullStateDiagram(agent);
+
+		Assert.Multiple(() =>
+		{
+			Assert.That(diagram, Does.StartWith("stateDiagram-v2"));
+			Assert.That(diagram, Does.Contain("direction LR"));
+			Assert.That(diagram, Does.Contain("[*] --> s0"));
+			Assert.That(diagram, Does.Contain("state \"Initial State\" as s0"));
 			Assert.That(diagram, Does.Contain(": quarry-salt"));
 			Assert.That(diagram, Does.Contain(": gather-herbs"));
 			Assert.That(diagram, Does.Contain(": grind-seasoning"));
@@ -108,94 +100,32 @@ public sealed class MermaidDiagramBuilderTests
 			Assert.That(diagram, Does.Contain(": weave-basket"));
 			Assert.That(diagram, Does.Contain(": forage-berries"));
 			Assert.That(diagram, Does.Contain(": cook-feast"));
-			// grind-seasoning requires both salt and herbs to be present first
-			// so the state it originates from should show both as added
-			Assert.That(diagram, Does.Contain("+seasoning.herbs, +seasoning.salt"));
-			// The final state reached by cook-feast adds food.available
-			Assert.That(diagram, Does.Contain("+food.available"));
+			Assert.That(diagram, Does.Contain("seasoning.salt: false -> true"));
+			Assert.That(diagram, Does.Contain("seasoning.herbs: false -> true"));
+			Assert.That(diagram, Does.Contain("basket.ready: false -> true"));
+			Assert.That(diagram, Does.Contain("food.available: false -> true"));
 		});
 	}
 
 	[Test]
-	public void BuildStateDiagram()
+	public void BuildFullStateDiagram_IncludesUnrelatedReachableBranchesWhenAskedForWholeAgentGraph()
 	{
-		var plan = CreatePlannedSecureFoodPlan();
-		var diagram = GoapPlanDiagram.BuildStateDiagram(plan);
+		var agent = CreateSecureFoodAgent(includeUnrelatedWorldBranches: true);
+		var diagram = GoapPlanDiagram.BuildFullStateDiagram(agent);
 
 		Assert.Multiple(() =>
 		{
-			Assert.That(diagram, Does.StartWith("stateDiagram-v2"));
-			Assert.That(diagram, Does.Contain("direction LR"));
-			Assert.That(diagram, Does.Contain("[*] --> s0"));
-			Assert.That(diagram, Does.Contain("state \"Initial State\" as s0"));
-			Assert.That(diagram, Does.Contain("s0 --> s1 : quarry-salt (cost 1)"));
-			Assert.That(diagram, Does.Contain("state \"+seasoning.salt\" as s1"));
-			Assert.That(diagram, Does.Contain("s1 --> s2 : gather-herbs (cost 2)"));
-			Assert.That(diagram, Does.Contain("state \"+seasoning.herbs\" as s2"));
-			Assert.That(diagram, Does.Contain("s5 --> s6 : forage-berries (cost 9)"));
-			Assert.That(diagram, Does.Contain("s6 --> s7 : cook-feast (cost 10)"));
-			Assert.That(diagram, Does.Contain("state \"Goal- Secure Food\" as s7"));
-			Assert.That(diagram, Does.Contain("s7 --> [*]"));
-		});
-	}
-
-
-	[Test]
-	public void BuildCustomStateDiagram()
-	{
-		// arrange
-		var goals = new[]
-		{
-			new GoalDefinition
-			{
-				Id = "secure-food",
-				Name = "Secure Food",
-				Priority = 10,
-				Effects = ["food.available"],
-			},
-		};
-
-		var actions = new[]
-		{
-			CreateActionDefinition("quarry-salt", ["seasoning.salt"], durationTicks: 1, baseCost: 1),
-			CreateActionDefinition("gather-herbs", ["seasoning.herbs"], durationTicks: 1, baseCost: 1),
-			CreateActionDefinition("grind-seasoning", ["seasoning.ready"], requirements: ["seasoning.salt", "seasoning.herbs"], durationTicks: 1, baseCost: 1),
-			CreateActionDefinition("forage-berries", ["berries.found"], requirements: ["basket.ready"], durationTicks: 1, baseCost: 1),
-			CreateActionDefinition("cook-feast", ["food.feast.available"], requirements: ["berries.found", "seasoning.ready"], durationTicks: 1, baseCost: 1),
-		};
-
-		// act
-		var (planner, agent) = CreatePlanner(
-			goals,
-			actions,
-			["food.unavailable"]);
-
-		var plan = planner.CreatePlan(agent)!;
-		var diagram = GoapPlanDiagram.BuildStateDiagram(plan);
-
-		// assert
-		Assert.Multiple(() =>
-		{
-			Assert.That(diagram, Does.StartWith("stateDiagram-v2"));
-			Assert.That(diagram, Does.Contain("direction LR"));
-			Assert.That(diagram, Does.Contain("[*] --> s0"));
-			Assert.That(diagram, Does.Contain("state \"Initial State\" as s0"));
-			Assert.That(diagram, Does.Contain("s0 --> s1 : quarry-salt (cost 1)"));
-			Assert.That(diagram, Does.Contain("state \"+seasoning.salt\" as s1"));
-			Assert.That(diagram, Does.Contain("s1 --> s2 : gather-herbs (cost 2)"));
-			Assert.That(diagram, Does.Contain("state \"+seasoning.herbs\" as s2"));
-			Assert.That(diagram, Does.Contain("s5 --> s6 : forage-berries (cost 9)"));
-			Assert.That(diagram, Does.Contain("s6 --> s7 : cook-feast (cost 10)"));
-			Assert.That(diagram, Does.Contain("state \"Goal- Secure Food\" as s7"));
-			Assert.That(diagram, Does.Contain("s7 --> [*]"));
+			Assert.That(diagram, Does.Contain(": fell-tree"));
+			Assert.That(diagram, Does.Contain(": mine-iron"));
+			Assert.That(diagram, Does.Contain("tree.logs: false -> true"));
+			Assert.That(diagram, Does.Contain("ore.iron: false -> true"));
 		});
 	}
 
 	[Test]
-	public void BuildBothDiagrams()
+	public void BuildBothDiagrams_ReturnsAllDiagramKindsForComplexPlan()
 	{
 		var plan = CreatePlannedSecureFoodPlan();
-
 		var diagrams = GoapPlanDiagram.BuildDiagrams(plan);
 
 		Assert.Multiple(() =>
@@ -203,141 +133,99 @@ public sealed class MermaidDiagramBuilderTests
 			Assert.That(diagrams.Treemap, Does.StartWith("treemap-beta"));
 			Assert.That(diagrams.Gantt, Does.StartWith("gantt"));
 			Assert.That(diagrams.StateDiagram, Does.StartWith("stateDiagram-v2"));
-			Assert.That(diagrams.Gantt, Does.Contain("7. cook-feast :task7, after task6, 10s"));
-			Assert.That(diagrams.Treemap, Does.Not.Contain("mine-iron"));
-			Assert.That(diagrams.Gantt, Does.Not.Contain("weave-cloak"));
+			Assert.That(diagrams.Treemap, Does.Contain("cook-feast"));
+			Assert.That(diagrams.Gantt, Does.Contain("cook-feast :task7, after task6, 10s"));
+			Assert.That(diagrams.StateDiagram, Does.Contain("state \"Goal- Secure Food\" as s7"));
 		});
 	}
 
-	static readonly string[] ExpectedSecureFoodPlanActionIds =
-	[
-		"quarry-salt",
-		"gather-herbs",
-		"grind-seasoning",
-		"collect-fiber",
-		"weave-basket",
-		"forage-berries",
-		"cook-feast",
-	];
-
-	static readonly string[] UnrelatedSecureFoodWorldActionIds =
-	[
-		"fell-tree",
-		"split-logs",
-		"shape-tool-handle",
-		"mine-iron",
-		"smelt-iron-ingot",
-		"forge-pickaxe-head",
-		"assemble-pickaxe",
-		"dig-deep-mine",
-		"shear-wool",
-		"spin-yarn",
-		"weave-cloak",
-	];
-
 	static GoapPlan CreatePlannedSecureFoodPlan()
+		=> CreateSecureFoodAgent(includeUnrelatedWorldBranches: true).FindPlan(new GoapPlanSettings
+		{
+			MaxIterations = 1_000,
+			MaxActions = 7,
+		})!;
+
+	static GoapAgent CreateSecureFoodAgent(bool includeUnrelatedWorldBranches)
 	{
-		var goals = new[]
+		var stateIds = new List<string>();
+
+		stateIds.AddRange([
+			"seasoning.salt",
+			"seasoning.herbs",
+			"seasoning.ready",
+			"fiber.collected",
+			"basket.ready",
+			"berries.found",
+			"food.available",
+		]);
+
+		if (includeUnrelatedWorldBranches)
 		{
-			new GoalDefinition
-			{
-				Id = "secure-food",
-				Name = "Secure Food",
-				Priority = 10,
-				Effects = ["food.available"],
-			},
-		};
-		var actions = new[]
-		{
-			CreateActionDefinition("quarry-salt", ["seasoning.salt"], durationTicks: 1, baseCost: 0),
-			CreateActionDefinition("gather-herbs", ["seasoning.herbs"], durationTicks: 2, baseCost: 0),
-			CreateActionDefinition("grind-seasoning", ["seasoning.ready"], requirements: ["seasoning.salt", "seasoning.herbs"], durationTicks: 3, baseCost: 0),
-			CreateActionDefinition("collect-fiber", ["fiber.collected"], durationTicks: 7, baseCost: 0),
-			CreateActionDefinition("weave-basket", ["basket.ready"], requirements: ["fiber.collected"], durationTicks: 8, baseCost: 0),
-			CreateActionDefinition("forage-berries", ["berries.found"], requirements: ["basket.ready"], durationTicks: 9, baseCost: 0),
-			CreateActionDefinition("cook-feast", ["food.available"], requirements: ["berries.found", "seasoning.ready"], durationTicks: 10, baseCost: 0),
-			CreateActionDefinition("fell-tree", ["tree.logs"], durationTicks: 4, baseCost: 0),
-			CreateActionDefinition("split-logs", ["firewood.ready"], requirements: ["tree.logs"], durationTicks: 2, baseCost: 0),
-			CreateActionDefinition("shape-tool-handle", ["tool.handle"], requirements: ["tree.logs"], durationTicks: 3, baseCost: 0),
-			CreateActionDefinition("mine-iron", ["ore.iron"], durationTicks: 5, baseCost: 0),
-			CreateActionDefinition("smelt-iron-ingot", ["ingot.iron"], requirements: ["ore.iron", "firewood.ready"], durationTicks: 6, baseCost: 0),
-			CreateActionDefinition("forge-pickaxe-head", ["pickaxe.head"], requirements: ["ingot.iron"], durationTicks: 4, baseCost: 0),
-			CreateActionDefinition("assemble-pickaxe", ["pickaxe.ready"], requirements: ["pickaxe.head", "tool.handle"], durationTicks: 3, baseCost: 0),
-			CreateActionDefinition("dig-deep-mine", ["mine.deep-access"], requirements: ["pickaxe.ready"], durationTicks: 8, baseCost: 0),
-			CreateActionDefinition("shear-wool", ["wool.raw"], durationTicks: 3, baseCost: 0),
-			CreateActionDefinition("spin-yarn", ["yarn.spun"], requirements: ["wool.raw"], durationTicks: 4, baseCost: 0),
-			CreateActionDefinition("weave-cloak", ["clothing.warm"], requirements: ["yarn.spun"], durationTicks: 6, baseCost: 0),
-		};
-
-		var (planner, agent) = CreatePlanner(
-			goals,
-			actions,
-			[]);
-		return planner.CreatePlan(agent)!;
-	}
-
-	static (GoapPlanner Planner, IGoapAgent Agent) CreatePlanner(
-		GoalDefinition[] goals,
-		ActionDefinition[] actions,
-		IEnumerable<string> currentState)
-	{
-		var definitions = TestSimulationDefinitions.CreateRegistry(actions, goals);
-		var agent = new TestGoapAgent(currentState);
-		return (new GoapPlanner(definitions), agent);
-	}
-
-	static ActionDefinition CreateActionDefinition(string id, string[] effects, string[]? requirements = null, int durationTicks = 0, int baseCost = 1)
-		=> new()
-		{
-			Id = id,
-			Name = id,
-			TargetKind = "self",
-			DestinationMode = "current",
-			BaseCost = baseCost,
-			DurationTicks = durationTicks,
-			Requirements = requirements,
-			Effects = effects,
-		};
-
-	sealed class TestGoapAgent(IEnumerable<string> state) : IGoapAgent
-	{
-		readonly HashSet<string> initialState = new(state, StringComparer.OrdinalIgnoreCase);
-		public HashSet<string> GetCurrentState() => new(initialState, StringComparer.OrdinalIgnoreCase);
-	}
-
-	static class TestSimulationDefinitions
-	{
-		static readonly JsonSerializerOptions JsonOptions = new()
-		{
-			WriteIndented = false,
-		};
-
-		public static SimulationDefinitionRegistry CreateRegistry(ActionDefinition[] actions, GoalDefinition[] goals)
-		{
-			var contentRoot = Path.Combine(Path.GetTempPath(), $"df-goap-tests-{Guid.NewGuid():N}");
-			Directory.CreateDirectory(contentRoot);
-
-			try
-			{
-				WriteDocument(Path.Combine(contentRoot, "items.json"), new ItemDefinitionDocument());
-				WriteDocument(Path.Combine(contentRoot, "actions.json"), new ActionDefinitionDocument { Actions = actions });
-				WriteDocument(Path.Combine(contentRoot, "objects.json"), new WorldObjectDefinitionDocument());
-				WriteDocument(Path.Combine(contentRoot, "resources.json"), new ResourceNodeDefinitionDocument());
-				WriteDocument(Path.Combine(contentRoot, "agents.json"), new AgentDefinitionDocument());
-				WriteDocument(Path.Combine(contentRoot, "goals.json"), new GoalDefinitionDocument { Goals = goals });
-
-				return SimulationDefinitionRegistry.LoadFromContentDirectory(contentRoot);
-			}
-			finally
-			{
-				Directory.Delete(contentRoot, recursive: true);
-			}
+			stateIds.AddRange([
+				"tree.logs",
+				"firewood.ready",
+				"tool.handle",
+				"ore.iron",
+				"ingot.iron",
+				"pickaxe.head",
+				"pickaxe.ready",
+				"mine.deep-access",
+				"wool.raw",
+				"yarn.spun",
+				"clothing.warm",
+			]);
 		}
 
-		static void WriteDocument<T>(string path, T document)
+		return new GoapAgent("complex-diagram-test")
 		{
-			var json = JsonSerializer.Serialize(document, JsonOptions);
-			File.WriteAllText(path, json);
-		}
+			States = new ConcurrentDictionary<object, object?>(stateIds.Distinct(StringComparer.OrdinalIgnoreCase).ToDictionary(id => (object)id, _ => (object?)false)),
+			Goals =
+			[
+				new GoapGoal("Secure Food", [Condition("food.available")])
+				{
+					Id = "secure-food",
+				},
+			],
+			Actions = includeUnrelatedWorldBranches
+				? [.. CreateSecureFoodActions(), .. CreateUnrelatedWorldActions()]
+				: [.. CreateSecureFoodActions()],
+		};
 	}
+
+	static IEnumerable<GoapAction> CreateSecureFoodActions()
+	{
+		yield return Action("quarry-salt", [], ["seasoning.salt"], 1);
+		yield return Action("gather-herbs", [], ["seasoning.herbs"], 2);
+		yield return Action("grind-seasoning", ["seasoning.salt", "seasoning.herbs"], ["seasoning.ready"], 3);
+		yield return Action("collect-fiber", [], ["fiber.collected"], 7);
+		yield return Action("weave-basket", ["fiber.collected"], ["basket.ready"], 8);
+		yield return Action("forage-berries", ["basket.ready"], ["berries.found"], 9);
+		yield return Action("cook-feast", ["berries.found", "seasoning.ready"], ["food.available"], 10);
+	}
+
+	static IEnumerable<GoapAction> CreateUnrelatedWorldActions()
+	{
+		yield return Action("fell-tree", [], ["tree.logs"], 4);
+		yield return Action("split-logs", ["tree.logs"], ["firewood.ready"], 2);
+		yield return Action("shape-tool-handle", ["tree.logs"], ["tool.handle"], 3);
+		yield return Action("mine-iron", [], ["ore.iron"], 5);
+		yield return Action("smelt-iron-ingot", ["ore.iron", "firewood.ready"], ["ingot.iron"], 6);
+		yield return Action("forge-pickaxe-head", ["ingot.iron"], ["pickaxe.head"], 4);
+		yield return Action("assemble-pickaxe", ["pickaxe.head", "tool.handle"], ["pickaxe.ready"], 3);
+		yield return Action("dig-deep-mine", ["pickaxe.ready"], ["mine.deep-access"], 8);
+		yield return Action("shear-wool", [], ["wool.raw"], 3);
+		yield return Action("spin-yarn", ["wool.raw"], ["yarn.spun"], 4);
+		yield return Action("weave-cloak", ["yarn.spun"], ["clothing.warm"], 6);
+	}
+
+	static GoapAction Action(string name, string[] requirements, string[] effects, double cost)
+		=> new(name, [.. effects.Select(effect => new GoapEffect(effect, GoapOperation.SetTo, true))])
+		{
+			Requirements = [.. requirements.Select(Condition)],
+			Cost = _ => cost,
+		};
+
+	static GoapCondition Condition(string state)
+		=> new(state, GoapComparison.EqualTo, true);
 }

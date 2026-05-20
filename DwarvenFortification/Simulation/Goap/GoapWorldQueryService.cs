@@ -4,7 +4,6 @@ using DwarvenFortification.ECS;
 using DwarvenFortification.ECS.Components;
 using DwarvenFortification.ECS.Runtime;
 using DwarvenFortification.GOAP;
-using DwarvenFortification.Simulation.Goap;
 using DwarvenFortification.Simulation.World;
 using Microsoft.Xna.Framework;
 using System;
@@ -194,6 +193,9 @@ namespace DwarvenFortification.GOAP
 		public bool TryFindActionTarget(Entity agent, GoapAction action, HashSet<string> state,
 			out Entity? targetEntity, out Point targetCell, out Point destinationCell, out string actionContext)
 		{
+			var actionId = action.GetId();
+			var targetKind = action.GetTargetKind();
+			var destinationMode = action.GetDestinationMode();
 			targetEntity = null;
 			targetCell = default;
 			destinationCell = default;
@@ -203,16 +205,16 @@ namespace DwarvenFortification.GOAP
 			var agentCell = world.CoordsAtXY(agent.GetPosition());
 
 			// Knowledge-bridge actions (search, retrieve, communicate, read-cookbook)
-			if (string.Equals(action.Id, "search-for-item", StringComparison.OrdinalIgnoreCase)
-				|| string.Equals(action.Id, "retrieve-known-item", StringComparison.OrdinalIgnoreCase)
-				|| string.Equals(action.Id, "communicate", StringComparison.OrdinalIgnoreCase)
-				|| string.Equals(action.Id, "read-cookbook", StringComparison.OrdinalIgnoreCase))
+			if (string.Equals(actionId, "search-for-item", StringComparison.OrdinalIgnoreCase)
+				|| string.Equals(actionId, "retrieve-known-item", StringComparison.OrdinalIgnoreCase)
+				|| string.Equals(actionId, "communicate", StringComparison.OrdinalIgnoreCase)
+				|| string.Equals(actionId, "read-cookbook", StringComparison.OrdinalIgnoreCase))
 			{
 				return TryFindKnowledgeBridgeTarget(agent, action, state, world, agentCell, out targetEntity, out targetCell, out destinationCell, out actionContext);
 			}
 
 			// Self-targeted actions
-			if (string.Equals(action.TargetKind, "self", StringComparison.OrdinalIgnoreCase))
+			if (string.Equals(targetKind, "self", StringComparison.OrdinalIgnoreCase))
 			{
 				targetCell = agentCell;
 				destinationCell = agentCell;
@@ -220,7 +222,7 @@ namespace DwarvenFortification.GOAP
 			}
 
 			// Resource node targeted actions
-			if (string.Equals(action.TargetKind, "resourceNode", StringComparison.OrdinalIgnoreCase))
+			if (string.Equals(targetKind, "resourceNode", StringComparison.OrdinalIgnoreCase))
 			{
 				foreach (var (cell, _, coords) in world.EnumerateCells())
 				{
@@ -234,12 +236,12 @@ namespace DwarvenFortification.GOAP
 						continue;
 					}
 
-					if (!rDef.SupportedActionIds.Any(id => string.Equals(id, action.Id, StringComparison.OrdinalIgnoreCase)))
+					if (!rDef.SupportedActionIds.Any(id => string.Equals(id, actionId, StringComparison.OrdinalIgnoreCase)))
 					{
 						continue;
 					}
 
-					if (!world.TryFindActionDestinationCell(agentCell, coords, action.DestinationMode, out var dest))
+					if (!world.TryFindActionDestinationCell(agentCell, coords, destinationMode, out var dest))
 					{
 						continue;
 					}
@@ -253,7 +255,7 @@ namespace DwarvenFortification.GOAP
 			}
 
 			// World object targeted actions
-			if (string.Equals(action.TargetKind, "worldObject", StringComparison.OrdinalIgnoreCase))
+			if (string.Equals(targetKind, "worldObject", StringComparison.OrdinalIgnoreCase))
 			{
 				foreach (var (cell, _, coords) in world.EnumerateCells())
 				{
@@ -262,7 +264,7 @@ namespace DwarvenFortification.GOAP
 						continue;
 					}
 
-					if (string.Equals(action.Id, "store-items", StringComparison.OrdinalIgnoreCase))
+					if (string.Equals(actionId, "store-items", StringComparison.OrdinalIgnoreCase))
 					{
 						var storable = agent.GetInventory().Any(item => !item.Get<ItemDefinitionComponent>().IsTool && worldObject.CanStore(item));
 						if (!storable)
@@ -270,7 +272,7 @@ namespace DwarvenFortification.GOAP
 							continue;
 						}
 					}
-					else if (string.Equals(action.Id, "haul-material", StringComparison.OrdinalIgnoreCase))
+					else if (string.Equals(actionId, "haul-material", StringComparison.OrdinalIgnoreCase))
 					{
 						MaterialCostComponent[] missingItems;
 						if (worldObject.IsConstructionSite())
@@ -291,7 +293,7 @@ namespace DwarvenFortification.GOAP
 							continue;
 						}
 					}
-					else if (string.Equals(action.Id, "complete-construction", StringComparison.OrdinalIgnoreCase))
+					else if (string.Equals(actionId, "complete-construction", StringComparison.OrdinalIgnoreCase))
 					{
 						if (!worldObject.IsConstructionSite())
 						{
@@ -303,7 +305,7 @@ namespace DwarvenFortification.GOAP
 							continue;
 						}
 					}
-					else if (string.Equals(action.Id, "process-recipe", StringComparison.OrdinalIgnoreCase))
+					else if (string.Equals(actionId, "process-recipe", StringComparison.OrdinalIgnoreCase))
 					{
 						var hasReady = worldObject.GetRecipes().Any(r => r.RequiredFacts.All(state.Contains) && worldObject.HasStoredMaterials(r.Inputs));
 						if (!hasReady)
@@ -311,12 +313,12 @@ namespace DwarvenFortification.GOAP
 							continue;
 						}
 					}
-					else if (string.Equals(action.Id, "sleep", StringComparison.OrdinalIgnoreCase) && !agent.IsRestLow())
+					else if (string.Equals(actionId, "sleep", StringComparison.OrdinalIgnoreCase) && !agent.IsRestLow())
 					{
 						continue;
 					}
 
-					if (!world.TryFindActionDestinationCell(agentCell, coords, action.DestinationMode, out var dest))
+					if (!world.TryFindActionDestinationCell(agentCell, coords, destinationMode, out var dest))
 					{
 						continue;
 					}
@@ -330,7 +332,7 @@ namespace DwarvenFortification.GOAP
 			}
 
 			// Enemy targeted actions
-			if (string.Equals(action.TargetKind, "enemy", StringComparison.OrdinalIgnoreCase))
+			if (string.Equals(targetKind, "enemy", StringComparison.OrdinalIgnoreCase))
 			{
 				foreach (var other in world.GetAgents())
 				{
@@ -368,10 +370,12 @@ namespace DwarvenFortification.GOAP
 			destinationCell = default;
 			actionContext = string.Empty;
 
-			var isSearch = string.Equals(action.Id, "search-for-item", StringComparison.OrdinalIgnoreCase);
-			var isRetrieve = string.Equals(action.Id, "retrieve-known-item", StringComparison.OrdinalIgnoreCase);
-			var isCommunicate = string.Equals(action.Id, "communicate", StringComparison.OrdinalIgnoreCase);
-			var isRead = string.Equals(action.Id, "read-cookbook", StringComparison.OrdinalIgnoreCase);
+			var actionId = action.GetId();
+			var destinationMode = action.GetDestinationMode();
+			var isSearch = string.Equals(actionId, "search-for-item", StringComparison.OrdinalIgnoreCase);
+			var isRetrieve = string.Equals(actionId, "retrieve-known-item", StringComparison.OrdinalIgnoreCase);
+			var isCommunicate = string.Equals(actionId, "communicate", StringComparison.OrdinalIgnoreCase);
+			var isRead = string.Equals(actionId, "read-cookbook", StringComparison.OrdinalIgnoreCase);
 
 			// Find missing items to search/retrieve
 			if (isSearch || isRetrieve)
@@ -403,7 +407,7 @@ namespace DwarvenFortification.GOAP
 							world.TryFindNearestItemLocation(itemId, agentCell, out knownCell);
 						}
 
-						if (world.TryFindActionDestinationCell(agentCell, knownCell, action.DestinationMode, out var dest))
+						if (world.TryFindActionDestinationCell(agentCell, knownCell, destinationMode, out var dest))
 						{
 							targetCell = knownCell;
 							destinationCell = dest;
@@ -413,7 +417,7 @@ namespace DwarvenFortification.GOAP
 					}
 					else if (isSearch && world.TryFindNearestItemLocation(itemId, agentCell, out var searchCell))
 					{
-						if (world.TryFindActionDestinationCell(agentCell, searchCell, action.DestinationMode, out var dest))
+						if (world.TryFindActionDestinationCell(agentCell, searchCell, destinationMode, out var dest))
 						{
 							targetCell = searchCell;
 							destinationCell = dest;
@@ -437,7 +441,7 @@ namespace DwarvenFortification.GOAP
 						if (world.CellContainsItem(entry.Value, entry.Key) && !state.Contains(Facts.KnowsItemLocation(entry.Key)))
 						{
 							var allyCell = world.CoordsAtXY(ally.GetPosition());
-							if (world.TryFindActionDestinationCell(agentCell, allyCell, action.DestinationMode, out var dest))
+							if (world.TryFindActionDestinationCell(agentCell, allyCell, destinationMode, out var dest))
 							{
 								targetEntity = ally;
 								targetCell = allyCell;
@@ -481,7 +485,7 @@ namespace DwarvenFortification.GOAP
 							continue;
 						}
 
-						if (!world.TryFindActionDestinationCell(agentCell, coords, action.DestinationMode, out var dest))
+						if (!world.TryFindActionDestinationCell(agentCell, coords, destinationMode, out var dest))
 						{
 							continue;
 						}
@@ -500,11 +504,11 @@ namespace DwarvenFortification.GOAP
 		}
 
 		string[] BuildRequirements(GoapAction action, params string[] extraStates)
-			=> [.. action.Requirements, .. extraStates];
+			=> [.. action.GetRequiredFacts(), .. extraStates];
 
 		static IEnumerable<string> GetRequiredItemIds(GoapAction action)
 		{
-			foreach (var fact in action.Requirements)
+			foreach (var fact in action.GetRequiredFacts())
 			{
 				if (Facts.TryGetHasItemId(fact, out var itemId))
 				{
@@ -515,7 +519,7 @@ namespace DwarvenFortification.GOAP
 
 		static IEnumerable<string> GetRequiredItemTags(GoapAction action)
 		{
-			foreach (var fact in action.Requirements)
+			foreach (var fact in action.GetRequiredFacts())
 			{
 				if (Facts.TryGetHasItemTag(fact, out var tag))
 				{
@@ -526,7 +530,7 @@ namespace DwarvenFortification.GOAP
 
 		static IEnumerable<Entity> GetRequiredItemsByTag(GoapAction action, System.Collections.Generic.IList<Entity> inventory)
 		{
-			foreach (var fact in action.Requirements)
+			foreach (var fact in action.GetRequiredFacts())
 			{
 				if (Facts.TryGetHasItemFilter(fact, out var tags))
 				{
