@@ -64,15 +64,22 @@ namespace DwarvenFortification.GOAP
 			DesiredFacts = [.. (desiredFacts ?? []).Where(fact => !string.IsNullOrWhiteSpace(fact))];
 			RequiredFacts = [.. (requiredFacts ?? []).Where(fact => !string.IsNullOrWhiteSpace(fact))];
 			Priority = _ => PriorityValue;
-			IsValidOverride = agent => RequiredFacts.All(fact => GoapFactState.IsSatisfied(agent.States, fact));
 		}
 
 		public int PriorityValue { get; }
 		public string[] DesiredFacts { get; }
 		public string[] RequiredFacts { get; }
 
-		static List<GoapCondition> BuildObjectives(IEnumerable<string> facts)
-			=> [.. (facts ?? []).Where(fact => !string.IsNullOrWhiteSpace(fact)).Select(GoapFactState.ToCondition)];
+		static GoapWorldState BuildObjectives(IEnumerable<string> facts)
+		{
+			var state = new Dictionary<string, GoapValue>(StringComparer.OrdinalIgnoreCase);
+			foreach (var fact in (facts ?? []).Where(fact => !string.IsNullOrWhiteSpace(fact)))
+			{
+				state[GoapFactState.Normalize(fact)] = !fact.StartsWith('!');
+			}
+
+			return state;
+		}
 	}
 
 	public static class GoapFactState
@@ -86,11 +93,11 @@ namespace DwarvenFortification.GOAP
 			return new GoapCondition(Normalize(fact), isNegated ? GoapComparison.NotEqualTo : GoapComparison.EqualTo, true);
 		}
 
-		public static bool IsSatisfied(IDictionary<object, object?> states, string fact)
+		public static bool IsSatisfied(GoapWorldState states, string fact)
 		{
 			var state = Normalize(fact);
 			var value = states.GetValueOrDefault(state);
-			var isTrue = value is bool boolValue && boolValue;
+			var isTrue = value is GoapConstantValue { Value: bool boolValue } && boolValue;
 			return fact.StartsWith('!') ? !isTrue : isTrue;
 		}
 
@@ -135,9 +142,9 @@ namespace DwarvenFortification.GOAP
 				Actions = [.. definitions.GetActionDefinitions().Cast<GoapAction>()],
 			};
 
-		static ConcurrentDictionary<object, object?> BuildStateDictionary(SimulationDefinitionRegistry definitions, IEnumerable<string> currentFacts)
+		static GoapWorldState BuildStateDictionary(SimulationDefinitionRegistry definitions, IEnumerable<string> currentFacts)
 		{
-			var states = new ConcurrentDictionary<object, object?>();
+			var states = new Dictionary<string, GoapValue>(StringComparer.OrdinalIgnoreCase);
 			foreach (var key in EnumerateKnownStateKeys(definitions))
 			{
 				states[key] = false;

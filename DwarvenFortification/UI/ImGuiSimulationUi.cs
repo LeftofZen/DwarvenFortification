@@ -384,39 +384,28 @@ namespace DwarvenFortification.UI
 
 			foreach (var goal in Goals(goapAgent))
 			{
-				var status = goal.IsReached
-					? "Satisfied"
-					: goal.Plan != null
-						? "Candidate"
-						: goal.IsValid
-							? "Eligible"
-							: "Blocked";
-				var statusColor = GetGoalStatusColor(goal);
-				var hasCandidatePlan = goal.Plan != null;
-				ImGui.PushID($"goal-{goal.Goal.Id}");
+				var isReached = goal.IsGoalAchieved(goapAgent.States);
+				var status = isReached ? "Satisfied" : "Eligible";
+				var statusColor = GetGoalStatusColor(goal, goapAgent);
+				var priority = goal.Priority(goapAgent);
+				ImGui.PushID($"goal-{goal.Id}");
 				ImGui.PushStyleColor(ImGuiCol.Text, statusColor);
-				if (ImGui.TreeNodeEx($"[{goal.Priority:0.##}] {goal.Goal.Name} [{status}]##goal", hasCandidatePlan ? ImGuiTreeNodeFlags.DefaultOpen : ImGuiTreeNodeFlags.None))
+				if (ImGui.TreeNodeEx($"[{priority:0.##}] {goal.Name} [{status}]##goal", ImGuiTreeNodeFlags.None))
 				{
 					ImGui.PopStyleColor();
-					ImGui.TextUnformatted($"Id: {goal.Goal.Id}");
-					ImGui.TextUnformatted($"Priority: {goal.Priority:0.##}");
+					ImGui.TextUnformatted($"Id: {goal.Id}");
+					ImGui.TextUnformatted($"Priority: {priority:0.##}");
 
-					ImGui.TextWrapped($"Desired facts: {FormatList(goal.Goal.DesiredFacts)}");
-
-					if (goal.MissingRequiredFacts.Count > 0)
+					if (goal is SimulationGoapGoal simulationGoal)
 					{
-						ImGui.TextWrapped($"Missing required facts: {FormatList(goal.MissingRequiredFacts)}");
-					}
+						ImGui.TextWrapped($"Desired facts: {FormatList(simulationGoal.DesiredFacts)}");
 
-					if (goal.Plan != null)
-					{
-						ImGui.TextUnformatted($"Candidate plan cost: {CalculatePlanCost(goal.Plan):0.##}");
-
-						ImGui.TextUnformatted("Flattened execution order:");
-						for (var i = 0; i < goal.Plan.Actions.Count; ++i)
+						var missingRequiredFacts = simulationGoal.RequiredFacts
+							.Where(fact => !GoapFactState.IsSatisfied(goapAgent.States, fact))
+							.ToList();
+						if (missingRequiredFacts.Count > 0)
 						{
-							var step = goal.Plan.Actions[i];
-							ImGui.BulletText($"{i + 1}. {step.Name} (cost {step.Cost(goal.Plan.Agent):0.##})");
+							ImGui.TextWrapped($"Missing required facts: {FormatList(missingRequiredFacts)}");
 						}
 					}
 
@@ -1742,24 +1731,22 @@ namespace DwarvenFortification.UI
 		static string FormatInventoryItemLabel(Entity item)
 			=> $"{item.GetName()} [{item.GetItemDefinitionId()}]";
 
-		static NumericsVector4 GetGoalStatusColor(GoapGoal goal)
-			=> goal.IsGoalAchieved()
+		static NumericsVector4 GetGoalStatusColor(GoapGoal goal, GoapAgent agent)
+			=> goal.IsGoalAchieved(agent.States)
 				? ColorOk
-				: goal.Plan != null
-					? ColorPlanned
-					: goal.IsValid
-						? ColorDeferred
-						: ColorBlocked;
+				: goal is SimulationGoapGoal simulationGoal && simulationGoal.RequiredFacts.All(fact => GoapFactState.IsSatisfied(agent.States, fact))
+					? ColorDeferred
+					: ColorBlocked;
 
-		static IReadOnlyList<string> Goals(GoapAgent goapAgent)
-			=> [.. goapAgent.CurrentGoals().Select(x => x.ToString())];
+		static IReadOnlyList<GoapGoal> Goals(GoapAgent goapAgent)
+			=> [.. goapAgent.CurrentGoals()];
 
 		static HashSet<string> GetCurrentFacts(GoapAgent goapAgent)
 			=> goapAgent == null
 				? new HashSet<string>(StringComparer.OrdinalIgnoreCase)
 				: new HashSet<string>(goapAgent.States
-					.Where(pair => pair.Value is bool value && value)
-					.Select(pair => pair.Key.ToString())
+					.Where(pair => pair.Value is GoapConstantValue { Value: bool value } && value)
+					.Select(pair => pair.Key)
 					.Where(fact => !string.IsNullOrWhiteSpace(fact)), StringComparer.OrdinalIgnoreCase);
 
 		static double CalculatePlanCost(GoapPlan plan)

@@ -86,8 +86,8 @@ namespace DwarvenFortification.GOAP
 			return true;
 		}
 
-		static System.Collections.Generic.HashSet<string> ToFactSet(System.Collections.Generic.IDictionary<object, object?> states)
-			=> [.. states.Where(pair => pair.Value is bool value && value).Select(pair => pair.Key.ToString())];
+		static System.Collections.Generic.HashSet<string> ToFactSet(GoapWorldState states)
+			=> [.. states.Where(pair => pair.Value is GoapConstantValue { Value: bool value } && value).Select(pair => pair.Key)];
 
 		void Enqueue(Entity agent, GoapAction step, Entity? targetEntity, Point targetCell, Point destinationCell, string actionContext, ISimulationWorld world, AgentActionMetadata metadata)
 		{

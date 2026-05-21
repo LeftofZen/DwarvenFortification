@@ -16,7 +16,6 @@ namespace DwarvenFortification.ECS.Runtime.Agents
 		readonly IGoapPlanExecutor planExecutor;
 		readonly IActionRuntimeContext runtimeContext;
 		readonly IGoapWorldQueryService queryService;
-		readonly GoapPlanSettings planSettings = new() { MaxActions = 12, MaxIterations = 2048 };
 
 		public GoapAgentPlanningService(SimulationDefinitionRegistry definitions, IGoapPlanExecutor planExecutor, IActionRuntimeContext runtimeContext, IGoapWorldQueryService queryService)
 		{
@@ -30,7 +29,9 @@ namespace DwarvenFortification.ECS.Runtime.Agents
 		{
 			var currentState = queryService.BuildCurrentState(agent);
 			var goapAgent = SimulationGoapAgentFactory.CreateAgent(definitions, agent.GetName(), currentState);
-			var plan = goapAgent.FindPlan(planSettings);
+			var plan = goapAgent.CurrentGoals()
+				.Select(goal => GoapPlan.Find(goapAgent, goal))
+				.FirstOrDefault(candidate => candidate != null);
 			if (plan == null)
 			{
 				agent.EnqueueAction(new TimedAction(runtimeContext, agent, "idle", IdleDurationTicks));
