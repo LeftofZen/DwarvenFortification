@@ -891,7 +891,7 @@ namespace DwarvenFortification.Simulation.World
 			}
 
 			var goapAgent = PlanningAgentProvider(agent);
-			return goapAgent?.FindPlan()?.Goal.Name ?? string.Empty;
+			return goapAgent?.CurrentGoals().FirstOrDefault()?.Name ?? string.Empty;
 
 		}
 	}

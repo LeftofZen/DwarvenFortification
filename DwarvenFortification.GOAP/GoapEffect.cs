@@ -1,24 +1,27 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿namespace DwarvenFortification.GOAP;
 
-namespace DwarvenFortification.GOAP;
+//public class GoapState
+//{
+//	public string Id { get; set; }
+//	public GoapValue Value { get; set; }
+//}
 
 public class GoapEffect()
 {
+	public string StateId { get; set; }
 
-	public required object State { get; set; }
+	public GoapOperation Operation { get; set; }
 
-	public required GoapOperation Operation { get; set; }
+	public GoapValue Operand { get; set; }
 
-	public required GoapValue Value { get; set; }
-
-	[SetsRequiredMembers]
-	public GoapEffect(object State, GoapOperation Operation, GoapValue Value) : this()
+	public GoapEffect(string StateId, GoapOperation Operation, GoapValue Operand) : this()
 	{
-		this.State = State;
+		this.StateId = StateId;
 		this.Operation = Operation;
-		this.Value = Value;
+		this.Operand = Operand;
 	}
 
-	public object? PredictState(IDictionary<object, object?> States)
-		=> Operation.Operate(States[State], Value.Evaluate(States));
+	// applies Value to State using Operation
+	public bool Operate(GoapWorldState States)
+		=> Operation.Operate(States.GetValueOrDefault(StateId), Operand);
 }

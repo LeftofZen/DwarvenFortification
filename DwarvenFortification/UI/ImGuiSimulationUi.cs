@@ -382,7 +382,7 @@ namespace DwarvenFortification.UI
 				return;
 			}
 
-			foreach (var goal in BuildGoalInspections(goapAgent))
+			foreach (var goal in Goals(goapAgent))
 			{
 				var status = goal.IsReached
 					? "Satisfied"
@@ -1400,33 +1400,6 @@ namespace DwarvenFortification.UI
 				ImGui.TreePop();
 			}
 
-			var candidatePlans = BuildGoalInspections(goapAgent)
-				.Select(goal => goal.Plan)
-				.Where(plan => plan != null)
-				.ToList();
-
-			if (candidatePlans.Count == 0)
-			{
-				ImGui.TextColored(ColorBlocked, "No candidate plans built.");
-			}
-			else
-			{
-				ImGui.TextColored(ColorPlanned, $"Candidate plans: {candidatePlans.Count}");
-				if (ImGui.TreeNode("Candidate plans"))
-				{
-					for (var i = 0; i < candidatePlans.Count; ++i)
-					{
-						var candidatePlan = candidatePlans[i];
-						if (ImGui.TreeNode($"{i + 1}. {candidatePlan.Goal.Name} (cost {CalculatePlanCost(candidatePlan):0.##})"))
-						{
-							DrawPlanActions(candidatePlan);
-							ImGui.TreePop();
-						}
-					}
-					ImGui.TreePop();
-				}
-			}
-
 			var allActions = goapAgent.Actions.OfType<SimulationGoapAction>().ToList();
 			var availableActions = allActions.Where(a => GetMissingRequirements(a, plannerFacts).Count == 0).ToList();
 			var unavailableActions = allActions.Where(a => GetMissingRequirements(a, plannerFacts).Count > 0).ToList();
@@ -1769,8 +1742,8 @@ namespace DwarvenFortification.UI
 		static string FormatInventoryItemLabel(Entity item)
 			=> $"{item.GetName()} [{item.GetItemDefinitionId()}]";
 
-		static NumericsVector4 GetGoalStatusColor(GoalInspection goal)
-			=> goal.IsReached
+		static NumericsVector4 GetGoalStatusColor(GoapGoal goal)
+			=> goal.IsGoalAchieved()
 				? ColorOk
 				: goal.Plan != null
 					? ColorPlanned
@@ -1778,19 +1751,8 @@ namespace DwarvenFortification.UI
 						? ColorDeferred
 						: ColorBlocked;
 
-		static IReadOnlyList<GoalInspection> BuildGoalInspections(GoapAgent goapAgent)
-			=> [.. goapAgent.Goals
-				.OfType<SimulationGoapGoal>()
-				.Select(goal =>
-				{
-					var priority = goal.Priority(goapAgent);
-					var isValid = goapAgent.IsGoalValid(goal, goapAgent.States);
-					var isReached = goal.IsReached(goapAgent.States);
-					var plan = isValid && !isReached ? goapAgent.FindPlan(goal) : null;
-					var missingFacts = goal.RequiredFacts.Where(fact => !GoapFactState.IsSatisfied(goapAgent.States, fact)).ToArray();
-					return new GoalInspection(goal, priority, isValid, isReached, missingFacts, plan);
-				})
-				.OrderByDescending(goal => goal.Priority)];
+		static IReadOnlyList<string> Goals(GoapAgent goapAgent)
+			=> [.. goapAgent.CurrentGoals().Select(x => x.ToString())];
 
 		static HashSet<string> GetCurrentFacts(GoapAgent goapAgent)
 			=> goapAgent == null
@@ -1842,7 +1804,6 @@ namespace DwarvenFortification.UI
 		readonly record struct GraphBounds(NumericsVector2 Min, NumericsVector2 Max);
 		readonly record struct ActionGraphNode(string Id, GraphBounds Bounds, string Title, string Subtitle, string Detail, uint FillColor, uint BorderColor, uint TextColor, uint SubtitleColor, uint DetailColor, float ProgressRatio = 0f, uint ProgressBarColor = 0u);
 		readonly record struct ActionGraphEdge(NumericsVector2 From, NumericsVector2 To, uint Color, string Label);
-		readonly record struct GoalInspection(SimulationGoapGoal Goal, double Priority, bool IsValid, bool IsReached, IReadOnlyList<string> MissingRequiredFacts, GoapPlan Plan);
 
 		IEnumerable<string> ReflectObject(object obj)
 		{

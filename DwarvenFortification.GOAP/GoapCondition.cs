@@ -1,63 +1,20 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿namespace DwarvenFortification.GOAP;
 
-namespace DwarvenFortification.GOAP;
-
-/// <summary>
-/// A condition for a state's value.
-/// </summary>
 public class GoapCondition()
 {
-	/// <summary>
-	/// The state to compare.
-	/// </summary>
-	public required object State { get; set; }
-	/// <summary>
-	/// How to compare the state value and value.
-	/// </summary>
-	public required GoapComparison Comparison { get; set; }
-	/// <summary>
-	/// The value to compare the state with.
-	/// </summary>
-	public required GoapValue Value { get; set; }
-	/// <summary>
-	/// If true, plans that get the agent closer to the condition will be considered, even if they won't reach it. The values must be numbers.<br/>
-	/// Default: false
-	/// </summary>
-	public bool BestEffort { get; set; } = false;
-	/// <summary>
-	/// A function that returns a lower number when the value is closer to the target.<br/>
-	/// By default, uses 0 if met and 2 if not met.
-	/// </summary>
-	public DistanceFunction? EstimateDistance { get; set; } = null;
+	public string StateId { get; set; }
 
-	/// <summary>
-	/// Constructs a <see cref="GoapCondition"/> in-line.
-	/// </summary>
-	[SetsRequiredMembers]
-	public GoapCondition(object State, GoapComparison Comparison, GoapValue Value) : this()
+	public GoapComparison Comparison { get; set; }
+
+	public GoapValue Operand { get; set; }
+
+	public GoapCondition(string StateId, GoapComparison Comparison, GoapValue Operand) : this()
 	{
-		this.State = State;
+		this.StateId = StateId;
 		this.Comparison = Comparison;
-		this.Value = Value;
+		this.Operand = Operand;
 	}
-	/// <summary>
-	/// Returns true if the condition is met with the given states.
-	/// </summary>
-	public bool IsMet(IDictionary<object, object?> States) => Comparison.IsMet(States.GetValueOrDefault(State), Value.Evaluate(States));
-	/// <summary>
-	/// Returns true if the condition is met with the given states, or closer to being met than with the previous states.
-	/// </summary>
-	public bool IsMetOrCloser(IDictionary<object, object?> States, IDictionary<object, object?> PreviousStates)
-	{
-		if (!BestEffort)
-		{
-			return IsMet(States);
-		}
-		return Comparison.IsMetOrCloser(Value.Evaluate(States), States.GetValueOrDefault(State), PreviousStates.GetValueOrDefault(State));
-	}
-}
 
-/// <summary>
-/// A function that returns the distance between the value and the target.
-/// </summary>
-public delegate double DistanceFunction(dynamic? Value, dynamic? TargetValue);
+	public bool Evaluate(GoapWorldState States)
+		=> Comparison.IsMet(States.GetValueOrDefault(StateId), Operand);
+}

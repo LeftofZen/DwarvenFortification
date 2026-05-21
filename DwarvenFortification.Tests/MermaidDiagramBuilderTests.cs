@@ -222,7 +222,7 @@ public sealed class MermaidDiagramBuilderTests
 	static GoapAction Action(string name, string[] requirements, string[] effects, double cost)
 		=> new(name, [.. effects.Select(effect => new GoapEffect(effect, GoapOperation.SetTo, true))])
 		{
-			Requirements = [.. requirements.Select(Condition)],
+			Conditions = [.. requirements.Select(Condition)],
 			Cost = _ => cost,
 		};
 

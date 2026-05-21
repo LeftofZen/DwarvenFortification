@@ -16,7 +16,7 @@ public static class GoapExtensions
 		};
 	}
 
-	public static bool IsMetOrCloser(this GoapComparison Comparison, dynamic? Target, dynamic? Value, dynamic? PreviousValue)
+	public static bool EvaluateOrCloser(this GoapComparison Comparison, dynamic? Target, dynamic? Value, dynamic? PreviousValue)
 	{
 		return Comparison switch
 		{

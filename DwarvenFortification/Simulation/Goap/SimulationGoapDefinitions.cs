@@ -33,7 +33,7 @@ namespace DwarvenFortification.GOAP
 			RequiredFacts = [.. (requiredFacts ?? []).Where(fact => !string.IsNullOrWhiteSpace(fact))];
 			EffectFacts = [.. (effectFacts ?? []).Where(fact => !string.IsNullOrWhiteSpace(fact))];
 			Skills = [.. (skills ?? []).Where(skill => !string.IsNullOrWhiteSpace(skill))];
-			Requirements = BuildRequirements(RequiredFacts);
+			Conditions = BuildRequirements(RequiredFacts);
 			Cost = _ => BaseCost;
 		}
 
