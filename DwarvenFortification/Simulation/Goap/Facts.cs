@@ -38,6 +38,25 @@ namespace DwarvenFortification.GOAP
 		public const string AreaPatrolled = "area.patrolled";
 		public const string EnemySuppressed = "enemy.suppressed";
 
+		// --- Numeric state keys (registered with GoapStateBounds on the agent). ---
+		// All vitals are normalized to a 0..100 percentage of capacity.
+		public const string VitalRest = "vital.rest";
+		public const string VitalHunger = "vital.hunger";          // Higher = more energetic / less hungry.
+		public const string VitalThirst = "vital.thirst";          // Higher = better hydrated / less thirsty.
+		public const string VitalCarbohydrates = "vital.carbohydrates";
+		public const string VitalProtein = "vital.protein";
+		public const string VitalFat = "vital.fat";
+		public const string VitalSugar = "vital.sugar";
+		public const string VitalHydration = "vital.hydration";
+
+		// Inventory scalars.
+		public const string InventoryCount = "inventory.count";
+		public const string InventoryCapacity = "inventory.capacity";
+		public const string InventoryFree = "inventory.free";
+
+		// Perception / patrol cooldowns (ticks remaining; decay externally).
+		public const string PerceptionScanTicks = "perception.scan-ticks";
+
 		public static string HasItem(string itemId)
 			=> $"{HasItemPrefix}{itemId}";
 

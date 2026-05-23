@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using DwarvenFortification.GOAP;
 
 namespace DwarvenFortification.ECS.Authoring
 {
@@ -55,6 +56,13 @@ namespace DwarvenFortification.ECS.Authoring
 		public int OutputQuantity { get; init; } = 1;
 	}
 
+	public sealed class ActionEffectsDefinition
+	{
+		public GoapExpressionDocument Success { get; init; }
+		public GoapExpressionDocument Interrupted { get; init; }
+		public GoapExpressionDocument Failed { get; init; }
+	}
+
 	public sealed class ActionDefinition
 	{
 		public string Id { get; init; } = string.Empty;
@@ -64,8 +72,9 @@ namespace DwarvenFortification.ECS.Authoring
 		public string TargetKind { get; init; } = string.Empty;
 		public string DestinationMode { get; init; } = string.Empty;
 		public string[] Skills { get; init; } = [];
-		public string[] Requirements { get; init; } = [];
-		public string[] Effects { get; init; } = [];
+		public GoapExpressionDocument[] Requirements { get; init; } = [];
+		public ActionEffectsDefinition Effects { get; init; } = new();
+		public string[] Children { get; init; } = [];
 		public ActionOutputDefinition[] Outputs { get; init; } = [];
 	}
 
@@ -160,8 +169,8 @@ namespace DwarvenFortification.ECS.Authoring
 		public string Id { get; init; } = string.Empty;
 		public string Name { get; init; } = string.Empty;
 		public int Priority { get; init; }
-		public string[] Effects { get; init; } = [];
-		public string[] Requirements { get; init; } = [];
+		public GoapExpressionDocument[] Effects { get; init; } = [];
+		public GoapExpressionDocument[] Requirements { get; init; } = [];
 	}
 
 	public sealed class GoalDefinitionDocument
@@ -175,6 +184,16 @@ namespace DwarvenFortification.ECS.Authoring
 		public string Description { get; init; } = string.Empty;
 		public string Category { get; init; } = string.Empty;
 		public bool IsDynamic { get; init; }
+
+		/// <summary>
+		/// "boolean" (default) or "numeric". Numeric facts are registered with <see cref="GoapStateBounds"/>
+		/// on the agent so the planner clamps simulated state writes to the declared range.
+		/// </summary>
+		public string Kind { get; init; } = "boolean";
+
+		public double? Min { get; init; }
+
+		public double? Max { get; init; }
 	}
 
 	public sealed class FactDefinitionDocument

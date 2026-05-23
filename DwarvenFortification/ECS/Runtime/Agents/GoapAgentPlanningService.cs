@@ -28,7 +28,8 @@ namespace DwarvenFortification.ECS.Runtime.Agents
 		public bool TryEnqueuePlan(AgentRuntimeContext context, Entity agent)
 		{
 			var currentState = queryService.BuildCurrentState(agent);
-			var goapAgent = SimulationGoapAgentFactory.CreateAgent(definitions, agent.GetName(), currentState);
+			var numericState = queryService.BuildNumericState(agent);
+			var goapAgent = SimulationGoapAgentFactory.CreateAgent(definitions, agent.GetName(), currentState, numericState);
 			var plan = goapAgent.CurrentGoals()
 				.Select(goal => GoapPlan.Find(goapAgent, goal))
 				.FirstOrDefault(candidate => candidate != null);
@@ -38,7 +39,7 @@ namespace DwarvenFortification.ECS.Runtime.Agents
 				return false;
 			}
 
-			context.Logger.Log(LogLevel.Info, $"{agent.GetName()} enqueuing plan for goal '{plan.Goal.Id}' with {plan.Actions.Count} steps: [{string.Join(" -> ", plan.Actions.Select(s => s.GetId()))}]");
+			context.Logger.Log(LogLevel.Info, $"{agent.GetName()} enqueuing plan for goal '{plan.Goal.Id}' with {plan.Actions.Count} steps: [{string.Join(" -> ", plan.Actions.Cast<SimulationGoapAction>().Select(s => s.Id))}]");
 
 			if (planExecutor.Enqueue(agent, plan))
 			{

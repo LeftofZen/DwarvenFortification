@@ -75,6 +75,16 @@ namespace DwarvenFortification.Actions
 				Status = AgentActionStatus.Running;
 			}
 
+			// Generic precondition recheck: if the action is no longer valid in the current world,
+			// interrupt it. Cancelled maps to GoapActionResult.Interrupted (resumable) at the GOAP layer.
+			if (!IsStillValid(runtimeContext.World))
+			{
+				Status = AgentActionStatus.Cancelled;
+				FailureReason = "Action preconditions no longer satisfied.";
+				runtimeContext.Logger.Log(Logging.LogLevel.Debug, $"action interrupted: {this}; reason={FailureReason}");
+				return Status;
+			}
+
 			Status = OnTick();
 
 			runtimeContext.Logger.Log(Logging.LogLevel.Debug, $"{this}");

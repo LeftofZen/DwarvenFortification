@@ -70,7 +70,8 @@ namespace DwarvenFortification
 			var inspectorWorldQueryService = new GoapWorldQueryService(definitions, () => world);
 			simulationUi.PlanningAgentProvider = entity => {
 				var state = inspectorWorldQueryService.BuildCurrentState(entity);
-				return SimulationGoapAgentFactory.CreateAgent(definitions, entity.GetName(), state);
+				var numericState = inspectorWorldQueryService.BuildNumericState(entity);
+				return SimulationGoapAgentFactory.CreateAgent(definitions, entity.GetName(), state, numericState);
 			};
 
 			var renderAssets = new SimulationRenderAssets(
@@ -86,7 +87,8 @@ namespace DwarvenFortification
 			_camera.Position = world.WorldCenter;
 			world.PlanningAgentProvider = entity => {
 				var state = inspectorWorldQueryService.BuildCurrentState(entity);
-				return SimulationGoapAgentFactory.CreateAgent(definitions, entity.GetName(), state);
+				var numericState = inspectorWorldQueryService.BuildNumericState(entity);
+				return SimulationGoapAgentFactory.CreateAgent(definitions, entity.GetName(), state, numericState);
 			};
 			GameServices.GridWorld = world;
 

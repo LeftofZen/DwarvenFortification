@@ -10,7 +10,7 @@
       "destinationMode": "adjacent",
       "outputs": [],
       "requirements": ["tool.mining.equipped"],
-      "effects": ["inventory.has-resource-items"]
+      "effects": { "success": "inventory.has-resource-items" }
     },
     {
       "id": "cut-tree",
@@ -22,7 +22,7 @@
       "destinationMode": "adjacent",
       "outputs": [],
       "requirements": ["tool.woodcutting.equipped"],
-      "effects": ["inventory.has-resource-items"]
+      "effects": { "success": "inventory.has-resource-items" }
     },
     {
       "id": "store-items",
@@ -33,8 +33,11 @@
       "targetKind": "worldObject",
       "destinationMode": "adjacent",
       "outputs": [],
-      "requirements": ["capability.physical-labor"],
-      "effects": []
+      "requirements": [
+        "inventory.has-resource-items",
+        "capability.physical-labor"
+      ],
+      "effects": { "success": "!inventory.has-resource-items" }
     },
     {
       "id": "sleep",
@@ -48,9 +51,10 @@
       "requirements": [
         "capability.locomotion",
         "body.organs.brain",
-        "body.organs.lungs"
+        "body.organs.lungs",
+        "has.structure.bed"
       ],
-      "effects": ["rest.ok"]
+      "effects": { "success": { "state": "vital.rest", "op": "+=", "value": 60 } }
     },
     {
       "id": "complete-construction",
@@ -62,7 +66,7 @@
       "destinationMode": "adjacent",
       "outputs": [],
       "requirements": ["construction.pending", "capability.manual-work"],
-      "effects": []
+      "effects": { "success": "!construction.pending" }
     },
     {
       "id": "process-recipe",
@@ -73,8 +77,12 @@
       "targetKind": "worldObject",
       "destinationMode": "adjacent",
       "outputs": [],
-      "requirements": ["capability.manual-work"],
-      "effects": []
+      "requirements": [
+        "production.order.active",
+        "capability.manual-work",
+        "memory.recipe-known"
+      ],
+      "effects": { "success": "!production.order.active" }
     },
     {
       "id": "eat",
@@ -86,11 +94,11 @@
       "destinationMode": "current",
       "outputs": [],
       "requirements": [
-        "hunger.low",
+        { "state": "vital.hunger", "op": "<=", "value": 70 },
         "has.item-tag.food",
         "capability.consumption"
       ],
-      "effects": ["hunger.ok"]
+      "effects": { "success": { "state": "vital.hunger", "op": "+=", "value": 50 } }
     },
     {
       "id": "drink",
@@ -102,11 +110,11 @@
       "destinationMode": "current",
       "outputs": [],
       "requirements": [
-        "thirst.low",
+        { "state": "vital.thirst", "op": "<=", "value": 70 },
         "has.item-tag.drink",
         "capability.consumption"
       ],
-      "effects": ["thirst.ok"]
+      "effects": { "success": { "state": "vital.thirst", "op": "+=", "value": 50 } }
     },
     {
       "id": "scan-area",
@@ -118,7 +126,7 @@
       "destinationMode": "current",
       "outputs": [],
       "requirements": ["capability.perception"],
-      "effects": ["area.scanned"]
+      "effects": { "success": "area.scanned" }
     },
     {
       "id": "hide",
@@ -130,7 +138,7 @@
       "destinationMode": "current",
       "outputs": [],
       "requirements": ["enemy.visible", "capability.locomotion"],
-      "effects": ["self.hidden"]
+      "effects": { "success": "self.hidden" }
     },
     {
       "id": "patrol-area",
@@ -142,7 +150,7 @@
       "destinationMode": "current",
       "outputs": [],
       "requirements": ["capability.locomotion"],
-      "effects": ["area.patrolled", "area.scanned"]
+      "effects": { "success": "area.patrolled" }
     },
     {
       "id": "throw-item",
@@ -158,7 +166,7 @@
         "tool.throwable.equipped",
         "capability.perception"
       ],
-      "effects": ["enemy.suppressed"]
+      "effects": { "success": "enemy.suppressed" }
     },
     {
       "id": "search-for-item",
@@ -170,7 +178,7 @@
       "destinationMode": "current",
       "outputs": [],
       "requirements": ["memory.capable"],
-      "effects": []
+      "effects": { "success": "memory.item-searched" }
     },
     {
       "id": "retrieve-known-item",
@@ -181,8 +189,8 @@
       "targetKind": "self",
       "destinationMode": "current",
       "outputs": [],
-      "requirements": ["memory.capable"],
-      "effects": []
+      "requirements": ["memory.capable", "memory.item-searched"],
+      "effects": { "success": "inventory.has-known-item" }
     },
     {
       "id": "communicate",
@@ -194,7 +202,7 @@
       "destinationMode": "adjacent",
       "outputs": [],
       "requirements": ["memory.capable"],
-      "effects": []
+      "effects": { "success": "memory.communicated" }
     },
     {
       "id": "read-cookbook",
@@ -206,7 +214,7 @@
       "destinationMode": "current",
       "outputs": [],
       "requirements": ["memory.capable"],
-      "effects": []
+      "effects": { "success": "memory.recipe-known" }
     },
     {
       "id": "haul-material",
@@ -217,8 +225,8 @@
       "targetKind": "worldObject",
       "destinationMode": "adjacent",
       "outputs": [],
-      "requirements": ["capability.physical-labor"],
-      "effects": []
+      "requirements": ["site.needs-materials", "capability.physical-labor"],
+      "effects": { "success": "!site.needs-materials" }
     },
     {
       "id": "equip-mining-tool",
@@ -234,7 +242,7 @@
         "body.limbs.hands",
         "body.systems.musculoskeletal"
       ],
-      "effects": ["tool.mining.equipped"]
+      "effects": { "success": "tool.mining.equipped" }
     },
     {
       "id": "equip-woodcutting-tool",
@@ -250,7 +258,7 @@
         "body.limbs.hands",
         "body.systems.musculoskeletal"
       ],
-      "effects": ["tool.woodcutting.equipped"]
+      "effects": { "success": "tool.woodcutting.equipped" }
     },
     {
       "id": "equip-throwable",
@@ -267,7 +275,7 @@
         "body.limbs.arms",
         "body.systems.musculoskeletal"
       ],
-      "effects": ["tool.throwable.equipped"]
+      "effects": { "success": "tool.throwable.equipped" }
     },
     {
       "id": "ready-physical-labor",
@@ -279,7 +287,7 @@
       "destinationMode": "current",
       "outputs": [],
       "requirements": ["body.limbs.hands", "body.systems.musculoskeletal"],
-      "effects": ["capability.physical-labor"]
+      "effects": { "success": "capability.physical-labor" }
     },
     {
       "id": "ready-manual-work",
@@ -296,7 +304,7 @@
         "body.systems.musculoskeletal",
         "body.systems.nervous"
       ],
-      "effects": ["capability.manual-work"]
+      "effects": { "success": "capability.manual-work" }
     },
     {
       "id": "mobilize",
@@ -312,7 +320,7 @@
         "body.limbs.feet",
         "body.systems.musculoskeletal"
       ],
-      "effects": ["capability.locomotion"]
+      "effects": { "success": "capability.locomotion" }
     },
     {
       "id": "focus-senses",
@@ -324,7 +332,7 @@
       "destinationMode": "current",
       "outputs": [],
       "requirements": ["body.organs.brain", "body.systems.nervous"],
-      "effects": ["capability.perception"]
+      "effects": { "success": "capability.perception" }
     },
     {
       "id": "ready-consumption",
@@ -341,7 +349,56 @@
         "body.organs.stomach",
         "body.systems.digestion"
       ],
-      "effects": ["capability.consumption"]
+      "effects": { "success": "capability.consumption" }
+    },
+    {
+      "id": "find-food",
+      "name": "Find Food",
+      "baseCost": 6,
+      "durationTicks": 1,
+      "skills": ["perception", "analysis"],
+      "targetKind": "self",
+      "destinationMode": "adjacent",
+      "outputs": [],
+      "requirements": [
+        "memory.capable",
+        "capability.locomotion",
+        "inventory.has-space"
+      ],
+      "effects": { "success": "has.item-tag.food" }
+    },
+    {
+      "id": "find-drink",
+      "name": "Find Drink",
+      "baseCost": 6,
+      "durationTicks": 1,
+      "skills": ["perception", "analysis"],
+      "targetKind": "self",
+      "destinationMode": "adjacent",
+      "outputs": [],
+      "requirements": [
+        "memory.capable",
+        "capability.locomotion",
+        "inventory.has-space"
+      ],
+      "effects": { "success": "has.item-tag.drink" }
+    },
+    {
+      "id": "cook-meal",
+      "name": "Cook Meal",
+      "baseCost": 4,
+      "durationTicks": 1,
+      "skills": ["finesse", "engineering"],
+      "targetKind": "worldObject",
+      "destinationMode": "adjacent",
+      "outputs": [],
+      "requirements": [
+        "production.order.active",
+        "capability.manual-work",
+        "memory.capable"
+      ],
+      "effects": { "success": "!production.order.active" },
+      "children": ["read-cookbook", "process-recipe"]
     }
   ]
 }

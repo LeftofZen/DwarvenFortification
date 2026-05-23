@@ -2,49 +2,63 @@
 
 public static class GoapExtensions
 {
-	public static bool IsMet(this GoapComparison Comparison, dynamic? ValueA, dynamic? ValueB)
+	/// <summary>
+	/// Evaluates <paramref name="value"/> against <paramref name="operand"/> using the given comparison.
+	/// Equality uses <see cref="object.Equals(object?, object?)"/>; ordered comparisons fall back to
+	/// <see cref="IComparable"/> on the unwrapped left-hand value.
+	/// </summary>
+	public static bool IsMet(this GoapComparison Comparison, GoapValue value, GoapValue operand)
 	{
+		var left = value.Value;
+		var right = operand.Value;
 		return Comparison switch
 		{
-			GoapComparison.EqualTo => ValueA == ValueB,
-			GoapComparison.NotEqualTo => ValueA != ValueB,
-			GoapComparison.LessThan => ValueA < ValueB,
-			GoapComparison.GreaterThan => ValueA > ValueB,
-			GoapComparison.LessThanOrEqualTo => ValueA <= ValueB,
-			GoapComparison.GreaterThanOrEqualTo => ValueA >= ValueB,
-			_ => throw new NotImplementedException()
+			GoapComparison.EqualTo => Equals(left, right),
+			GoapComparison.NotEqualTo => !Equals(left, right),
+			GoapComparison.LessThan => Compare(left, right) < 0,
+			GoapComparison.GreaterThan => Compare(left, right) > 0,
+			GoapComparison.LessThanOrEqualTo => Compare(left, right) <= 0,
+			GoapComparison.GreaterThanOrEqualTo => Compare(left, right) >= 0,
+			_ => false,
 		};
 	}
 
-	public static bool EvaluateOrCloser(this GoapComparison Comparison, dynamic? Target, dynamic? Value, dynamic? PreviousValue)
+	static int Compare(object? left, object? right)
 	{
-		return Comparison switch
+		if (left is IComparable leftComparable && right != null)
 		{
-			GoapComparison.EqualTo => (Value == Target) || (Math.Abs(Value - Target) < Math.Abs(PreviousValue - Target)),
-			GoapComparison.NotEqualTo => (Value != Target) || (Math.Abs(Value - Target) > Math.Abs(PreviousValue - Target)),
-			GoapComparison.LessThan => (Value < Target) || (Value < PreviousValue),
-			GoapComparison.GreaterThan => (Value > Target) || (Value > PreviousValue),
-			GoapComparison.LessThanOrEqualTo => (Value <= Target) || (Value < PreviousValue),
-			GoapComparison.GreaterThanOrEqualTo => (Value >= Target) || (Value > PreviousValue),
-			_ => throw new NotImplementedException()
-		};
+			return leftComparable.CompareTo(right);
+		}
+		return Equals(left, right) ? 0 : -1;
 	}
 
-	public static dynamic? Operate(this GoapOperation Operation, dynamic? ValueA, dynamic? ValueB)
+	public static GoapValue Operate(this GoapOperation Operation, GoapValue ValueA, GoapValue ValueB)
 	{
-		return Operation switch
+		// SetTo is the only op whose result is independent of ValueA.
+		if (Operation == GoapOperation.SetTo)
 		{
-			GoapOperation.SetTo => ValueB,
-			GoapOperation.IncreaseBy => ValueA + ValueB,
-			GoapOperation.DecreaseBy => ValueA - ValueB,
-			GoapOperation.MultiplyBy => ValueA * ValueB,
-			GoapOperation.DivideBy => ValueA / ValueB,
-			GoapOperation.ModuloBy => ValueA % ValueB,
-			GoapOperation.ExponentiateBy => Math.Pow(Convert.ToDouble(ValueA), Convert.ToDouble(ValueB)),
+			return ValueB;
+		}
+
+		// Every other op is arithmetic on the underlying primitives. Operate on the wrapped
+		// values directly so dynamic dispatch picks the primitive operators (int+int, ...).
+		dynamic? a = ValueA.Value;
+		dynamic? b = ValueB.Value;
+
+		object? result = Operation switch
+		{
+			GoapOperation.IncreaseBy => a + b,
+			GoapOperation.DecreaseBy => a - b,
+			GoapOperation.MultiplyBy => a * b,
+			GoapOperation.DivideBy => a / b,
+			GoapOperation.ModuloBy => a % b,
+			GoapOperation.ExponentiateBy => Math.Pow(Convert.ToDouble(a), Convert.ToDouble(b)),
 			_ => throw new NotImplementedException()
 		};
+
+		return new GoapValue(result);
 	}
-	
+
 	public static TValue? GetValueOrDefault<TKey, TValue>(this IDictionary<TKey, TValue> Dictionary, TKey Key, TValue? Default = default)
 		=> Dictionary.TryGetValue(Key, out var Value) ? Value : Default;
 }

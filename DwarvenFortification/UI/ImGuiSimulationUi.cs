@@ -385,8 +385,10 @@ namespace DwarvenFortification.UI
 			foreach (var goal in Goals(goapAgent))
 			{
 				var isReached = goal.IsGoalAchieved(goapAgent.States);
-				var status = isReached ? "Satisfied" : "Eligible";
 				var statusColor = GetGoalStatusColor(goal, goapAgent);
+				var status = isReached
+					? "Satisfied"
+					: statusColor == ColorBlocked ? "Blocked" : "Eligible";
 				var priority = goal.Priority(goapAgent);
 				ImGui.PushID($"goal-{goal.Id}");
 				ImGui.PushStyleColor(ImGuiCol.Text, statusColor);
@@ -396,17 +398,12 @@ namespace DwarvenFortification.UI
 					ImGui.TextUnformatted($"Id: {goal.Id}");
 					ImGui.TextUnformatted($"Priority: {priority:0.##}");
 
-					if (goal is SimulationGoapGoal simulationGoal)
-					{
-						ImGui.TextWrapped($"Desired facts: {FormatList(simulationGoal.DesiredFacts)}");
+					DrawConditionList("Objectives", goal.Goals, goapAgent.States);
 
-						var missingRequiredFacts = simulationGoal.RequiredFacts
-							.Where(fact => !GoapFactState.IsSatisfied(goapAgent.States, fact))
-							.ToList();
-						if (missingRequiredFacts.Count > 0)
-						{
-							ImGui.TextWrapped($"Missing required facts: {FormatList(missingRequiredFacts)}");
-						}
+					if (goal is SimulationGoapGoal simulationGoal && simulationGoal.RequirementExpressions.Length > 0)
+					{
+						var entryConditions = simulationGoal.RequirementExpressions.Select(expr => expr.ToCondition()).ToList();
+						DrawConditionList("Entry preconditions", entryConditions, goapAgent.States);
 					}
 
 					ImGui.TreePop();
@@ -640,7 +637,6 @@ namespace DwarvenFortification.UI
 				return;
 			}
 
-			var plannerFacts = GetCurrentFacts(goapAgent);
 			var candidatesByAction = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
 			ImGui.TextUnformatted("Direct actions");
@@ -652,12 +648,12 @@ namespace DwarvenFortification.UI
 
 			ImGui.Separator();
 			ImGui.TextUnformatted("GOAP actions");
-			DrawGoapActionGraph(definitions.GetActionDefinitions(), plannerFacts, candidatesByAction);
+			DrawGoapActionGraph(definitions.GetActionDefinitions(), goapAgent, candidatesByAction);
 		}
 
 		void DrawGoapActionGraph(
 			IReadOnlyList<SimulationGoapAction> definitions,
-			HashSet<string> plannerFacts,
+			GoapAgent goapAgent,
 			Dictionary<string, int> candidatesByAction)
 		{
 			if (definitions.Count == 0)
@@ -666,7 +662,7 @@ namespace DwarvenFortification.UI
 				return;
 			}
 
-			var graph = BuildActionGraphLayout(definitions, plannerFacts, candidatesByAction);
+			var graph = BuildActionGraphLayout(definitions, goapAgent, candidatesByAction);
 			DrawNodeGraphCanvas("GoapActionGraph", graph, ref goapGraphPan, ref goapGraphZoom, ref selectedGoapActionId, 420f);
 			ImGui.TextColored(ColorOk, "Available");
 			ImGui.SameLine();
@@ -681,7 +677,7 @@ namespace DwarvenFortification.UI
 				var selectedDefinition = definitions.FirstOrDefault(definition => string.Equals(definition.Id, selectedGoapActionId, StringComparison.OrdinalIgnoreCase));
 				if (!string.IsNullOrWhiteSpace(selectedDefinition.Id))
 				{
-					DrawSelectedGoapActionDetails(selectedDefinition, plannerFacts, candidatesByAction);
+					DrawSelectedGoapActionDetails(selectedDefinition, goapAgent, candidatesByAction);
 				}
 			}
 		}
@@ -793,7 +789,7 @@ namespace DwarvenFortification.UI
 
 		ActionGraphLayout BuildActionGraphLayout(
 			IReadOnlyList<SimulationGoapAction> definitions,
-			HashSet<string> plannerFacts,
+			GoapAgent goapAgent,
 			Dictionary<string, int> candidatesByAction)
 		{
 			const float nodeWidth = 220f;
@@ -806,16 +802,19 @@ namespace DwarvenFortification.UI
 			var dependencyFactsByPair = new Dictionary<(string SourceId, string TargetId), HashSet<string>>();
 			foreach (var definition in definitions)
 			{
-				foreach (var fact in definition.EffectFacts.Where(fact => !string.IsNullOrWhiteSpace(fact)))
+				// Wire boolean-effect actions into the dependency graph; numeric-only effects don't index here.
+				if (string.IsNullOrWhiteSpace(definition.EffectFact))
 				{
-					if (!producersByFact.TryGetValue(fact, out var producers))
-					{
-						producers = new List<string>();
-						producersByFact[fact] = producers;
-					}
-
-					producers.Add(definition.Id);
+					continue;
 				}
+
+				if (!producersByFact.TryGetValue(definition.EffectFact, out var producers))
+				{
+					producers = new List<string>();
+					producersByFact[definition.EffectFact] = producers;
+				}
+
+				producers.Add(definition.Id);
 			}
 
 			var dependenciesByAction = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
@@ -890,14 +889,14 @@ namespace DwarvenFortification.UI
 				for (var rowIndex = 0; rowIndex < column.Count; ++rowIndex)
 				{
 					var definition = column[rowIndex];
-					var missingRequirements = GetMissingRequirements(definition, plannerFacts);
+					var unsatisfiedConditions = GetUnsatisfiedConditions(definition, goapAgent.States);
 					var manifestationCount = candidatesByAction.TryGetValue(definition.Id, out var count) ? count : 0;
-					var state = missingRequirements.Count > 0
+					var state = unsatisfiedConditions.Count > 0
 						? "Blocked"
 						: manifestationCount > 0
 							? "Available"
 							: "Deferred";
-					var stateColor = missingRequirements.Count > 0
+					var stateColor = unsatisfiedConditions.Count > 0
 						? ColorBlocked
 						: manifestationCount > 0
 							? ColorOk
@@ -906,14 +905,17 @@ namespace DwarvenFortification.UI
 						margin + (columnIndex * (nodeWidth + horizontalGap)),
 						margin + (rowIndex * (nodeHeight + verticalGap)));
 					var max = min + new NumericsVector2(nodeWidth, nodeHeight);
+					var effectSubtitle = definition.SuccessEffect is null
+						? "(no effect)"
+						: FormatEffect(definition.SuccessEffect);
 					var node = new ActionGraphNode(
 						definition.Id,
 						new GraphBounds(min, max),
 						TrimGraphText(definition.Name, 24),
 						$"{state} | targets {manifestationCount}",
-						missingRequirements.Count > 0
-							? $"Requires {TrimGraphText(FormatList(missingRequirements), 24)}"
-							: $"Adds {TrimGraphText(FormatList(definition.EffectFacts), 24)}",
+						unsatisfiedConditions.Count > 0
+							? $"Requires {TrimGraphText(string.Join(", ", unsatisfiedConditions.Select(FormatCondition)), 24)}"
+							: $"Adds {TrimGraphText(effectSubtitle, 24)}",
 						ToU32(WithAlpha(stateColor, 0.22f)),
 						ToU32(WithAlpha(stateColor, 0.95f)),
 						ToU32(new NumericsVector4(0.96f, 0.97f, 0.98f, 1f)),
@@ -1061,26 +1063,41 @@ namespace DwarvenFortification.UI
 
 		void DrawSelectedGoapActionDetails(
 			SimulationGoapAction definition,
-			HashSet<string> plannerFacts,
+			GoapAgent goapAgent,
 			Dictionary<string, int> candidatesByAction)
 		{
 			ImGui.Separator();
 			ImGui.TextUnformatted($"Selected action: {definition.Name}");
 			ImGui.TextUnformatted($"Id: {definition.Id}");
 			ImGui.TextWrapped($"Target kind: {definition.TargetKind}; destination mode: {definition.DestinationMode}");
-			ImGui.TextWrapped($"Requirements: {FormatList(definition.RequiredFacts)}");
-			ImGui.TextWrapped($"Effects {FormatList(definition.EffectFacts)}");
+
+			DrawConditionList("Preconditions", definition.Conditions, goapAgent.States);
+			DrawEffectLine("Effect on success", definition.SuccessEffect);
+			DrawEffectLine("Effect on interrupt", definition.InterruptedEffect);
+			DrawEffectLine("Effect on failure", definition.FailedEffect);
+
+			if (definition.ChildActionIds.Length > 0)
+			{
+				ImGui.TextWrapped($"Child actions: {FormatList(definition.ChildActionIds)}");
+			}
+
+			if (definition.Skills.Length > 0)
+			{
+				ImGui.TextWrapped($"Skills: {FormatList(definition.Skills)}");
+			}
+
 			ImGui.TextUnformatted($"Base cost: {definition.BaseCost}; duration ticks: {definition.DurationTicks}");
 			var manifestations = candidatesByAction.TryGetValue(definition.Id, out var count) ? count : 0;
 			ImGui.TextUnformatted($"Current manifestations: {manifestations}");
-			var missingPrerequisiteFacts = GetMissingRequirements(definition, plannerFacts);
-			if (missingPrerequisiteFacts.Count == 0)
+
+			var unsatisfied = GetUnsatisfiedConditions(definition, goapAgent.States);
+			if (unsatisfied.Count == 0)
 			{
 				ImGui.TextColored(manifestations > 0 ? ColorOk : ColorDeferred, manifestations > 0 ? "Status: available" : "Status: deferred (no current targets)");
 			}
 			else
 			{
-				ImGui.TextColored(ColorBlocked, $"Status: blocked by {FormatList(missingPrerequisiteFacts)}");
+				ImGui.TextColored(ColorBlocked, $"Status: blocked by {string.Join(", ", unsatisfied.Select(FormatCondition))}");
 			}
 		}
 
@@ -1185,14 +1202,12 @@ namespace DwarvenFortification.UI
 				return;
 			}
 
-			var plannerFacts = GetCurrentFacts(goapAgent);
-
 			DrawDirectActions(entity);
 
 			foreach (var definition in definitions.GetActionDefinitions())
 			{
-				var missingPrerequisiteFacts = GetMissingRequirements(definition, plannerFacts);
-				var isAvailableAction = missingPrerequisiteFacts.Count == 0;
+				var unsatisfiedConditions = GetUnsatisfiedConditions(definition, goapAgent.States);
+				var isAvailableAction = unsatisfiedConditions.Count == 0;
 				var actionColor = isAvailableAction ? ColorOk : ColorBlocked;
 				var header = $"{definition.Name} [{(isAvailableAction ? "Available" : "Unavailable")}]";
 
@@ -1203,14 +1218,25 @@ namespace DwarvenFortification.UI
 					ImGui.PopStyleColor();
 					ImGui.TextUnformatted($"Action Id: {definition.Id}");
 					ImGui.TextWrapped($"Target kind: {definition.TargetKind}; destination mode: {definition.DestinationMode}");
-					if (missingPrerequisiteFacts.Count > 0)
+
+					DrawConditionList("Preconditions", definition.Conditions, goapAgent.States);
+					DrawEffectLine("Effect on success", definition.SuccessEffect);
+					if (definition.InterruptedEffect != null)
 					{
-						ImGui.TextWrapped($"Missing prerequisite facts: {FormatList(missingPrerequisiteFacts)}");
+						DrawEffectLine("Effect on interrupt", definition.InterruptedEffect);
 					}
-					else
+
+					if (definition.FailedEffect != null)
 					{
-						ImGui.TextUnformatted("Prerequisite facts satisfied.");
+						DrawEffectLine("Effect on failure", definition.FailedEffect);
 					}
+
+					if (definition.ChildActionIds.Length > 0)
+					{
+						ImGui.TextWrapped($"Child actions: {FormatList(definition.ChildActionIds)}");
+					}
+
+					ImGui.TextUnformatted($"Base cost: {definition.BaseCost}; duration ticks: {definition.DurationTicks}");
 
 					DrawManualActionControls(entity, definition);
 
@@ -1377,24 +1403,14 @@ namespace DwarvenFortification.UI
 				return;
 			}
 
-			var plannerFacts = GetCurrentFacts(goapAgent);
-			ImGui.TextUnformatted($"Planner facts: {plannerFacts.Count}");
-			if (plannerFacts.Count > 0 && ImGui.TreeNode("Planner facts"))
-			{
-				foreach (var fact in plannerFacts.OrderBy(fact => fact, StringComparer.OrdinalIgnoreCase))
-				{
-					ImGui.BulletText(fact);
-				}
-
-				ImGui.TreePop();
-			}
+			DrawAgentStateTree(goapAgent);
 
 			var allActions = goapAgent.Actions.OfType<SimulationGoapAction>().ToList();
-			var availableActions = allActions.Where(a => GetMissingRequirements(a, plannerFacts).Count == 0).ToList();
-			var unavailableActions = allActions.Where(a => GetMissingRequirements(a, plannerFacts).Count > 0).ToList();
+			var availableActions = allActions.Where(a => GetUnsatisfiedConditions(a, goapAgent.States).Count == 0).ToList();
+			var unavailableActions = allActions.Where(a => GetUnsatisfiedConditions(a, goapAgent.States).Count > 0).ToList();
 
 			ImGui.TextUnformatted($"Available now: {availableActions.Count}");
-			ImGui.TextUnformatted($"Unavailable (missing requirements): {unavailableActions.Count}");
+			ImGui.TextUnformatted($"Unavailable (unmet preconditions): {unavailableActions.Count}");
 
 			if (ImGui.TreeNode($"Available actions ({availableActions.Count})"))
 			{
@@ -1411,9 +1427,55 @@ namespace DwarvenFortification.UI
 				for (var i = 0; i < unavailableActions.Count; ++i)
 				{
 					var action = unavailableActions[i];
+					var unsatisfied = GetUnsatisfiedConditions(action, goapAgent.States);
 					ImGui.TextColored(ColorDeferred, $"{i + 1}. {action.Name}");
-					ImGui.TextWrapped($"  Missing: {FormatList(GetMissingRequirements(action, plannerFacts))}");
+					ImGui.TextWrapped($"  Missing: {string.Join(", ", unsatisfied.Select(c => FormatConditionWithCurrent(c, goapAgent.States)))}");
 				}
+				ImGui.TreePop();
+			}
+		}
+
+		static void DrawAgentStateTree(GoapAgent goapAgent)
+		{
+			var booleanFacts = goapAgent.States
+				.Where(pair => pair.Value.Value is bool flag && flag)
+				.Select(pair => pair.Key)
+				.Where(fact => !string.IsNullOrWhiteSpace(fact))
+				.OrderBy(fact => fact, StringComparer.OrdinalIgnoreCase)
+				.ToList();
+
+			var numericEntries = goapAgent.States
+				.Where(pair => pair.Value.Value is not null && pair.Value.Value is not bool)
+				.OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
+				.ToList();
+
+			ImGui.TextUnformatted($"Agent state: {booleanFacts.Count} boolean fact(s), {numericEntries.Count} numeric value(s)");
+
+			if (booleanFacts.Count > 0 && ImGui.TreeNode($"Boolean facts ({booleanFacts.Count})##agent-bool-facts"))
+			{
+				foreach (var fact in booleanFacts)
+				{
+					ImGui.BulletText(fact);
+				}
+
+				ImGui.TreePop();
+			}
+
+			if (numericEntries.Count > 0 && ImGui.TreeNode($"Numeric state ({numericEntries.Count})##agent-numeric-state"))
+			{
+				foreach (var (key, value) in numericEntries)
+				{
+					var line = $"{key}: {FormatGoapValue(value)}";
+					if (goapAgent.StateBounds != null && goapAgent.StateBounds.TryGetValue(key, out var bounds))
+					{
+						var minText = bounds.Min.HasValue ? FormatGoapValue(bounds.Min.Value) : "-∞";
+						var maxText = bounds.Max.HasValue ? FormatGoapValue(bounds.Max.Value) : "+∞";
+						line += $"  [{minText}..{maxText}]";
+					}
+
+					ImGui.BulletText(line);
+				}
+
 				ImGui.TreePop();
 			}
 		}
@@ -1725,6 +1787,18 @@ namespace DwarvenFortification.UI
 			{
 				var action = plan.Actions[i];
 				ImGui.BulletText($"{i + 1}. {action.Name} (cost {action.Cost(plan.Agent):0.##})");
+				if (action is SimulationGoapAction simulationAction)
+				{
+					ImGui.Indent();
+					ImGui.TextDisabled(FormatActionEffectSummary(simulationAction));
+					ImGui.Unindent();
+				}
+				else if (action.SuccessEffect is not null)
+				{
+					ImGui.Indent();
+					ImGui.TextDisabled($"on success: {FormatEffect(action.SuccessEffect)}");
+					ImGui.Unindent();
+				}
 			}
 		}
 
@@ -1732,59 +1806,175 @@ namespace DwarvenFortification.UI
 			=> $"{item.GetName()} [{item.GetItemDefinitionId()}]";
 
 		static NumericsVector4 GetGoalStatusColor(GoapGoal goal, GoapAgent agent)
-			=> goal.IsGoalAchieved(agent.States)
-				? ColorOk
-				: goal is SimulationGoapGoal simulationGoal && simulationGoal.RequiredFacts.All(fact => GoapFactState.IsSatisfied(agent.States, fact))
-					? ColorDeferred
-					: ColorBlocked;
+		{
+			if (goal.IsGoalAchieved(agent.States))
+			{
+				return ColorOk;
+			}
+
+			if (goal is SimulationGoapGoal simulationGoal
+				&& simulationGoal.RequirementExpressions
+					.Select(expr => expr.ToCondition())
+					.Any(condition => !condition.Evaluate(agent.States)))
+			{
+				return ColorBlocked;
+			}
+
+			return ColorDeferred;
+		}
 
 		static IReadOnlyList<GoapGoal> Goals(GoapAgent goapAgent)
 			=> [.. goapAgent.CurrentGoals()];
 
-		static HashSet<string> GetCurrentFacts(GoapAgent goapAgent)
-			=> goapAgent == null
-				? new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-				: new HashSet<string>(goapAgent.States
-					.Where(pair => pair.Value is GoapConstantValue { Value: bool value } && value)
-					.Select(pair => pair.Key)
-					.Where(fact => !string.IsNullOrWhiteSpace(fact)), StringComparer.OrdinalIgnoreCase);
-
 		static double CalculatePlanCost(GoapPlan plan)
 			=> plan.Actions.Sum(action => action.Cost(plan.Agent));
 
-		static List<string> GetMissingRequirements(SimulationGoapAction definition, HashSet<string> plannerFacts)
-		{
-			var missingRequirements = new List<string>();
-			AddMissingRequirements(missingRequirements, plannerFacts, definition.RequiredFacts);
+		// ───────── GOAP expression / condition / effect rendering helpers ─────────
 
-			foreach (var blockedFact in definition.RequiredFacts.Where(fact => fact.StartsWith('!') && plannerFacts.Contains(fact[1..])))
+		/// <summary>Conditions on <paramref name="action"/> that are NOT satisfied by <paramref name="states"/>.</summary>
+		static List<GoapCondition> GetUnsatisfiedConditions(GoapAction action, GoapWorldState states)
+			=> [.. action.Conditions.Where(condition => !condition.Evaluate(states))];
+
+		static string SymbolFor(GoapComparison comparison) => comparison switch
+		{
+			GoapComparison.EqualTo => "==",
+			GoapComparison.NotEqualTo => "!=",
+			GoapComparison.LessThan => "<",
+			GoapComparison.LessThanOrEqualTo => "<=",
+			GoapComparison.GreaterThan => ">",
+			GoapComparison.GreaterThanOrEqualTo => ">=",
+			_ => comparison.ToString(),
+		};
+
+		static string SymbolFor(GoapOperation operation) => operation switch
+		{
+			GoapOperation.SetTo => "=",
+			GoapOperation.IncreaseBy => "+=",
+			GoapOperation.DecreaseBy => "-=",
+			GoapOperation.MultiplyBy => "*=",
+			GoapOperation.DivideBy => "/=",
+			GoapOperation.ModuloBy => "%=",
+			GoapOperation.ExponentiateBy => "^=",
+			_ => operation.ToString(),
+		};
+
+		static string FormatGoapValue(GoapValue value)
+		{
+			if (value.Value is null)
 			{
-				missingRequirements.Add($"blocked:{blockedFact[1..]}");
+				return "(null)";
 			}
 
-			return missingRequirements;
+			return value.Value switch
+			{
+				bool b => b ? "true" : "false",
+				double d => d.ToString("0.##"),
+				float f => f.ToString("0.##"),
+				_ => value.Value.ToString() ?? string.Empty,
+			};
 		}
 
-		static void AddMissingRequirements(List<string> missingRequirements, HashSet<string> plannerFacts, IEnumerable<string> requiredFacts)
+		static string FormatStateValue(GoapWorldState states, string stateId)
 		{
-			foreach (var fact in requiredFacts.Where(fact => !string.IsNullOrWhiteSpace(fact)))
+			if (states != null && states.TryGetValue(stateId, out var current))
 			{
-				if (fact.StartsWith('!'))
-				{
-					var blockedFact = fact[1..];
-					if (plannerFacts.Contains(blockedFact))
-					{
-						missingRequirements.Add($"blocked:{blockedFact}");
-					}
-
-					continue;
-				}
-
-				if (!plannerFacts.Contains(fact))
-				{
-					missingRequirements.Add(fact);
-				}
+				return FormatGoapValue(current);
 			}
+
+			return "(unset)";
+		}
+
+		/// <summary>
+		/// Pretty-print a condition as <c>stateId &lt;op&gt; value</c>. Boolean conditions
+		/// shaped as <c>fact == true</c> collapse back to <c>fact</c>; <c>fact != true</c> to <c>!fact</c>.
+		/// </summary>
+		static string FormatCondition(GoapCondition condition)
+		{
+			if (condition.Operand.Value is bool flag)
+			{
+				return condition.Comparison switch
+				{
+					GoapComparison.EqualTo => flag ? condition.StateId : $"!{condition.StateId}",
+					GoapComparison.NotEqualTo => flag ? $"!{condition.StateId}" : condition.StateId,
+					_ => $"{condition.StateId} {SymbolFor(condition.Comparison)} {FormatGoapValue(condition.Operand)}",
+				};
+			}
+
+			return $"{condition.StateId} {SymbolFor(condition.Comparison)} {FormatGoapValue(condition.Operand)}";
+		}
+
+		/// <summary>Same as <see cref="FormatCondition"/> but appends the current world value.</summary>
+		static string FormatConditionWithCurrent(GoapCondition condition, GoapWorldState states)
+		{
+			var head = FormatCondition(condition);
+			// Skip "(current: …)" for pure boolean-fact shorthand because the symbol already conveys the value.
+			if (condition.Operand.Value is bool)
+			{
+				return head;
+			}
+
+			return $"{head} (current: {FormatStateValue(states, condition.StateId)})";
+		}
+
+		static string FormatEffect(GoapEffect effect)
+		{
+			if (effect.Operation == GoapOperation.SetTo && effect.Operand.Value is bool flag)
+			{
+				return flag ? effect.StateId : $"!{effect.StateId}";
+			}
+
+			return $"{effect.StateId} {SymbolFor(effect.Operation)} {FormatGoapValue(effect.Operand)}";
+		}
+
+		static string FormatActionEffectSummary(SimulationGoapAction action)
+		{
+			if (action.SuccessEffect is null)
+			{
+				return "(none)";
+			}
+
+			var parts = new List<string> { $"on success: {FormatEffect(action.SuccessEffect)}" };
+			if (action.InterruptedEffect != null)
+			{
+				parts.Add($"on interrupt: {FormatEffect(action.InterruptedEffect)}");
+			}
+
+			if (action.FailedEffect != null)
+			{
+				parts.Add($"on failure: {FormatEffect(action.FailedEffect)}");
+			}
+
+			return string.Join("; ", parts);
+		}
+
+		static void DrawConditionList(string header, IReadOnlyList<GoapCondition> conditions, GoapWorldState states)
+		{
+			if (conditions.Count == 0)
+			{
+				ImGui.TextDisabled($"{header}: (none)");
+				return;
+			}
+
+			ImGui.TextUnformatted($"{header}:");
+			ImGui.Indent();
+			foreach (var condition in conditions)
+			{
+				var ok = condition.Evaluate(states);
+				ImGui.TextColored(ok ? ColorOk : ColorBlocked, $"{(ok ? "✓" : "✗")} {FormatConditionWithCurrent(condition, states)}");
+			}
+
+			ImGui.Unindent();
+		}
+
+		static void DrawEffectLine(string header, GoapEffect effect)
+		{
+			if (effect is null)
+			{
+				ImGui.TextDisabled($"{header}: (none)");
+				return;
+			}
+
+			ImGui.TextUnformatted($"{header}: {FormatEffect(effect)}");
 		}
 
 		readonly record struct ActionGraphLayout(IReadOnlyList<ActionGraphNode> Nodes, IReadOnlyList<ActionGraphEdge> Edges, NumericsVector2 CanvasSize);

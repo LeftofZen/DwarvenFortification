@@ -607,13 +607,14 @@ namespace DwarvenFortification.Simulation.World
 
 		string QueueWorldAction(Entity agent, GoapAction action, AgentActionMetadata metadata)
 		{
-			if (action == null || string.IsNullOrWhiteSpace(action.GetId()))
+			if (action is not SimulationGoapAction simAction || string.IsNullOrWhiteSpace(simAction.Id))
 			{
 				return "No action specified.";
 			}
 
 			var state = queryService.BuildCurrentState(agent);
-			var goapAgent = SimulationGoapAgentFactory.CreateAgent(definitions, agent.GetName(), state);
+			var numericState = queryService.BuildNumericState(agent);
+			var goapAgent = SimulationGoapAgentFactory.CreateAgent(definitions, agent.GetName(), state, numericState);
 			manualActionExecutor.Enqueue(agent, action, goapAgent, metadata);
 			return $"Queued action '{action.Name}'.";
 		}

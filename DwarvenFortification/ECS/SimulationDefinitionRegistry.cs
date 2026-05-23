@@ -91,8 +91,26 @@ namespace DwarvenFortification.ECS
 					action.TargetKind,
 					action.DestinationMode,
 					action.Requirements ?? [],
-					action.Effects ?? [],
-					action.Skills ?? []));
+					action.Effects?.Success,
+					action.Effects?.Interrupted,
+					action.Effects?.Failed,
+					action.Skills ?? [],
+					action.Children ?? []));
+			}
+
+			// Second pass: resolve compound children by ID.
+			var actionsById = goapActions.ToDictionary(a => a.Id, StringComparer.OrdinalIgnoreCase);
+			foreach (var action in goapActions.Where(a => a.ChildActionIds.Length > 0))
+			{
+				foreach (var childId in action.ChildActionIds)
+				{
+					if (!actionsById.TryGetValue(childId, out var child))
+					{
+						throw new InvalidOperationException(
+							$"Compound action '{action.Id}' references unknown child action '{childId}'.");
+					}
+					action.Children.Add(child);
+				}
 			}
 
 			foreach (var worldObject in objects.Where(def => !string.IsNullOrWhiteSpace(def.Id)))

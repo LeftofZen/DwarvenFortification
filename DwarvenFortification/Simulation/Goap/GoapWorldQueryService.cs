@@ -23,6 +23,42 @@ namespace DwarvenFortification.GOAP
 			this.worldAccessor = worldAccessor;
 		}
 
+		public IReadOnlyDictionary<string, GoapValue> BuildNumericState(Entity agent)
+		{
+			var values = new Dictionary<string, GoapValue>(StringComparer.OrdinalIgnoreCase);
+
+			// Vitals normalized to 0..100 percent of capacity.
+			values[Facts.VitalRest] = (int)Math.Round(Math.Clamp(agent.GetRestRatio(), 0f, 1f) * 100f);
+			values[Facts.VitalHunger] = (int)Math.Round(Math.Clamp(agent.GetMetabolicEnergyRatio(), 0f, 1f) * 100f);
+			values[Facts.VitalThirst] = (int)Math.Round(Math.Clamp(agent.GetHydrationRatio(), 0f, 1f) * 100f);
+
+			if (agent.Has<BodyNutritionComponent>())
+			{
+				var n = agent.Get<BodyNutritionComponent>();
+				values[Facts.VitalCarbohydrates] = ToPercent(n.CarbohydratesCurrent, n.CarbohydratesMax);
+				values[Facts.VitalProtein] = ToPercent(n.ProteinCurrent, n.ProteinMax);
+				values[Facts.VitalFat] = ToPercent(n.FatCurrent, n.FatMax);
+				values[Facts.VitalSugar] = ToPercent(n.SugarCurrent, n.SugarMax);
+				values[Facts.VitalHydration] = ToPercent(n.HydrationCurrentLiters, n.HydrationMaxLiters);
+			}
+
+			var inventory = agent.GetInventory();
+			var capacity = agent.GetInventoryCapacity();
+			var count = inventory.Count;
+			values[Facts.InventoryCount] = count;
+			values[Facts.InventoryCapacity] = capacity;
+			values[Facts.InventoryFree] = Math.Max(0, capacity - count);
+
+			values[Facts.PerceptionScanTicks] = agent.Has<PerceptionComponent>()
+				? agent.Get<PerceptionComponent>().ScanTicksRemaining
+				: 0;
+
+			return values;
+		}
+
+		static int ToPercent(float current, float max)
+			=> max <= 0f ? 0 : (int)Math.Round(Math.Clamp(current / max, 0f, 1f) * 100f);
+
 		public HashSet<string> BuildCurrentState(Entity agent)
 		{
 			var world = worldAccessor();
@@ -193,9 +229,10 @@ namespace DwarvenFortification.GOAP
 		public bool TryFindActionTarget(Entity agent, GoapAction action, HashSet<string> state,
 			out Entity? targetEntity, out Point targetCell, out Point destinationCell, out string actionContext)
 		{
-			var actionId = action.GetId();
-			var targetKind = action.GetTargetKind();
-			var destinationMode = action.GetDestinationMode();
+			var simAction = (SimulationGoapAction)action;
+			var actionId = simAction.Id;
+			var targetKind = simAction.TargetKind;
+			var destinationMode = simAction.DestinationMode;
 			targetEntity = null;
 			targetCell = default;
 			destinationCell = default;
@@ -210,7 +247,23 @@ namespace DwarvenFortification.GOAP
 				|| string.Equals(actionId, "communicate", StringComparison.OrdinalIgnoreCase)
 				|| string.Equals(actionId, "read-cookbook", StringComparison.OrdinalIgnoreCase))
 			{
-				return TryFindKnowledgeBridgeTarget(agent, action, state, world, agentCell, out targetEntity, out targetCell, out destinationCell, out actionContext);
+				return TryFindKnowledgeBridgeTarget(agent, simAction, state, world, agentCell, out targetEntity, out targetCell, out destinationCell, out actionContext);
+			}
+
+			// Tag-acquisition primitives: locate the nearest world item carrying the desired tag.
+			if (string.Equals(actionId, "find-drink", StringComparison.OrdinalIgnoreCase)
+				|| string.Equals(actionId, "find-food", StringComparison.OrdinalIgnoreCase))
+			{
+				var tag = string.Equals(actionId, "find-drink", StringComparison.OrdinalIgnoreCase) ? "drink" : "food";
+				if (world.TryFindNearestItemLocationByTag(new[] { tag }, agentCell, out var itemCell, out var matchedItemId)
+					&& world.TryFindActionDestinationCell(agentCell, itemCell, destinationMode, out var dest))
+				{
+					targetCell = itemCell;
+					destinationCell = dest;
+					actionContext = matchedItemId;
+					return true;
+				}
+				return false;
 			}
 
 			// Self-targeted actions
@@ -313,9 +366,12 @@ namespace DwarvenFortification.GOAP
 							continue;
 						}
 					}
-					else if (string.Equals(actionId, "sleep", StringComparison.OrdinalIgnoreCase) && !agent.IsRestLow())
+					else if (string.Equals(actionId, "sleep", StringComparison.OrdinalIgnoreCase))
 					{
-						continue;
+						if (!agent.IsRestLow() || !worldObject.Get<TagCollectionComponent>().Contains("bed"))
+						{
+							continue;
+						}
 					}
 
 					if (!world.TryFindActionDestinationCell(agentCell, coords, destinationMode, out var dest))
@@ -342,7 +398,7 @@ namespace DwarvenFortification.GOAP
 					}
 
 					var otherCell = world.CoordsAtXY(other.GetPosition());
-					var throwItem = GetRequiredItemsByTag(action, agent.GetInventory()).FirstOrDefault();
+					var throwItem = GetRequiredItemsByTag(simAction, agent.GetInventory()).FirstOrDefault();
 					if (!throwItem.Equals(default(Entity)))
 					{
 						var range = throwItem.Get<ItemDefinitionComponent>().ThrowRange;
@@ -362,7 +418,7 @@ namespace DwarvenFortification.GOAP
 			return false;
 		}
 
-		bool TryFindKnowledgeBridgeTarget(Entity agent, GoapAction action, HashSet<string> state, ISimulationWorld world, Point agentCell,
+		bool TryFindKnowledgeBridgeTarget(Entity agent, SimulationGoapAction action, HashSet<string> state, ISimulationWorld world, Point agentCell,
 			out Entity? targetEntity, out Point targetCell, out Point destinationCell, out string actionContext)
 		{
 			targetEntity = null;
@@ -370,8 +426,8 @@ namespace DwarvenFortification.GOAP
 			destinationCell = default;
 			actionContext = string.Empty;
 
-			var actionId = action.GetId();
-			var destinationMode = action.GetDestinationMode();
+			var actionId = action.Id;
+			var destinationMode = action.DestinationMode;
 			var isSearch = string.Equals(actionId, "search-for-item", StringComparison.OrdinalIgnoreCase);
 			var isRetrieve = string.Equals(actionId, "retrieve-known-item", StringComparison.OrdinalIgnoreCase);
 			var isCommunicate = string.Equals(actionId, "communicate", StringComparison.OrdinalIgnoreCase);
@@ -503,12 +559,9 @@ namespace DwarvenFortification.GOAP
 			return false;
 		}
 
-		string[] BuildRequirements(GoapAction action, params string[] extraStates)
-			=> [.. action.GetRequiredFacts(), .. extraStates];
-
-		static IEnumerable<string> GetRequiredItemIds(GoapAction action)
+		static IEnumerable<string> GetRequiredItemIds(SimulationGoapAction action)
 		{
-			foreach (var fact in action.GetRequiredFacts())
+			foreach (var fact in action.RequiredFacts)
 			{
 				if (Facts.TryGetHasItemId(fact, out var itemId))
 				{
@@ -517,20 +570,9 @@ namespace DwarvenFortification.GOAP
 			}
 		}
 
-		static IEnumerable<string> GetRequiredItemTags(GoapAction action)
+		static IEnumerable<Entity> GetRequiredItemsByTag(SimulationGoapAction action, IList<Entity> inventory)
 		{
-			foreach (var fact in action.GetRequiredFacts())
-			{
-				if (Facts.TryGetHasItemTag(fact, out var tag))
-				{
-					yield return tag;
-				}
-			}
-		}
-
-		static IEnumerable<Entity> GetRequiredItemsByTag(GoapAction action, System.Collections.Generic.IList<Entity> inventory)
-		{
-			foreach (var fact in action.GetRequiredFacts())
+			foreach (var fact in action.RequiredFacts)
 			{
 				if (Facts.TryGetHasItemFilter(fact, out var tags))
 				{

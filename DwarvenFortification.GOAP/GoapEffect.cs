@@ -1,11 +1,5 @@
 ﻿namespace DwarvenFortification.GOAP;
 
-//public class GoapState
-//{
-//	public string Id { get; set; }
-//	public GoapValue Value { get; set; }
-//}
-
 public class GoapEffect()
 {
 	public string StateId { get; set; }
@@ -22,6 +16,20 @@ public class GoapEffect()
 	}
 
 	// applies Value to State using Operation
-	public bool Operate(GoapWorldState States)
+	public GoapValue Operate(GoapWorldState States)
 		=> Operation.Operate(States.GetValueOrDefault(StateId), Operand);
+
+	/// <summary>
+	/// Computes the post-effect value via <see cref="Operate"/>, clamps it through <paramref name="Bounds"/>
+	/// (when one is registered for <see cref="StateId"/>), and writes it back to <paramref name="States"/>.
+	/// </summary>
+	public void ApplyTo(GoapWorldState States, IDictionary<string, GoapStateBounds>? Bounds = null)
+	{
+		var value = Operate(States);
+		if (Bounds is not null && Bounds.TryGetValue(StateId, out var bounds))
+		{
+			value = bounds.Clamp(value);
+		}
+		States[StateId] = value;
+	}
 }

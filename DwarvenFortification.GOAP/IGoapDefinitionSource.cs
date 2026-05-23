@@ -1,8 +1,7 @@
-namespace DwarvenFortification.GOAP
+namespace DwarvenFortification.GOAP;
+
+public interface IGoapDefinitionSource
 {
-	public interface IGoapDefinitionSource
-	{
-		IReadOnlyList<GoapAction> GetActionDefinitions();
-		IReadOnlyList<GoapGoal> GetGoalDefinitions();
-	}
+	IReadOnlyList<GoapAction> GetActionDefinitions();
+	IReadOnlyList<GoapGoal> GetGoalDefinitions();
 }

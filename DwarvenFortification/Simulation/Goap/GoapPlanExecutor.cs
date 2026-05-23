@@ -1,16 +1,14 @@
-#pragma warning disable CS8632
-
 using Arch.Core;
 using Arch.Core.Extensions;
 using DwarvenFortification.Actions;
 using DwarvenFortification.ECS.Components;
 using DwarvenFortification.ECS.Runtime;
-using DwarvenFortification.GOAP;
 using DwarvenFortification.Simulation.Composition;
 using DwarvenFortification.Simulation.World;
 using DwarvenFortification.UI;
 using Microsoft.Xna.Framework;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace DwarvenFortification.GOAP
@@ -26,74 +24,72 @@ namespace DwarvenFortification.GOAP
 			this.queryService = queryService;
 		}
 
-		public bool Enqueue(Entity agent, GoapPlan plan)
-			=> Enqueue(agent, plan, null);
-
-		public bool Enqueue(Entity agent, GoapPlan plan, AgentActionMetadata metadata)
+		public bool Enqueue(Entity agent, GoapPlan plan, AgentActionMetadata metadata = null)
 		{
 			if (plan == null || plan.Actions.Count == 0)
 			{
 				return false;
 			}
 
-			var world = runtimeContext.World;
 			var cumulativeState = ToFactSet(plan.Agent.States);
-			foreach (var step in plan.Actions)
+			foreach (var step in plan.Actions.Cast<SimulationGoapAction>())
 			{
-				Entity? targetEntity = null;
-				Point targetCell = default, destinationCell = default;
-				string actionContext = string.Empty;
-				if (queryService != null)
+				Dispatch(agent, step, cumulativeState, metadata);
+				if (!string.IsNullOrEmpty(step.EffectFact))
 				{
-					queryService.TryFindActionTarget(agent, step, cumulativeState,
-						out targetEntity, out targetCell, out destinationCell, out actionContext);
-				}
-
-				if (targetCell != default && targetCell != world.CoordsAtXY(agent.GetPosition()))
-				{
-					world.PlotPath(agent, destinationCell, metadata);
-				}
-
-				Enqueue(agent, step, targetEntity, targetCell, destinationCell, actionContext, world, metadata);
-				foreach (var effect in step.GetEffectFacts())
-				{
-					cumulativeState.Add(effect);
+					cumulativeState.Add(step.EffectFact);
 				}
 			}
 
 			return true;
 		}
 
-		public bool Enqueue(Entity agent, GoapAction step, GoapAgent goapAgent, AgentActionMetadata metadata)
+		public bool Enqueue(Entity agent, GoapAction step, GoapAgent goapAgent, AgentActionMetadata metadata = null)
 		{
+			Dispatch(agent, (SimulationGoapAction)step, ToFactSet(goapAgent.States), metadata);
+			return true;
+		}
+
+		void Dispatch(Entity agent, SimulationGoapAction step, HashSet<string> state, AgentActionMetadata metadata)
+		{
+			// Hierarchical (compound) actions: recurse into children in order; the planner already
+			// proved that the compound's success effect satisfies the plan.
+			if (step.IsCompound)
+			{
+				foreach (var child in step.Children.Cast<SimulationGoapAction>())
+				{
+					Dispatch(agent, child, state, metadata);
+					if (!string.IsNullOrWhiteSpace(child.SuccessFact))
+					{
+						state.Add(child.SuccessFact);
+					}
+				}
+				return;
+			}
+
 			var world = runtimeContext.World;
-			var state = ToFactSet(goapAgent.States);
 			Entity? targetEntity = null;
 			Point targetCell = default, destinationCell = default;
-			string actionContext = string.Empty;
-			if (queryService != null)
-			{
-				queryService.TryFindActionTarget(agent, step, state,
-					out targetEntity, out targetCell, out destinationCell, out actionContext);
-			}
+			var actionContext = string.Empty;
+			queryService?.TryFindActionTarget(agent, step, state,
+				out targetEntity, out targetCell, out destinationCell, out actionContext);
 
 			if (targetCell != default && targetCell != world.CoordsAtXY(agent.GetPosition()))
 			{
-				world.PlotPath(agent, destinationCell, null);
+				world.PlotPath(agent, destinationCell, metadata);
 			}
 
 			Enqueue(agent, step, targetEntity, targetCell, destinationCell, actionContext, world, metadata);
-			return true;
 		}
 
-		static System.Collections.Generic.HashSet<string> ToFactSet(GoapWorldState states)
-			=> [.. states.Where(pair => pair.Value is GoapConstantValue { Value: bool value } && value).Select(pair => pair.Key)];
+		static HashSet<string> ToFactSet(GoapWorldState states)
+			=> [.. states.Where(pair => pair.Value is { Value: bool value } && value).Select(pair => pair.Key)];
 
-		void Enqueue(Entity agent, GoapAction step, Entity? targetEntity, Point targetCell, Point destinationCell, string actionContext, ISimulationWorld world, AgentActionMetadata metadata)
+		void Enqueue(Entity agent, SimulationGoapAction step, Entity? targetEntity, Point targetCell, Point destinationCell, string actionContext, ISimulationWorld world, AgentActionMetadata metadata)
 		{
-			var actionId = step.GetId();
-			var actionSkills = step.GetSkills();
-			var durationTicks = step.GetDurationTicks();
+			var actionId = step.Id;
+			var actionSkills = step.Skills;
+			var durationTicks = step.DurationTicks;
 
 			switch (actionId)
 				{
@@ -246,6 +242,19 @@ namespace DwarvenFortification.GOAP
 
 						break;
 
+					case "find-drink":
+					case "find-food":
+						if (!string.IsNullOrWhiteSpace(actionContext))
+						{
+							// Linear chain replacement for the old find-and-X compound:
+							// search for the item, then retrieve (navigate + pick up) it.
+							EnqueueAction(agent, new TimedAction(runtimeContext, agent, actionId, agent.ComputeEffectiveDuration(actionSkills, durationTicks)), metadata);
+							EnqueueAction(agent, new SearchForItemAction(runtimeContext, agent, actionContext, targetCell), metadata);
+							EnqueueAction(agent, new RetrieveRememberedItemAction(runtimeContext, agent, actionContext, targetCell), metadata);
+						}
+
+						break;
+
 					case "communicate":
 						if (targetEntity.HasValue && !string.IsNullOrWhiteSpace(actionContext))
 						{
@@ -272,9 +281,9 @@ namespace DwarvenFortification.GOAP
 			agent.EnqueueAction(action);
 		}
 
-		static string GetRequiredItemId(GoapAction definition)
+		static string GetRequiredItemId(SimulationGoapAction definition)
 		{
-			foreach (var fact in definition.GetRequiredFacts())
+			foreach (var fact in definition.RequiredFacts)
 			{
 				if (Facts.TryGetHasItemId(fact, out var itemId))
 				{

@@ -1,32 +1,25 @@
 {
   "goals": [
     {
-      "id": "recover-and-store",
-      "name": "Recover And Store",
-      "priority": 100,
-      "effects": ["rest.ok"],
-      "requirements": ["rest.low", "inventory.has-resource-items"]
-    },
-    {
       "id": "recover-rest",
       "name": "Recover Rest",
       "priority": 90,
-      "effects": ["rest.ok"],
-      "requirements": ["rest.low"]
+      "effects": [{ "state": "vital.rest", "op": ">=", "value": 70 }],
+      "requirements": [{ "state": "vital.rest", "op": "<=", "value": 35 }]
     },
     {
       "id": "satisfy-thirst",
       "name": "Satisfy Thirst",
       "priority": 95,
-      "effects": ["thirst.ok"],
-      "requirements": ["thirst.low"]
+      "effects": [{ "state": "vital.thirst", "op": ">=", "value": 70 }],
+      "requirements": [{ "state": "vital.thirst", "op": "<=", "value": 35 }]
     },
     {
       "id": "satisfy-hunger",
       "name": "Satisfy Hunger",
       "priority": 92,
-      "effects": ["hunger.ok"],
-      "requirements": ["hunger.low"]
+      "effects": [{ "state": "vital.hunger", "op": ">=", "value": 70 }],
+      "requirements": [{ "state": "vital.hunger", "op": "<=", "value": 35 }]
     },
     {
       "id": "hide-from-enemy",
@@ -46,35 +39,28 @@
       "id": "store-resources",
       "name": "Store Resources",
       "priority": 80,
-      "effects": [],
+      "effects": ["!inventory.has-resource-items"],
       "requirements": ["inventory.has-resource-items"]
     },
     {
       "id": "finish-construction",
       "name": "Finish Construction",
       "priority": 70,
-      "effects": [],
+      "effects": ["!construction.pending"],
       "requirements": ["construction.pending"]
     },
     {
       "id": "supply-construction",
       "name": "Supply Construction",
       "priority": 72,
-      "effects": [],
+      "effects": ["!site.needs-materials"],
       "requirements": ["site.needs-materials"]
-    },
-    {
-      "id": "supply-workstation",
-      "name": "Supply Workstation",
-      "priority": 42,
-      "effects": [],
-      "requirements": ["workstation.needs-inputs"]
     },
     {
       "id": "run-production-order",
       "name": "Run Production Order",
       "priority": 40,
-      "effects": [],
+      "effects": ["!production.order.active"],
       "requirements": ["production.order.active"]
     },
     {
@@ -90,6 +76,13 @@
       "priority": 10,
       "effects": ["inventory.has-resource-items"],
       "requirements": []
+    },
+    {
+      "id": "satisfy-curiosity",
+      "name": "Satisfy Curiosity",
+      "priority": 5,
+      "effects": ["memory.item-searched"],
+      "requirements": ["memory.capable"]
     }
   ]
 }

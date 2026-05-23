@@ -6,7 +6,75 @@
   // Together with actions.json (edges) and goals.json (target nodes), this file
   // describes the complete state-space graph that the GOAP planner searches.
   "facts": [
-    // --- Biology ---
+    // --- Biology: numeric vitals (0..100% of capacity). ---
+    // Higher values mean more rested / more energized / more hydrated.
+    // Numeric facts get GoapStateBounds registered on the agent so the planner clamps simulated writes.
+    {
+      "id": "vital.rest",
+      "description": "Agent rest level (0=exhausted, 100=fully rested).",
+      "category": "biology",
+      "kind": "numeric",
+      "min": 0,
+      "max": 100
+    },
+    {
+      "id": "vital.hunger",
+      "description": "Agent metabolic energy (0=starving, 100=fully nourished).",
+      "category": "biology",
+      "kind": "numeric",
+      "min": 0,
+      "max": 100
+    },
+    {
+      "id": "vital.thirst",
+      "description": "Agent hydration (0=dehydrated, 100=fully hydrated).",
+      "category": "biology",
+      "kind": "numeric",
+      "min": 0,
+      "max": 100
+    },
+    {
+      "id": "vital.carbohydrates",
+      "description": "Carbohydrate macronutrient level (0..100%).",
+      "category": "biology",
+      "kind": "numeric",
+      "min": 0,
+      "max": 100
+    },
+    {
+      "id": "vital.protein",
+      "description": "Protein macronutrient level (0..100%).",
+      "category": "biology",
+      "kind": "numeric",
+      "min": 0,
+      "max": 100
+    },
+    {
+      "id": "vital.fat",
+      "description": "Fat macronutrient level (0..100%).",
+      "category": "biology",
+      "kind": "numeric",
+      "min": 0,
+      "max": 100
+    },
+    {
+      "id": "vital.sugar",
+      "description": "Sugar macronutrient level (0..100%).",
+      "category": "biology",
+      "kind": "numeric",
+      "min": 0,
+      "max": 100
+    },
+    {
+      "id": "vital.hydration",
+      "description": "Direct body water reservoir level (0..100%).",
+      "category": "biology",
+      "kind": "numeric",
+      "min": 0,
+      "max": 100
+    },
+
+    // --- Biology: legacy boolean shims (still emitted by BuildCurrentState for UI/back-compat). ---
     {
       "id": "rest.ok",
       "description": "Agent rest is at a healthy level.",
