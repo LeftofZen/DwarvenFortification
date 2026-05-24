@@ -5,7 +5,6 @@
       "name": "Mine Resource",
       "baseCost": 4,
       "durationTicks": 100,
-      "skills": ["might", "vitality"],
       "targetKind": "resourceNode",
       "destinationMode": "adjacent",
       "outputs": [],
@@ -17,7 +16,6 @@
       "name": "Cut Tree",
       "baseCost": 5,
       "durationTicks": 120,
-      "skills": ["might", "vitality"],
       "targetKind": "resourceNode",
       "destinationMode": "adjacent",
       "outputs": [],
@@ -29,7 +27,6 @@
       "name": "Store Items",
       "baseCost": 2,
       "durationTicks": 60,
-      "skills": ["finesse"],
       "targetKind": "worldObject",
       "destinationMode": "adjacent",
       "outputs": [],
@@ -44,24 +41,24 @@
       "name": "Sleep",
       "baseCost": 3,
       "durationTicks": 300,
-      "skills": ["vitality"],
       "targetKind": "worldObject",
       "destinationMode": "adjacent",
       "outputs": [],
       "requirements": [
         "capability.locomotion",
-        "body.organs.brain",
-        "body.organs.lungs",
+        "has.organ.brain",
+        "has.organ.lungs",
         "has.structure.bed"
       ],
-      "effects": { "success": { "state": "vital.rest", "op": "+=", "value": 60 } }
+      "effects": {
+        "success": { "state": "vital.rest", "op": "+=", "value": 60 }
+      }
     },
     {
       "id": "complete-construction",
       "name": "Complete Construction",
       "baseCost": 4,
       "durationTicks": 120,
-      "skills": ["might", "engineering"],
       "targetKind": "worldObject",
       "destinationMode": "adjacent",
       "outputs": [],
@@ -73,7 +70,6 @@
       "name": "Process Recipe",
       "baseCost": 3,
       "durationTicks": 100,
-      "skills": ["finesse", "engineering"],
       "targetKind": "worldObject",
       "destinationMode": "adjacent",
       "outputs": [],
@@ -89,7 +85,6 @@
       "name": "Eat",
       "baseCost": 3,
       "durationTicks": 80,
-      "skills": [],
       "targetKind": "self",
       "destinationMode": "current",
       "outputs": [],
@@ -98,14 +93,15 @@
         "has.item-tag.food",
         "capability.consumption"
       ],
-      "effects": { "success": { "state": "vital.hunger", "op": "+=", "value": 50 } }
+      "effects": {
+        "success": { "state": "vital.hunger", "op": "+=", "value": 50 }
+      }
     },
     {
       "id": "drink",
       "name": "Drink",
       "baseCost": 2,
       "durationTicks": 60,
-      "skills": [],
       "targetKind": "self",
       "destinationMode": "current",
       "outputs": [],
@@ -114,14 +110,15 @@
         "has.item-tag.drink",
         "capability.consumption"
       ],
-      "effects": { "success": { "state": "vital.thirst", "op": "+=", "value": 50 } }
+      "effects": {
+        "success": { "state": "vital.thirst", "op": "+=", "value": 50 }
+      }
     },
     {
       "id": "scan-area",
       "name": "Scan Area For Enemies",
       "baseCost": 2,
       "durationTicks": 40,
-      "skills": ["perception"],
       "targetKind": "self",
       "destinationMode": "current",
       "outputs": [],
@@ -133,7 +130,6 @@
       "name": "Hide",
       "baseCost": 4,
       "durationTicks": 70,
-      "skills": ["agility", "finesse"],
       "targetKind": "self",
       "destinationMode": "current",
       "outputs": [],
@@ -145,7 +141,6 @@
       "name": "Patrol Area",
       "baseCost": 6,
       "durationTicks": 180,
-      "skills": ["vitality", "perception"],
       "targetKind": "self",
       "destinationMode": "current",
       "outputs": [],
@@ -157,7 +152,6 @@
       "name": "Throw Item",
       "baseCost": 5,
       "durationTicks": 45,
-      "skills": ["precision", "might"],
       "targetKind": "enemy",
       "destinationMode": "current",
       "outputs": [],
@@ -173,7 +167,6 @@
       "name": "Search For Item",
       "baseCost": 6,
       "durationTicks": 90,
-      "skills": ["perception", "analysis"],
       "targetKind": "self",
       "destinationMode": "current",
       "outputs": [],
@@ -185,7 +178,6 @@
       "name": "Retrieve Known Item",
       "baseCost": 3,
       "durationTicks": 40,
-      "skills": ["agility"],
       "targetKind": "self",
       "destinationMode": "current",
       "outputs": [],
@@ -197,7 +189,6 @@
       "name": "Communicate",
       "baseCost": 2,
       "durationTicks": 30,
-      "skills": ["persuasion", "empathy"],
       "targetKind": "ally",
       "destinationMode": "adjacent",
       "outputs": [],
@@ -209,7 +200,6 @@
       "name": "Read Cookbook",
       "baseCost": 2,
       "durationTicks": 70,
-      "skills": ["erudition"],
       "targetKind": "self",
       "destinationMode": "current",
       "outputs": [],
@@ -221,7 +211,6 @@
       "name": "Haul Material",
       "baseCost": 2,
       "durationTicks": 80,
-      "skills": ["might", "vitality"],
       "targetKind": "worldObject",
       "destinationMode": "adjacent",
       "outputs": [],
@@ -229,64 +218,31 @@
       "effects": { "success": "!site.needs-materials" }
     },
     {
-      "id": "equip-mining-tool",
-      "name": "Equip Mining Tool",
+      "id": "equip-tool",
+      "name": "Equip {tool} Tool",
       "baseCost": 1,
       "durationTicks": 15,
-      "skills": [],
       "targetKind": "self",
       "destinationMode": "current",
       "outputs": [],
+      "parameters": ["tool"],
+      "parameterBindings": { "tool": "has.item-tag.{tool}" },
       "requirements": [
-        "has.item-tag.mining",
-        "body.limbs.hands",
-        "body.systems.musculoskeletal"
+        "has.item-tag.{tool}",
+        "has.body-part.hands",
+        "has.system.musculoskeletal"
       ],
-      "effects": { "success": "tool.mining.equipped" }
-    },
-    {
-      "id": "equip-woodcutting-tool",
-      "name": "Equip Woodcutting Tool",
-      "baseCost": 1,
-      "durationTicks": 15,
-      "skills": [],
-      "targetKind": "self",
-      "destinationMode": "current",
-      "outputs": [],
-      "requirements": [
-        "has.item-tag.woodcutting",
-        "body.limbs.hands",
-        "body.systems.musculoskeletal"
-      ],
-      "effects": { "success": "tool.woodcutting.equipped" }
-    },
-    {
-      "id": "equip-throwable",
-      "name": "Ready Throwable",
-      "baseCost": 1,
-      "durationTicks": 10,
-      "skills": ["precision"],
-      "targetKind": "self",
-      "destinationMode": "current",
-      "outputs": [],
-      "requirements": [
-        "has.item-tag.throwable",
-        "body.limbs.hands",
-        "body.limbs.arms",
-        "body.systems.musculoskeletal"
-      ],
-      "effects": { "success": "tool.throwable.equipped" }
+      "effects": { "success": "tool.{tool}.equipped" }
     },
     {
       "id": "ready-physical-labor",
       "name": "Ready For Physical Labor",
       "baseCost": 1,
       "durationTicks": 5,
-      "skills": [],
       "targetKind": "self",
       "destinationMode": "current",
       "outputs": [],
-      "requirements": ["body.limbs.hands", "body.systems.musculoskeletal"],
+      "requirements": ["has.body-part.hands", "has.system.musculoskeletal"],
       "effects": { "success": "capability.physical-labor" }
     },
     {
@@ -294,15 +250,14 @@
       "name": "Ready For Manual Work",
       "baseCost": 1,
       "durationTicks": 10,
-      "skills": [],
       "targetKind": "self",
       "destinationMode": "current",
       "outputs": [],
       "requirements": [
-        "body.limbs.hands",
-        "body.organs.brain",
-        "body.systems.musculoskeletal",
-        "body.systems.nervous"
+        "has.body-part.hands",
+        "has.organ.brain",
+        "has.system.musculoskeletal",
+        "has.system.nervous"
       ],
       "effects": { "success": "capability.manual-work" }
     },
@@ -311,14 +266,13 @@
       "name": "Mobilize",
       "baseCost": 1,
       "durationTicks": 5,
-      "skills": [],
       "targetKind": "self",
       "destinationMode": "current",
       "outputs": [],
       "requirements": [
-        "body.limbs.legs",
-        "body.limbs.feet",
-        "body.systems.musculoskeletal"
+        "has.body-part.legs",
+        "has.body-part.feet",
+        "has.system.musculoskeletal"
       ],
       "effects": { "success": "capability.locomotion" }
     },
@@ -327,11 +281,10 @@
       "name": "Focus Senses",
       "baseCost": 1,
       "durationTicks": 5,
-      "skills": ["perception"],
       "targetKind": "self",
       "destinationMode": "current",
       "outputs": [],
-      "requirements": ["body.organs.brain", "body.systems.nervous"],
+      "requirements": ["has.organ.brain", "has.system.nervous"],
       "effects": { "success": "capability.perception" }
     },
     {
@@ -339,15 +292,14 @@
       "name": "Ready For Consumption",
       "baseCost": 1,
       "durationTicks": 5,
-      "skills": [],
       "targetKind": "self",
       "destinationMode": "current",
       "outputs": [],
       "requirements": [
-        "body.limbs.hands",
-        "body.organs.mouth",
-        "body.organs.stomach",
-        "body.systems.digestion"
+        "has.body-part.hands",
+        "has.organ.mouth",
+        "has.organ.stomach",
+        "has.system.digestion"
       ],
       "effects": { "success": "capability.consumption" }
     },
@@ -356,7 +308,6 @@
       "name": "Find Food",
       "baseCost": 6,
       "durationTicks": 1,
-      "skills": ["perception", "analysis"],
       "targetKind": "self",
       "destinationMode": "adjacent",
       "outputs": [],
@@ -372,7 +323,6 @@
       "name": "Find Drink",
       "baseCost": 6,
       "durationTicks": 1,
-      "skills": ["perception", "analysis"],
       "targetKind": "self",
       "destinationMode": "adjacent",
       "outputs": [],
@@ -388,7 +338,6 @@
       "name": "Cook Meal",
       "baseCost": 4,
       "durationTicks": 1,
-      "skills": ["finesse", "engineering"],
       "targetKind": "worldObject",
       "destinationMode": "adjacent",
       "outputs": [],

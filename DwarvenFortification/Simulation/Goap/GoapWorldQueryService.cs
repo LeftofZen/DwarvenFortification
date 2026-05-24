@@ -189,6 +189,7 @@ namespace DwarvenFortification.GOAP
 					{
 						facts.Add(Facts.SiteNeedsMaterials);
 					}
+
 					continue;
 				}
 
@@ -263,6 +264,7 @@ namespace DwarvenFortification.GOAP
 					actionContext = matchedItemId;
 					return true;
 				}
+
 				return false;
 			}
 
@@ -304,6 +306,7 @@ namespace DwarvenFortification.GOAP
 					destinationCell = dest;
 					return true;
 				}
+
 				return false;
 			}
 
@@ -384,6 +387,7 @@ namespace DwarvenFortification.GOAP
 					destinationCell = dest;
 					return true;
 				}
+
 				return false;
 			}
 
@@ -407,11 +411,13 @@ namespace DwarvenFortification.GOAP
 							continue;
 						}
 					}
+
 					targetEntity = other;
 					targetCell = otherCell;
 					destinationCell = agentCell;
 					return true;
 				}
+
 				return false;
 			}
 
@@ -482,6 +488,7 @@ namespace DwarvenFortification.GOAP
 						}
 					}
 				}
+
 				return false;
 			}
 
@@ -508,6 +515,7 @@ namespace DwarvenFortification.GOAP
 						}
 					}
 				}
+
 				return false;
 			}
 
@@ -553,6 +561,7 @@ namespace DwarvenFortification.GOAP
 						return true;
 					}
 				}
+
 				return false;
 			}
 

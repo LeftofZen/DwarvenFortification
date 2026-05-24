@@ -30,6 +30,7 @@ public class GoapEffect()
 		{
 			value = bounds.Clamp(value);
 		}
+
 		States[StateId] = value;
 	}
 }

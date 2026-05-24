@@ -22,15 +22,6 @@ namespace DwarvenFortification.ECS.Runtime
 				? loadedDefinition
 				: definitions.GetDefaultAgentArchetype();
 
-			var startingSkills = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-			if (definitions.TryGetAgentSkills(archetypeId, out var archetypeSkills) && archetypeSkills != null)
-			{
-				foreach (var kvp in archetypeSkills)
-				{
-					startingSkills[kvp.Key] = kvp.Value;
-				}
-			}
-
 			var world = definitions.RuntimeWorld;
 
 			var agent = world.Create(
@@ -38,7 +29,6 @@ namespace DwarvenFortification.ECS.Runtime
 				new DefinitionIdentityComponent(name, name),
 				new AgentArchetypeReferenceComponent { ArchetypeId = archetypeId },
 				new FactionComponent { FactionId = definition.FactionId },
-				new AgentSkillsComponent(startingSkills),
 				new RuntimeTransformComponent { Position = position },
 				new BodyComponent { Width = definition.BodyWidth, Height = definition.BodyHeight },
 				new LifeBodyComponent

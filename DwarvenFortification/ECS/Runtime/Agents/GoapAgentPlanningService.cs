@@ -30,9 +30,12 @@ namespace DwarvenFortification.ECS.Runtime.Agents
 			var currentState = queryService.BuildCurrentState(agent);
 			var numericState = queryService.BuildNumericState(agent);
 			var goapAgent = SimulationGoapAgentFactory.CreateAgent(definitions, agent.GetName(), currentState, numericState);
+			// Skip empty plans (already-achieved goals): Find() returns an empty plan when the
+			// goal's objectives are met at root, which would otherwise short-circuit this loop
+			// and starve lower-priority actionable goals \u2014 leading to a stuck-idle agent.
 			var plan = goapAgent.CurrentGoals()
 				.Select(goal => GoapPlan.Find(goapAgent, goal))
-				.FirstOrDefault(candidate => candidate != null);
+				.FirstOrDefault(candidate => candidate is { Actions.Count: > 0 });
 			if (plan == null)
 			{
 				agent.EnqueueAction(new TimedAction(runtimeContext, agent, "idle", IdleDurationTicks));

@@ -1,0 +1,9 @@
+{
+	"servers": {
+		"DF-MCP": {
+			"url": "http://localhost:7421",
+			"type": "http"
+		}
+	},
+	"inputs": []
+}

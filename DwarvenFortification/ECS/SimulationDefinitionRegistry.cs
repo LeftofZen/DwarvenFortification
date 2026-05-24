@@ -26,7 +26,6 @@ namespace DwarvenFortification.ECS
 		readonly Entity? defaultAgentArchetypeEntity;
 		readonly List<string[]> knownItemFilters;
 		readonly List<FactDefinition> factDefinitions;
-		readonly List<SkillDefinition> skillDefinitions;
 		readonly List<SimulationGoapAction> goapActions;
 		readonly List<SimulationGoapGoal> goapGoals;
 
@@ -38,8 +37,7 @@ namespace DwarvenFortification.ECS
 			IEnumerable<ResourceNodeDefinition> resourceNodes,
 			IEnumerable<AgentDefinition> agents,
 			IEnumerable<GoalDefinition> goals,
-			IEnumerable<FactDefinition> facts,
-			IEnumerable<SkillDefinition> skills)
+			IEnumerable<FactDefinition> facts)
 		{
 			World = world;
 			itemDefinitionEntities = new Dictionary<string, Entity>(StringComparer.OrdinalIgnoreCase);
@@ -53,7 +51,6 @@ namespace DwarvenFortification.ECS
 			agentArchetypeEntities = new Dictionary<string, Entity>(StringComparer.OrdinalIgnoreCase);
 			knownItemFilters = new List<string[]>();
 			factDefinitions = new List<FactDefinition>(facts ?? Array.Empty<FactDefinition>());
-			skillDefinitions = new List<SkillDefinition>(skills ?? Array.Empty<SkillDefinition>());
 
 			foreach (var item in items.Where(def => !string.IsNullOrWhiteSpace(def.Id)))
 			{
@@ -94,8 +91,9 @@ namespace DwarvenFortification.ECS
 					action.Effects?.Success,
 					action.Effects?.Interrupted,
 					action.Effects?.Failed,
-					action.Skills ?? [],
-					action.Children ?? []));
+					action.Children ?? [],
+					action.Parameters ?? [],
+					action.ParameterBindings ?? new Dictionary<string, string>()));
 			}
 
 			// Second pass: resolve compound children by ID.
@@ -109,6 +107,7 @@ namespace DwarvenFortification.ECS
 						throw new InvalidOperationException(
 							$"Compound action '{action.Id}' references unknown child action '{childId}'.");
 					}
+
 					action.Children.Add(child);
 				}
 			}
@@ -130,6 +129,7 @@ namespace DwarvenFortification.ECS
 
 							return new MaterialCostComponent(filter, cost.Quantity);
 						}
+
 						return new MaterialCostComponent(cost.ItemId, cost.Quantity);
 					})
 					.ToArray();
@@ -148,6 +148,7 @@ namespace DwarvenFortification.ECS
 								{
 									if (!knownItemFilters.Any(f => Facts.HasItemFilter(f) == Facts.HasItemFilter(filter))) { knownItemFilters.Add(filter); } return new MaterialCostComponent(filter, cost.Quantity);
 								}
+
 								return new MaterialCostComponent(cost.ItemId, cost.Quantity);
 							})],
 						recipe.OutputItemId,
@@ -184,18 +185,8 @@ namespace DwarvenFortification.ECS
 
 			foreach (var agent in agents.Where(def => !string.IsNullOrWhiteSpace(def.Id)))
 			{
-				var agentStartingSkills = new System.Collections.Generic.Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-				if (agent.Skills != null)
-				{
-					foreach (var kvp in agent.Skills)
-					{
-						agentStartingSkills[kvp.Key] = kvp.Value;
-					}
-				}
-
 				agentArchetypeEntities[agent.Id] = World.Create(
 					new DefinitionIdentityComponent(agent.Id, agent.Name),
-					new AgentSkillsComponent(agentStartingSkills),
 					new AgentArchetypeComponent(
 						agent.FactionId,
 						agent.MemoryProviderId,
@@ -710,20 +701,6 @@ namespace DwarvenFortification.ECS
 			return AgentArchetypeSnapshot.Default;
 		}
 
-		public IReadOnlyList<SkillDefinition> GetSkillDefinitions() => skillDefinitions;
-
-		public bool TryGetAgentSkills(string agentId, out System.Collections.Generic.Dictionary<string, int> skills)
-		{
-			skills = null;
-			if (!agentArchetypeEntities.TryGetValue(agentId, out var entity))
-			{
-				return false;
-			}
-
-			skills = entity.Get<AgentSkillsComponent>().Skills;
-			return true;
-		}
-
 		public static SimulationDefinitionRegistry LoadFromContentDirectory(string contentRoot)
 		{
 			var options = new JsonSerializerOptions
@@ -741,9 +718,8 @@ namespace DwarvenFortification.ECS
 			var agents = LoadDocument<AgentDefinitionDocument>(Path.Combine(contentRoot, "agents.json"), options).Agents;
 			var goals = LoadDocument<GoalDefinitionDocument>(Path.Combine(contentRoot, "goals.json"), options).Goals;
 			var facts = LoadDocument<FactDefinitionDocument>(Path.Combine(contentRoot, "facts.json"), options).Facts;
-			var skills = LoadDocument<SkillDefinitionDocument>(Path.Combine(contentRoot, "skills.json"), options).Skills;
 
-			return new SimulationDefinitionRegistry(World.Create(), items, actions, objects, resources, agents, goals, facts, skills);
+			return new SimulationDefinitionRegistry(World.Create(), items, actions, objects, resources, agents, goals, facts);
 		}
 
 		static T LoadDocument<T>(string path, JsonSerializerOptions options)

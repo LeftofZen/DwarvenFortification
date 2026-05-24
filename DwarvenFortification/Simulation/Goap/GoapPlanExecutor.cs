@@ -64,6 +64,7 @@ namespace DwarvenFortification.GOAP
 						state.Add(child.SuccessFact);
 					}
 				}
+
 				return;
 			}
 
@@ -88,15 +89,14 @@ namespace DwarvenFortification.GOAP
 		void Enqueue(Entity agent, SimulationGoapAction step, Entity? targetEntity, Point targetCell, Point destinationCell, string actionContext, ISimulationWorld world, AgentActionMetadata metadata)
 		{
 			var actionId = step.Id;
-			var actionSkills = step.Skills;
 			var durationTicks = step.DurationTicks;
 
 			switch (actionId)
 				{
 					case "mine":
 					case "cut-tree":
-						EnqueueAction(agent, new TimedAction(runtimeContext, agent, actionId, agent.ComputeEffectiveDuration(actionSkills, durationTicks)), metadata);
-						EnqueueAction(agent, new ExtractResourceNodeAction(runtimeContext, agent, targetCell, agent.ComputeSkillYieldMultiplier(actionSkills)), metadata);
+						EnqueueAction(agent, new TimedAction(runtimeContext, agent, actionId, durationTicks), metadata);
+						EnqueueAction(agent, new ExtractResourceNodeAction(runtimeContext, agent, targetCell, 1f), metadata);
 						EnqueueAction(agent, new CollectItemsFromCellAction(runtimeContext, agent, targetCell, 1), metadata);
 						break;
 
@@ -104,7 +104,7 @@ namespace DwarvenFortification.GOAP
 						if (targetEntity.HasValue)
 						{
 							var storableItems = agent.GetInventory().Where(item => !item.Get<ItemDefinitionComponent>().IsTool && targetEntity.Value.CanStore(item)).ToList();
-							EnqueueAction(agent, new TimedAction(runtimeContext, agent, actionId, agent.ComputeEffectiveDuration(actionSkills, durationTicks)), metadata);
+							EnqueueAction(agent, new TimedAction(runtimeContext, agent, actionId, durationTicks), metadata);
 							EnqueueAction(agent, new StoreItemsInWorldObjectAction(runtimeContext, agent, targetEntity.Value, storableItems), metadata);
 						}
 
@@ -128,7 +128,7 @@ namespace DwarvenFortification.GOAP
 								: string.Equals(item.GetItemDefinitionId(), missing.ItemId, StringComparison.OrdinalIgnoreCase)));
 						if (!itemToHaul.Equals(default(Entity)))
 						{
-							EnqueueAction(agent, new TimedAction(runtimeContext, agent, actionId, agent.ComputeEffectiveDuration(actionSkills, durationTicks)), metadata);
+							EnqueueAction(agent, new TimedAction(runtimeContext, agent, actionId, durationTicks), metadata);
 							EnqueueAction(agent, new StoreItemsInWorldObjectAction(runtimeContext, agent, targetEntity.Value, new System.Collections.Generic.List<Entity> { itemToHaul }), metadata);
 						}
 					}
@@ -138,7 +138,7 @@ namespace DwarvenFortification.GOAP
 				case "sleep":
 					if (targetEntity.HasValue)
 					{
-						EnqueueAction(agent, new SleepAction(runtimeContext, agent, targetEntity.Value, agent.ComputeEffectiveDuration(actionSkills, durationTicks)), metadata);
+						EnqueueAction(agent, new SleepAction(runtimeContext, agent, targetEntity.Value, durationTicks), metadata);
 					}
 
 					break;
@@ -146,7 +146,7 @@ namespace DwarvenFortification.GOAP
 				case "complete-construction":
 					if (targetEntity.HasValue)
 					{
-						EnqueueAction(agent, new TimedAction(runtimeContext, agent, actionId, agent.ComputeEffectiveDuration(actionSkills, durationTicks)), metadata);
+						EnqueueAction(agent, new TimedAction(runtimeContext, agent, actionId, durationTicks), metadata);
 						EnqueueAction(agent, new CompleteConstructionAction(runtimeContext, agent, targetEntity.Value), metadata);
 					}
 
@@ -162,24 +162,24 @@ namespace DwarvenFortification.GOAP
 								break;
 							}
 
-							EnqueueAction(agent, new TimedAction(runtimeContext, agent, actionId, agent.ComputeEffectiveDuration(actionSkills, durationTicks)), metadata);
+							EnqueueAction(agent, new TimedAction(runtimeContext, agent, actionId, durationTicks), metadata);
 						EnqueueAction(agent, new ProcessWorldObjectRecipeAction(runtimeContext, agent, targetEntity.Value, recipe.OutputItemId), metadata);
 					}
 
 					break;
 
 				case "eat":
-						EnqueueAction(agent, new TimedAction(runtimeContext, agent, actionId, agent.ComputeEffectiveDuration(actionSkills, durationTicks)), metadata);
+						EnqueueAction(agent, new TimedAction(runtimeContext, agent, actionId, durationTicks), metadata);
 						EnqueueAction(agent, new ConsumeInventoryItemAction(runtimeContext, agent, SimulationEntityExtensions.ConsumableKind.Food), metadata);
 						break;
 
 					case "drink":
-						EnqueueAction(agent, new TimedAction(runtimeContext, agent, actionId, agent.ComputeEffectiveDuration(actionSkills, durationTicks)), metadata);
+						EnqueueAction(agent, new TimedAction(runtimeContext, agent, actionId, durationTicks), metadata);
 						EnqueueAction(agent, new ConsumeInventoryItemAction(runtimeContext, agent, SimulationEntityExtensions.ConsumableKind.Drink), metadata);
 						break;
 
 					case "scan-area":
-						EnqueueAction(agent, new TimedAction(runtimeContext, agent, actionId, agent.ComputeEffectiveDuration(actionSkills, durationTicks)), metadata);
+						EnqueueAction(agent, new TimedAction(runtimeContext, agent, actionId, durationTicks), metadata);
 						EnqueueAction(agent, new ScanAreaAction(runtimeContext, agent, 8, 180), metadata);
 						break;
 					case "hide":
@@ -218,7 +218,7 @@ namespace DwarvenFortification.GOAP
 								break;
 							}
 
-							EnqueueAction(agent, new TimedAction(runtimeContext, agent, actionId, agent.ComputeEffectiveDuration(actionSkills, durationTicks)), metadata);
+							EnqueueAction(agent, new TimedAction(runtimeContext, agent, actionId, durationTicks), metadata);
 							EnqueueAction(agent, new ThrowItemAction(runtimeContext, agent, targetEntity.Value, throwItemId), metadata);
 						}
 
@@ -227,7 +227,7 @@ namespace DwarvenFortification.GOAP
 					case "search-for-item":
 						if (!string.IsNullOrWhiteSpace(actionContext))
 						{
-							EnqueueAction(agent, new TimedAction(runtimeContext, agent, actionId, agent.ComputeEffectiveDuration(actionSkills, durationTicks)), metadata);
+							EnqueueAction(agent, new TimedAction(runtimeContext, agent, actionId, durationTicks), metadata);
 							EnqueueAction(agent, new SearchForItemAction(runtimeContext, agent, actionContext, targetCell), metadata);
 						}
 
@@ -236,7 +236,7 @@ namespace DwarvenFortification.GOAP
 					case "retrieve-known-item":
 						if (!string.IsNullOrWhiteSpace(actionContext))
 						{
-							EnqueueAction(agent, new TimedAction(runtimeContext, agent, actionId, agent.ComputeEffectiveDuration(actionSkills, durationTicks)), metadata);
+							EnqueueAction(agent, new TimedAction(runtimeContext, agent, actionId, durationTicks), metadata);
 							EnqueueAction(agent, new RetrieveRememberedItemAction(runtimeContext, agent, actionContext, targetCell), metadata);
 						}
 
@@ -248,7 +248,7 @@ namespace DwarvenFortification.GOAP
 						{
 							// Linear chain replacement for the old find-and-X compound:
 							// search for the item, then retrieve (navigate + pick up) it.
-							EnqueueAction(agent, new TimedAction(runtimeContext, agent, actionId, agent.ComputeEffectiveDuration(actionSkills, durationTicks)), metadata);
+							EnqueueAction(agent, new TimedAction(runtimeContext, agent, actionId, durationTicks), metadata);
 							EnqueueAction(agent, new SearchForItemAction(runtimeContext, agent, actionContext, targetCell), metadata);
 							EnqueueAction(agent, new RetrieveRememberedItemAction(runtimeContext, agent, actionContext, targetCell), metadata);
 						}
@@ -258,7 +258,7 @@ namespace DwarvenFortification.GOAP
 					case "communicate":
 						if (targetEntity.HasValue && !string.IsNullOrWhiteSpace(actionContext))
 						{
-							EnqueueAction(agent, new TimedAction(runtimeContext, agent, actionId, agent.ComputeEffectiveDuration(actionSkills, durationTicks)), metadata);
+							EnqueueAction(agent, new TimedAction(runtimeContext, agent, actionId, durationTicks), metadata);
 							EnqueueAction(agent, new CommunicateAction(runtimeContext, agent, targetEntity.Value, actionContext), metadata);
 						}
 
@@ -267,7 +267,7 @@ namespace DwarvenFortification.GOAP
 					case "read-cookbook":
 						if (targetEntity.HasValue)
 						{
-							EnqueueAction(agent, new TimedAction(runtimeContext, agent, actionId, agent.ComputeEffectiveDuration(actionSkills, durationTicks)), metadata);
+							EnqueueAction(agent, new TimedAction(runtimeContext, agent, actionId, durationTicks), metadata);
 							EnqueueAction(agent, new ReadKnowledgeItemAction(runtimeContext, agent, targetEntity.Value, targetCell), metadata);
 						}
 

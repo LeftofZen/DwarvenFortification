@@ -40,12 +40,6 @@ namespace DwarvenFortification.ECS.Components
 
 	public readonly record struct CraftRecipeComponent(string Id, string Name, string[] RequiredFacts, MaterialCostComponent[] Inputs, string OutputItemId, int OutputQuantity);
 
-	public readonly record struct AgentSkillsComponent(Dictionary<string, int> Skills)
-	{
-		public int GetSkill(string skillId)
-			=> Skills != null && Skills.TryGetValue(skillId, out var level) ? level : 1;
-	}
-
 	public readonly record struct WorldObjectDefinitionComponent(
 		string DisplayColorHex,
 		string[] AcceptedItemTags,

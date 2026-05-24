@@ -141,6 +141,7 @@ namespace DwarvenFortification.GOAP
 							case "value": value = prop.Value.Clone(); break;
 						}
 					}
+
 					return new GoapExpressionDocument { Fact = fact, State = state, Op = op, Value = value };
 				}
 				default:
@@ -170,6 +171,7 @@ namespace DwarvenFortification.GOAP
 				writer.WritePropertyName("value");
 				value.Value.Value.WriteTo(writer);
 			}
+
 			writer.WriteEndObject();
 		}
 	}

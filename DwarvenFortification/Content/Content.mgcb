@@ -43,6 +43,3 @@
 #begin config/facts.json
 /copy:config/facts.json
 
-#begin config/skills.json
-/copy:config/skills.json
-

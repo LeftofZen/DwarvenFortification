@@ -2,6 +2,7 @@
 using DwarvenFortification.ECS;
 using DwarvenFortification.ECS.Runtime;
 using DwarvenFortification.GOAP;
+using DwarvenFortification.Mcp;
 using DwarvenFortification.Simulation.Composition;
 using DwarvenFortification.Simulation.World;
 using DwarvenFortification.UI;
@@ -21,6 +22,9 @@ namespace DwarvenFortification
 		private ImGuiSimulationUi simulationUi;
 		private Camera2D _camera;
 		private GridWorld world;
+		private SimulationSnapshotProvider snapshotProvider;
+		private SimulationMcpHost mcpHost;
+		private long simulationTick;
 
 		//Rectangle worldRenderRect;
 		//Rectangle
@@ -92,6 +96,11 @@ namespace DwarvenFortification
 			};
 			GameServices.GridWorld = world;
 
+			// Start the embedded MCP server so external AI clients can introspect the GOAP/world state.
+			// Snapshots are captured on the main thread each Update; MCP tools read them lock-free.
+			snapshotProvider = new SimulationSnapshotProvider(definitions, inspectorWorldQueryService);
+			mcpHost = SimulationMcpHost.Start(snapshotProvider);
+
 			_spriteBatch = new SpriteBatch(GraphicsDevice);
 		}
 
@@ -103,6 +112,7 @@ namespace DwarvenFortification
 			}
 
 			world.Update(gameTime);
+			snapshotProvider?.Capture(world, ++simulationTick);
 
 			//_tiledMapRenderer.Update(gameTime);
 			//MoveCamera(gameTime);
@@ -171,6 +181,25 @@ namespace DwarvenFortification
 			_imGuiRenderer.AfterLayout();
 
 			base.Draw(gameTime);
+		}
+
+		protected override void Dispose(bool disposing)
+		{
+			if (disposing)
+			{
+				try
+				{
+					mcpHost?.DisposeAsync().AsTask().GetAwaiter().GetResult();
+				}
+				catch
+				{
+					// swallow shutdown errors
+				}
+
+				mcpHost = null;
+			}
+
+			base.Dispose(disposing);
 		}
 	}
 }

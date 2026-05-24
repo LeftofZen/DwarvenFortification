@@ -71,11 +71,16 @@ namespace DwarvenFortification.ECS.Authoring
 		public int DurationTicks { get; init; } = 1;
 		public string TargetKind { get; init; } = string.Empty;
 		public string DestinationMode { get; init; } = string.Empty;
-		public string[] Skills { get; init; } = [];
 		public GoapExpressionDocument[] Requirements { get; init; } = [];
 		public ActionEffectsDefinition Effects { get; init; } = new();
 		public string[] Children { get; init; } = [];
 		public ActionOutputDefinition[] Outputs { get; init; } = [];
+
+		/// <summary>Declared parametric placeholders. When non-empty the planner expands this action into one concrete instance per legal binding.</summary>
+		public string[] Parameters { get; init; } = [];
+
+		/// <summary>Per-parameter binding pattern: parameter name → fact-id pattern (e.g. <c>has.item-tag.{tool}</c>).</summary>
+		public Dictionary<string, string> ParameterBindings { get; init; } = new();
 	}
 
 	public sealed class ActionDefinitionDocument
@@ -149,14 +154,13 @@ namespace DwarvenFortification.ECS.Authoring
 		public float MaxSugarGrams { get; init; } = 40f;
 		public float StartingHydrationLiters { get; init; } = 3.2f;
 		public float MaxHydrationLiters { get; init; } = 4.2f;
-		public float SugarUsePerTick { get; init; } = 0.03f;
-		public float HydrationUsePerTick { get; init; } = 0.0025f;
-		public float SugarFromCarbohydratesPerTick { get; init; } = 0.05f;
-		public float SugarFromFatPerTick { get; init; } = 0.02f;
-		public float ProteinCatabolismPerTick { get; init; } = 0.004f;
+		public float SugarUsePerTick { get; init; } = 0.003f;
+		public float HydrationUsePerTick { get; init; } = 0.00025f;
+		public float SugarFromCarbohydratesPerTick { get; init; } = 0.005f;
+		public float SugarFromFatPerTick { get; init; } = 0.002f;
+		public float ProteinCatabolismPerTick { get; init; } = 0.0004f;
 		public int BodyWidth { get; init; } = 32;
 		public int BodyHeight { get; init; } = 32;
-		public Dictionary<string, int> Skills { get; init; } = new();
 	}
 
 	public sealed class AgentDefinitionDocument
@@ -199,19 +203,5 @@ namespace DwarvenFortification.ECS.Authoring
 	public sealed class FactDefinitionDocument
 	{
 		public FactDefinition[] Facts { get; init; } = [];
-	}
-
-	public sealed class SkillDefinition
-	{
-		public string Id { get; init; } = string.Empty;
-		public string Name { get; init; } = string.Empty;
-		public string Description { get; init; } = string.Empty;
-		public string Category { get; init; } = string.Empty;
-		public string Group { get; init; } = string.Empty;
-	}
-
-	public sealed class SkillDefinitionDocument
-	{
-		public SkillDefinition[] Skills { get; init; } = [];
 	}
 }

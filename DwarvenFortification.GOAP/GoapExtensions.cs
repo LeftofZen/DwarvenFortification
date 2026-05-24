@@ -29,6 +29,7 @@ public static class GoapExtensions
 		{
 			return leftComparable.CompareTo(right);
 		}
+
 		return Equals(left, right) ? 0 : -1;
 	}
 

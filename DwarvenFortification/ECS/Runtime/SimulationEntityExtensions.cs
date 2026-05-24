@@ -37,45 +37,6 @@ namespace DwarvenFortification.ECS.Runtime
 		public static float GetStrength(this Entity entity)
 			=> entity.Get<AgentStatsComponent>().Strength;
 
-		public static int GetSkillLevel(this Entity entity, string skillId)
-			=> entity.Has<AgentSkillsComponent>() ? entity.Get<AgentSkillsComponent>().GetSkill(skillId) : 10;
-
-		public static float ComputeSkillAverageLevel(this Entity entity, string[] actionSkills)
-		{
-			if (actionSkills == null || actionSkills.Length == 0)
-			{
-				return 10f;
-			}
-
-			if (!entity.Has<AgentSkillsComponent>())
-			{
-				return 10f;
-			}
-
-			var total = 0;
-			foreach (var skill in actionSkills)
-			{
-				total += entity.GetSkillLevel(skill);
-			}
-
-			return (float)total / actionSkills.Length;
-		}
-
-		public static int ComputeEffectiveDuration(this Entity entity, string[] actionSkills, int baseDuration)
-		{
-			// Skill 1 (novice) = full base duration. Skill 100 (master) = ~50% of base duration.
-			var avgSkill = entity.ComputeSkillAverageLevel(actionSkills);
-			var multiplier = 1.0f - (avgSkill - 1f) * 0.5f / 99f;
-			return Math.Max(1, (int)Math.Round(baseDuration * multiplier));
-		}
-
-		public static float ComputeSkillYieldMultiplier(this Entity entity, string[] actionSkills)
-		{
-			// Skill 1 = 1.0x yield. Skill 100 = 2.0x yield.
-			var avgSkill = entity.ComputeSkillAverageLevel(actionSkills);
-			return 1.0f + (avgSkill - 1f) / 99f;
-		}
-
 		public static float GetSpeed(this Entity entity)
 		{
 			ref var stats = ref entity.Get<AgentStatsComponent>();
@@ -572,8 +533,11 @@ namespace DwarvenFortification.ECS.Runtime
 
 			return system?.ToLowerInvariant() switch
 			{
-				// Digestion does NOT require hydration — removing that dependency prevents a
-				// circular deadlock where the agent cannot plan 'drink' when critically dehydrated.
+				// Digestion is exempt from hydration so a critically dehydrated agent can still drink
+				// (otherwise digestion impaired → can't ingest fluids → can't recover).
+				// Musculoskeletal DOES require hydration: a severely dehydrated agent realistically
+				// cannot exert themselves to walk to a water source. The resolution is social —
+				// another agent has to bring water to them — not a self-rescue shortcut here.
 				"digestion" => !IsNutrientLow(entity, NutrientKind.Protein, 0.08f),
 				"respiratory" => !IsHydrationCritical(entity) && !IsNutrientLow(entity, NutrientKind.Sugar, 0.1f),
 				"nervous" => !IsHydrationCritical(entity) && !IsNutrientLow(entity, NutrientKind.Sugar, 0.18f) && !IsNutrientLow(entity, NutrientKind.Fat, 0.12f),

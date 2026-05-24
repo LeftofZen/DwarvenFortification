@@ -19,10 +19,12 @@ public readonly record struct GoapStateBounds(GoapValue? Min = null, GoapValue? 
 		{
 			return min;
 		}
+
 		if (Max is { } max && GoapComparison.GreaterThan.IsMet(Value, max))
 		{
 			return max;
 		}
+
 		return Value;
 	}
 }

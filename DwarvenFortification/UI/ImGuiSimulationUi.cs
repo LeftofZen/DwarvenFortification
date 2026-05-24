@@ -35,9 +35,6 @@ namespace DwarvenFortification.UI
 		NumericsVector2 goapGraphPan = new(24f, 24f);
 		float goapGraphZoom = 1f;
 		string selectedGoapActionId = string.Empty;
-		NumericsVector2 skillsGraphPan = new(24f, 24f);
-		float skillsGraphZoom = 1f;
-		string selectedSkillId = string.Empty;
 		int productionOrderBatchCount = 1;
 		int selectedProductionRecipeIndex;
 
@@ -327,6 +324,7 @@ namespace DwarvenFortification.UI
 							DrawItemEffects(item);
 							ImGui.TreePop();
 						}
+
 						ImGui.PopID();
 					}
 				}
@@ -354,8 +352,7 @@ namespace DwarvenFortification.UI
 			DrawPlanningSection(goapAgent);
 			DrawActivePlanSection(entity);
 			DrawActionSection(entity, goapAgent);
-			DrawAgentSkillsSection(entity);
-			DrawSkillCatalogSection(entity, goapAgent);
+			DrawActionCatalogSection(entity, goapAgent);
 			DrawEntityReflectionSection(entity);
 		}
 
@@ -449,51 +446,8 @@ namespace DwarvenFortification.UI
 					DrawItemEffects(item);
 					ImGui.TreePop();
 				}
+
 				ImGui.PopID();
-			}
-		}
-
-		void DrawAgentSkillsSection(Entity entity)
-		{
-			if (!ImGui.CollapsingHeader("Skills", ImGuiTreeNodeFlags.DefaultOpen))
-			{
-				return;
-			}
-
-			if (!entity.Has<AgentSkillsComponent>())
-			{
-				ImGui.TextUnformatted("No skills component.");
-				return;
-			}
-
-			var agentSkills = entity.Get<AgentSkillsComponent>().Skills ?? new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-			var skillDefs = definitions.GetSkillDefinitions();
-			if (skillDefs.Count == 0)
-			{
-				ImGui.TextUnformatted("No skill definitions loaded.");
-				return;
-			}
-
-			var layout = BuildSkillGraphLayout(skillDefs, agentSkills);
-			DrawNodeGraphCanvas("AgentSkillsGraph", layout, ref skillsGraphPan, ref skillsGraphZoom, ref selectedSkillId, 380f);
-			ImGui.TextDisabled("Drag to pan, scroll to zoom, click a node for details.");
-
-			if (!string.IsNullOrWhiteSpace(selectedSkillId) && !selectedSkillId.StartsWith("group:", StringComparison.OrdinalIgnoreCase))
-			{
-				var selectedDef = skillDefs.FirstOrDefault(s => string.Equals(s.Id, selectedSkillId, StringComparison.OrdinalIgnoreCase));
-				if (selectedDef != null && !string.IsNullOrEmpty(selectedDef.Id))
-				{
-					var level = agentSkills.TryGetValue(selectedDef.Id, out var l) ? l : 1;
-					var tierColor = GetSkillTierColor(level);
-					var durationPct = (1.0f - (level - 1f) * 0.5f / 99f) * 100f;
-					var yieldMult = 1.0f + (level - 1f) / 99f;
-					ImGui.Separator();
-					ImGui.TextUnformatted($"{selectedDef.Name}  [{selectedDef.Id}]");
-					ImGui.TextUnformatted($"{selectedDef.Category} \u203a {selectedDef.Group}");
-					ImGui.TextWrapped(selectedDef.Description);
-					ImGui.TextColored(tierColor, $"Level {level}  \u2014  {GetSkillTierName(level)}");
-					ImGui.TextUnformatted($"Action duration: {durationPct:0.#}% of base  |  Yield: {yieldMult:0.##}x");
-				}
 			}
 		}
 
@@ -630,9 +584,9 @@ namespace DwarvenFortification.UI
 			ImGui.PopStyleColor();
 		}
 
-		void DrawSkillCatalogSection(Entity entity, GoapAgent goapAgent)
+		void DrawActionCatalogSection(Entity entity, GoapAgent goapAgent)
 		{
-			if (!ImGui.CollapsingHeader("Skills / Action Catalog", ImGuiTreeNodeFlags.DefaultOpen))
+			if (!ImGui.CollapsingHeader("Action Catalog", ImGuiTreeNodeFlags.DefaultOpen))
 			{
 				return;
 			}
@@ -940,6 +894,7 @@ namespace DwarvenFortification.UI
 					{
 						continue;
 					}
+
 					var dependencyFacts = dependencyFactsByPair.TryGetValue((dependencyId, actionId), out var facts)
 						? TrimGraphText(FormatList(facts), 28)
 						: string.Empty;
@@ -957,109 +912,6 @@ namespace DwarvenFortification.UI
 			return new ActionGraphLayout(nodes, edges, new NumericsVector2(canvasWidth, canvasHeight));
 		}
 
-		ActionGraphLayout BuildSkillGraphLayout(IReadOnlyList<SkillDefinition> skills, Dictionary<string, int> agentSkills)
-		{
-			const float nodeWidth = 180f;
-			const float skillNodeHeight = 92f;
-			const float groupHeaderHeight = 32f;
-			const float horizontalGap = 20f;
-			const float verticalGap = 14f;
-			const float categoryGap = 40f;
-			const float margin = 20f;
-
-			agentSkills ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-
-			var groupOrderByCategory = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
-			var skillsByGroup = new Dictionary<string, List<SkillDefinition>>(StringComparer.OrdinalIgnoreCase);
-
-			foreach (var skill in skills)
-			{
-				if (!groupOrderByCategory.TryGetValue(skill.Category, out var groupOrder))
-				{
-					groupOrder = new List<string>();
-					groupOrderByCategory[skill.Category] = groupOrder;
-				}
-
-				if (!skillsByGroup.ContainsKey(skill.Group))
-				{
-					groupOrder.Add(skill.Group);
-					skillsByGroup[skill.Group] = new List<SkillDefinition>();
-				}
-
-				skillsByGroup[skill.Group].Add(skill);
-			}
-
-			string[] knownCategoryOrder = ["Physical", "Mental", "Social", "Supernatural"];
-			var orderedCategories = knownCategoryOrder
-				.Where(groupOrderByCategory.ContainsKey)
-				.Concat(groupOrderByCategory.Keys.Where(c => !knownCategoryOrder.Any(k => string.Equals(k, c, StringComparison.OrdinalIgnoreCase))))
-				.ToList();
-
-			var nodes = new List<ActionGraphNode>();
-			var cursorX = margin;
-
-			for (var ci = 0; ci < orderedCategories.Count; ci++)
-			{
-				if (ci > 0)
-				{
-					cursorX += categoryGap;
-				}
-
-				var category = orderedCategories[ci];
-				var groupOrder = groupOrderByCategory[category];
-
-				foreach (var groupName in groupOrder)
-				{
-					var groupSkills = skillsByGroup[groupName];
-
-					nodes.Add(new ActionGraphNode(
-						$"group:{groupName}",
-						new GraphBounds(
-							new NumericsVector2(cursorX, margin),
-							new NumericsVector2(cursorX + nodeWidth, margin + groupHeaderHeight)),
-						groupName,
-						category,
-						string.Empty,
-						ToU32(new NumericsVector4(0.12f, 0.15f, 0.22f, 1f)),
-						ToU32(new NumericsVector4(0.35f, 0.42f, 0.60f, 0.9f)),
-						ToU32(new NumericsVector4(0.72f, 0.80f, 0.95f, 1f)),
-						ToU32(new NumericsVector4(0.45f, 0.52f, 0.70f, 1f)),
-						default));
-
-					for (var si = 0; si < groupSkills.Count; si++)
-					{
-						var skill = groupSkills[si];
-						var level = agentSkills.TryGetValue(skill.Id, out var l) ? l : 1;
-						var tierColor = GetSkillTierColor(level);
-						var progress = (level - 1f) / 99f;
-						var nodeY = margin + groupHeaderHeight + verticalGap + (si * (skillNodeHeight + verticalGap));
-
-						nodes.Add(new ActionGraphNode(
-							skill.Id,
-							new GraphBounds(
-								new NumericsVector2(cursorX, nodeY),
-								new NumericsVector2(cursorX + nodeWidth, nodeY + skillNodeHeight)),
-							skill.Name,
-							$"Lv {level}  \u2014  {GetSkillTierName(level)}",
-							$"{skill.Category} \u203a {skill.Group}",
-							ToU32(new NumericsVector4(0.08f + (tierColor.X * 0.06f), 0.09f + (tierColor.Y * 0.06f), 0.12f + (tierColor.Z * 0.06f), 1f)),
-							ToU32(WithAlpha(tierColor, 0.6f)),
-							ToU32(new NumericsVector4(0.96f, 0.97f, 0.98f, 1f)),
-							ToU32(tierColor),
-							ToU32(new NumericsVector4(0.55f, 0.60f, 0.68f, 1f)),
-							progress,
-							ToU32(WithAlpha(tierColor, 0.9f))));
-					}
-
-					cursorX += nodeWidth + horizontalGap;
-				}
-			}
-
-			var maxGroupSkills = skillsByGroup.Values.Max(g => g.Count);
-			var totalCanvasWidth = cursorX + margin;
-			var totalCanvasHeight = margin + groupHeaderHeight + verticalGap + (maxGroupSkills * (skillNodeHeight + verticalGap)) + margin;
-			return new ActionGraphLayout(nodes, Array.Empty<ActionGraphEdge>(), new NumericsVector2(totalCanvasWidth, totalCanvasHeight));
-		}
 
 		void DrawSelectedGoapActionDetails(
 			SimulationGoapAction definition,
@@ -1079,11 +931,6 @@ namespace DwarvenFortification.UI
 			if (definition.ChildActionIds.Length > 0)
 			{
 				ImGui.TextWrapped($"Child actions: {FormatList(definition.ChildActionIds)}");
-			}
-
-			if (definition.Skills.Length > 0)
-			{
-				ImGui.TextWrapped($"Skills: {FormatList(definition.Skills)}");
 			}
 
 			ImGui.TextUnformatted($"Base cost: {definition.BaseCost}; duration ticks: {definition.DurationTicks}");
@@ -1384,6 +1231,7 @@ namespace DwarvenFortification.UI
 			ImGui.Separator();
 			ImGui.TextUnformatted("Issue action manually");
 			if (ActionRequestHandler == null) { ImGui.TextUnformatted("Action request handler is not configured."); return; }
+
 			if (ImGui.Button($"Queue Action##{definition.Id}"))
 			{
 				lastIssuedActionMessage = RequestAction(entity, AgentActionIds.ExecuteAction, action: definition, tags: ["manual", "goap-action"]);
@@ -1431,6 +1279,7 @@ namespace DwarvenFortification.UI
 					ImGui.TextColored(ColorDeferred, $"{i + 1}. {action.Name}");
 					ImGui.TextWrapped($"  Missing: {string.Join(", ", unsatisfied.Select(c => FormatConditionWithCurrent(c, goapAgent.States)))}");
 				}
+
 				ImGui.TreePop();
 			}
 		}
@@ -1730,26 +1579,6 @@ namespace DwarvenFortification.UI
 
 		static NumericsVector4 WithAlpha(NumericsVector4 color, float alpha)
 			=> new(color.X, color.Y, color.Z, alpha);
-
-		static string GetSkillTierName(int level)
-			=> level switch
-			{
-				<= 20 => "Novice",
-				<= 40 => "Apprentice",
-				<= 60 => "Journeyman",
-				<= 80 => "Expert",
-				_ => "Master"
-			};
-
-		static NumericsVector4 GetSkillTierColor(int level)
-			=> level switch
-			{
-				<= 20 => new NumericsVector4(0.55f, 0.58f, 0.65f, 1f),   // grey-blue  (Novice)
-				<= 40 => new NumericsVector4(0.27f, 0.76f, 0.67f, 1f),   // teal       (Apprentice)
-				<= 60 => new NumericsVector4(0.88f, 0.72f, 0.22f, 1f),   // gold       (Journeyman)
-				<= 80 => new NumericsVector4(0.92f, 0.48f, 0.15f, 1f),   // orange     (Expert)
-				_ => new NumericsVector4(0.97f, 0.82f, 0.26f, 1f)        // bright amber (Master)
-			};
 
 		static string TrimGraphText(string value, int maxLength)
 		{

@@ -19,6 +19,7 @@ public sealed class GoapTests
 		{
 			dict[key] = value;
 		}
+
 		return dict;
 	}
 
@@ -214,6 +215,10 @@ public sealed class GoapTests
 		var cheapAfterPrep = new GoapAction("cheap-after-prep", new GoapEffect("goal", GoapOperation.SetTo, true))
 		{
 			Conditions = [],
+			// Declared cost-relevance: the planner's action graph follows this edge during backward
+			// closure so `prep` (the producer of `prepped`) is included in the connected subgraph
+			// even though no precondition gates this action on it.
+			CostStateIds = ["prepped"],
 			Cost = a => a.States.TryGetValue("prepped", out var v) && v.Value is bool b && b ? 1d : 100d,
 			Run = () => GoapActionResult.Success,
 		};
@@ -1391,5 +1396,176 @@ public sealed class GoapTests
 
 		Assert.DoesNotThrow(() => goal.IsGoalAchieved(partialState));
 		Assert.That(goal.IsGoalAchieved(partialState), Is.False);
+	}
+
+	// ============================================ parametric actions
+
+	[Test]
+	public void ParametricExpansion_SubstitutesNameConditionAndEffect()
+	{
+		var template = new GoapAction("equip-{tool}")
+		{
+			Parameters = ["tool"],
+			ParameterBindings = { ["tool"] = "has.item-tag.{tool}" },
+			Conditions = [new GoapCondition("has.item-tag.{tool}", GoapComparison.EqualTo, true)],
+			SuccessEffect = new GoapEffect("tool.{tool}.equipped", GoapOperation.SetTo, true),
+		};
+
+		var expanded = GoapParameterSubstitution.ExpandParametricActions(
+			[template],
+			_ => new[] { "mining", "woodcutting" });
+
+		Assert.That(expanded, Has.Count.EqualTo(2));
+		var byName = expanded.ToDictionary(a => a.Name);
+		Assert.That(byName.Keys, Is.EquivalentTo(new[] { "equip-mining", "equip-woodcutting" }));
+		var mining = byName["equip-mining"];
+		Assert.That(mining.Conditions[0].StateId, Is.EqualTo("has.item-tag.mining"));
+		Assert.That(mining.SuccessEffect.StateId, Is.EqualTo("tool.mining.equipped"));
+		Assert.That(mining.Bindings["tool"], Is.EqualTo("mining"));
+	}
+
+	[Test]
+	public void ParametricExpansion_OmitsTemplate_WhenResolverYieldsNothing()
+	{
+		var template = new GoapAction("equip-{tool}")
+		{
+			Parameters = ["tool"],
+			ParameterBindings = { ["tool"] = "has.item-tag.{tool}" },
+			SuccessEffect = new GoapEffect("tool.{tool}.equipped", GoapOperation.SetTo, true),
+		};
+
+		var expanded = GoapParameterSubstitution.ExpandParametricActions([template], _ => []);
+
+		Assert.That(expanded, Is.Empty);
+	}
+
+	[Test]
+	public void ParametricExpansion_PassesThroughNonParametricActions()
+	{
+		var plain = Action("walk", effect: new("at.destination", GoapOperation.SetTo, true));
+		var template = new GoapAction("equip-{tool}")
+		{
+			Parameters = ["tool"],
+			ParameterBindings = { ["tool"] = "has.item-tag.{tool}" },
+			SuccessEffect = new GoapEffect("tool.{tool}.equipped", GoapOperation.SetTo, true),
+		};
+
+		var expanded = GoapParameterSubstitution.ExpandParametricActions(
+			[plain, template],
+			_ => new[] { "mining" });
+
+		Assert.That(expanded, Has.Count.EqualTo(2));
+		Assert.That(expanded[0], Is.SameAs(plain), "non-parametric action should be reused unchanged");
+		Assert.That(expanded[1].Name, Is.EqualTo("equip-mining"));
+	}
+
+	[Test]
+	public void ParametricExpansion_ProducesCartesianProduct_AcrossMultipleParameters()
+	{
+		var template = new GoapAction("place-{material}-on-{spot}")
+		{
+			Parameters = ["material", "spot"],
+			ParameterBindings =
+			{
+				["material"] = "has.item.{material}",
+				["spot"] = "site.{spot}",
+			},
+			SuccessEffect = new GoapEffect("placed.{material}.{spot}", GoapOperation.SetTo, true),
+		};
+
+		var expanded = GoapParameterSubstitution.ExpandParametricActions(
+			[template],
+			pattern => pattern.StartsWith("has.item.") ? new[] { "stone", "wood" } : new[] { "north", "south" });
+
+		Assert.That(expanded.Select(a => a.Name), Is.EquivalentTo(new[]
+		{
+			"place-stone-on-north",
+			"place-stone-on-south",
+			"place-wood-on-north",
+			"place-wood-on-south",
+		}));
+	}
+
+	[Test]
+	public void Find_PlansThroughInstantiatedParametricAction()
+	{
+		// Single parametric template; agent has only a pickaxe (mining), so only the mining
+		// instantiation should be usable. Goal asks for tool.mining.equipped.
+		var template = new GoapAction("equip-{tool}-tool")
+		{
+			Parameters = ["tool"],
+			ParameterBindings = { ["tool"] = "has.item-tag.{tool}" },
+			Conditions = [new GoapCondition("has.item-tag.{tool}", GoapComparison.EqualTo, true)],
+			SuccessEffect = new GoapEffect("tool.{tool}.equipped", GoapOperation.SetTo, true),
+		};
+
+		var states = State(
+			("has.item-tag.mining", true),
+			("tool.mining.equipped", false));
+		var agent = Agent(states, actions: [template]);
+		agent.ResolveParameterBindings = pattern =>
+			pattern == "has.item-tag.{tool}" ? new[] { "mining" } : [];
+
+		var goal = Goal("equip-mining", ("tool.mining.equipped", true));
+
+		var plan = GoapPlan.Find(agent, goal);
+
+		Assert.That(plan, Is.Not.Null);
+		Assert.That(plan!.Actions, Has.Count.EqualTo(1));
+		var step = plan.Actions[0];
+		Assert.That(step.Name, Is.EqualTo("equip-mining-tool"));
+		Assert.That(step.Bindings["tool"], Is.EqualTo("mining"));
+	}
+
+	[Test]
+	public void Find_ChoosesCorrectBinding_WhenMultipleAreAvailable()
+	{
+		// Agent has both mining + woodcutting tags. Goal wants woodcutting equipped only; planner
+		// must pick the binding that satisfies the goal.
+		var template = new GoapAction("equip-{tool}")
+		{
+			Parameters = ["tool"],
+			ParameterBindings = { ["tool"] = "has.item-tag.{tool}" },
+			Conditions = [new GoapCondition("has.item-tag.{tool}", GoapComparison.EqualTo, true)],
+			SuccessEffect = new GoapEffect("tool.{tool}.equipped", GoapOperation.SetTo, true),
+		};
+
+		var states = State(
+			("has.item-tag.mining", true),
+			("has.item-tag.woodcutting", true),
+			("tool.mining.equipped", false),
+			("tool.woodcutting.equipped", false));
+		var agent = Agent(states, actions: [template]);
+		agent.ResolveParameterBindings = _ => new[] { "mining", "woodcutting" };
+
+		var goal = Goal("woodcut", ("tool.woodcutting.equipped", true));
+
+		var plan = GoapPlan.Find(agent, goal);
+
+		Assert.That(plan, Is.Not.Null);
+		Assert.That(plan!.Actions, Has.Count.EqualTo(1));
+		Assert.That(plan.Actions[0].Bindings["tool"], Is.EqualTo("woodcutting"));
+		Assert.That(plan.Actions[0].SuccessEffect.StateId, Is.EqualTo("tool.woodcutting.equipped"));
+	}
+
+	[Test]
+	public void Find_SkipsParametricActions_WhenResolverIsUnset()
+	{
+		var template = new GoapAction("equip-{tool}")
+		{
+			Parameters = ["tool"],
+			ParameterBindings = { ["tool"] = "has.item-tag.{tool}" },
+			Conditions = [new GoapCondition("has.item-tag.{tool}", GoapComparison.EqualTo, true)],
+			SuccessEffect = new GoapEffect("tool.{tool}.equipped", GoapOperation.SetTo, true),
+		};
+
+		var agent = Agent(
+			State(("has.item-tag.mining", true), ("tool.mining.equipped", false)),
+			actions: [template]);
+		// ResolveParameterBindings deliberately left null.
+
+		var goal = Goal("equip-mining", ("tool.mining.equipped", true));
+
+		Assert.That(GoapPlan.Find(agent, goal), Is.Null);
 	}
 }
